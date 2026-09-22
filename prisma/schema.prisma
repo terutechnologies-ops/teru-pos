@@ -1,8 +1,14 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// Prisma schema — Su Arepa (sistema multiempresa)
+//
+// Estrategia de aislamiento multi-tenant: shared schema + companyId.
+// Toda tabla que pertenece a una empresa lleva companyId; el filtrado por
+// tenant se aplica siempre en src/server/data (capa de acceso a datos),
+// nunca en los servicios ni en la interfaz.
+//
+// "User" (personal interno) y "Customer" (clientes finales) se modelan por
+// separado a propósito: son audiencias con login independiente y el riesgo
+// de una fuga de privilegios (un cliente heredando permisos de staff) baja
+// si nunca comparten tabla ni lógica de autorización.
 
 generator client {
   provider = "prisma-client"
@@ -10,6 +16,131 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// --- Tenant -----------------------------------------------------------
+
+model Company {
+  id         String   @id @default(cuid())
+  name       String
+  slug       String   @unique
+  currency   String   @default("COP")
+  dateFormat String   @default("DD/MM/YYYY")
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  users     User[]
+  customers Customer[]
+
+  @@map("companies")
+}
+
+// --- Personal interno (login "panel operativo") -----------------------
+
+enum StaffRole {
+  OWNER
+  ADMIN
+  STAFF
+}
+
+model User {
+  id           String    @id @default(cuid())
+  companyId    String
+  company      Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  name         String
+  email        String
+  passwordHash String
+  role         StaffRole @default(STAFF)
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  passwordResetTokens UserPasswordResetToken[]
+
+  @@unique([companyId, email])
+  @@index([companyId])
+  @@map("users")
+}
+
+model UserPasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("user_password_reset_tokens")
+}
+
+// --- Clientes finales (login "cliente") --------------------------------
+
+enum ResetChannel {
+  EMAIL
+  PHONE
+}
+
+model Customer {
+  id           String    @id @default(cuid())
+  companyId    String
+  company      Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  name         String
+  email        String?
+  phone        String?
+  passwordHash String
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  passwordResetTokens CustomerPasswordResetToken[]
+
+  @@unique([companyId, email])
+  @@unique([companyId, phone])
+  @@index([companyId])
+  @@map("customers")
+}
+
+model CustomerPasswordResetToken {
+  id         String       @id @default(cuid())
+  customerId String
+  customer   Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  channel    ResetChannel
+  tokenHash  String       @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime     @default(now())
+
+  @@index([customerId])
+  @@map("customer_password_reset_tokens")
+}
+
+// --- Auditoría de autenticación -----------------------------------------
+
+enum ActorType {
+  STAFF
+  CUSTOMER
+  SYSTEM
+}
+
+model AuthAuditLog {
+  id        String    @id @default(cuid())
+  companyId String?
+  actorType ActorType
+  actorId   String?
+  action    String
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime  @default(now())
+
+  @@index([companyId])
+  @@index([actorType, actorId])
+  @@map("auth_audit_logs")
 }
