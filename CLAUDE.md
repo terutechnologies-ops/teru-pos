@@ -36,7 +36,13 @@ un componente a la vez, aprobación explícita antes de continuar).
 5. **Pruebas, seed y revisión** (`336e15b`): Vitest (16 unitarias, 18 de
    integración contra `su-arepa-test`), `prisma/seed.ts`, README.
 
-**Fase inicial aprobada** (2026-09-22) y subida a GitHub.
+**Fase inicial aprobada** (2026-09-22). Documentación de cierre en
+`dc38046` y `1e66517`. Todo subido a GitHub (`terutechnologies-ops/teru-pos`,
+rama `master`); local y remoto sincronizados, sin cambios pendientes.
+
+Datos existentes:
+- `su-arepa-dev`: empresa `su-arepa` con su OWNER (creado con el seed).
+- `su-arepa-test`: esquema al día; las pruebas limpian sus propios datos.
 
 ### Decisiones técnicas
 
