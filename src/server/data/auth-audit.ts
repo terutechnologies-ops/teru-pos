@@ -17,36 +17,38 @@ export async function recordAuthEvent(input: AuthEventInput) {
 }
 
 // Cuenta eventos recientes de una acción por IP o por actor, para el límite
-// de intentos. Debe recibir al menos uno de los dos filtros.
+// de intentos. Debe recibir al menos uno de los dos filtros. Con actor se
+// filtra también por actorType para usar el índice (actorType, actorId).
 export async function countRecentAuthEvents(params: {
   action: string;
   since: Date;
   ipAddress?: string;
-  actorId?: string;
+  actor?: { type: ActorType; id: string };
 }) {
-  const { action, since, ipAddress, actorId } = params;
-  if (!ipAddress && !actorId) {
-    throw new Error("countRecentAuthEvents requiere ipAddress o actorId");
+  const { action, since, ipAddress, actor } = params;
+  if (!ipAddress && !actor) {
+    throw new Error("countRecentAuthEvents requiere ipAddress o actor");
   }
   return db.authAuditLog.count({
     where: {
       action,
       createdAt: { gte: since },
       ...(ipAddress ? { ipAddress } : {}),
-      ...(actorId ? { actorId } : {}),
+      ...(actor ? { actorType: actor.type, actorId: actor.id } : {}),
     },
   });
 }
 
 export async function findLatestAuthEventAt(params: {
   action: string;
-  actorId: string;
+  actor: { type: ActorType; id: string };
   since: Date;
 }): Promise<Date | null> {
   const event = await db.authAuditLog.findFirst({
     where: {
       action: params.action,
-      actorId: params.actorId,
+      actorType: params.actor.type,
+      actorId: params.actor.id,
       createdAt: { gte: params.since },
     },
     orderBy: { createdAt: "desc" },

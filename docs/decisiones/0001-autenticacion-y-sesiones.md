@@ -30,10 +30,10 @@ Se podrá migrar a subdominios más adelante sin cambiar la lógica de negocio.
 
 ### 3. Sesiones propias en base de datos (sin Auth.js)
 
-- Nueva tabla `Session` (userId, companyId, tokenHash, expiresAt, revokedAt,
-  lastUsedAt, ipAddress, userAgent).
-- La cookie `httpOnly`, `secure` (en producción), `sameSite=lax`, `path=/`
-  contiene solo un token aleatorio (32 bytes); en BD se guarda su hash SHA-256.
+- Nueva tabla `UserSession` (userId, companyId, tokenHash, persistent,
+  expiresAt, revokedAt, lastUsedAt, ipAddress, userAgent).
+- La cookie `httpOnly`, `secure` (en producción) y `sameSite=lax` contiene
+  solo un token aleatorio (32 bytes); en BD se guarda su hash SHA-256.
 - Duración: 12 h con renovación deslizante mientras haya actividad.
   "Recordar mi sesión" extiende a 30 días.
 - Cookie `staff_session` con `path=/<slug-empresa>`: el navegador no la envía
@@ -92,7 +92,24 @@ recuperación y cambio de contraseña, con IP y user agent.
 
 ## Consecuencias
 
-- Requiere una migración nueva (`Session`) y las dependencias `argon2` y
-  `server-only`.
+- Requiere una migración nueva (`UserSession`) y las dependencias `argon2`,
+  `server-only` y `zod`.
 - Se mantiene control total sobre revocación y auditoría, a cambio de más
   código propio (acotado a `src/server`).
+
+## Riesgos conocidos (revisar antes de producción)
+
+- **IP del cliente:** se toma de `x-forwarded-for`. Si el hosting no
+  sobrescribe esa cabecera, un atacante puede falsearla y evadir el límite
+  por IP (el límite por cuenta sigue aplicando).
+- **Token en la URL de restablecimiento:** puede quedar en logs de acceso del
+  hosting. Mitigado por vigencia de 20 min y uso único; alternativa futura:
+  moverlo al fragmento (`#token`) y enviarlo por POST.
+- **Bloqueo por cuenta:** quien conozca un correo puede bloquearlo 15 min con
+  intentos fallidos a propósito. El mensaje de bloqueo solo aparece en
+  cuentas existentes.
+- **Tiempo de respuesta de la recuperación:** es algo mayor cuando la cuenta
+  existe (crea token y envía correo). Se resuelve enviando en segundo plano
+  al conectar el proveedor real.
+- **Proveedor de correo:** pendiente; sin él la recuperación no funciona
+  fuera de desarrollo.

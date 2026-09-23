@@ -87,7 +87,7 @@ export async function requestStaffPasswordReset(
 
   const accountRequests = await countRecentAuthEvents({
     action: AUTH_EVENTS.PASSWORD_RESET_REQUESTED,
-    actorId: user.id,
+    actor: { type: "STAFF", id: user.id },
     since,
   });
   if (accountRequests >= MAX_RESET_REQUESTS_PER_ACCOUNT) {

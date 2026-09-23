@@ -92,12 +92,12 @@ export async function loginStaff(
     // fallos posteriores al último restablecimiento.
     const lastReset = await findLatestAuthEventAt({
       action: AUTH_EVENTS.PASSWORD_RESET_COMPLETED,
-      actorId: user.id,
+      actor: { type: "STAFF", id: user.id },
       since,
     });
     const accountFailures = await countRecentAuthEvents({
       action: AUTH_EVENTS.LOGIN_FAILED,
-      actorId: user.id,
+      actor: { type: "STAFF", id: user.id },
       since: lastReset ?? since,
     });
     if (accountFailures >= MAX_FAILED_LOGINS_PER_ACCOUNT) {
