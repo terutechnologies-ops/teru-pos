@@ -59,7 +59,15 @@ Hash con `argon2id`. Mínimo 8 caracteres. Mensajes de error genéricos
 - Enlace con token de un solo uso, 20 minutos de validez, hash SHA-256 en BD.
 - Solicitar un nuevo token invalida los anteriores.
 - La respuesta es idéntica exista o no la cuenta.
-- Límite de intentos por cuenta e IP (login y recuperación).
+- Límite de intentos por cuenta e IP (login y recuperación). El límite por
+  cuenta de la recuperación se aplica en silencio (misma respuesta).
+- Solo por correo: el personal (`User`) no tiene teléfono. WhatsApp/SMS
+  queda para el login de clientes.
+- El enlace se arma con la variable `APP_URL`, nunca con la cabecera `Host`
+  (evita enlaces envenenados).
+- Restablecer, en una transacción: consume el token, cambia la contraseña,
+  invalida los demás tokens y revoca todas las sesiones del usuario.
+  También desbloquea la cuenta (los fallos anteriores dejan de contar).
 
 ### 6. Envío de mensajes: adaptador
 
@@ -67,6 +75,9 @@ Interfaz `MessageSender` en `src/server/services`. En desarrollo, un adaptador
 guarda los mensajes y los muestra en `/dev/outbox` (ruta deshabilitada fuera de
 `development`). Los proveedores reales (Resend, Twilio/WhatsApp) se conectan
 después sin tocar la lógica. Nunca se registran tokens en logs.
+Mientras no haya proveedor, fuera de desarrollo la recuperación responde
+con error a todas las solicitudes por igual (no revela cuentas ni crea
+tokens). **Conectar un proveedor es requisito antes de producción.**
 
 ### 7. Protección de rutas y autorización
 

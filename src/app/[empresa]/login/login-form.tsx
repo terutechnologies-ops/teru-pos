@@ -1,36 +1,24 @@
 "use client";
 
-import { useActionState, useState } from "react";
-import {
-  ArrowRight,
-  AtSign,
-  Eye,
-  EyeOff,
-  Loader2,
-  Lock,
-  ShieldCheck,
-  TriangleAlert,
-} from "lucide-react";
+import { useActionState } from "react";
+import Link from "next/link";
+import { ArrowRight, Loader2, ShieldCheck, TriangleAlert } from "lucide-react";
 
+import { EmailField, PasswordField } from "@/components/shared/auth-fields";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { loginAction, type LoginFormState } from "./actions";
 
 const initialState: LoginFormState = { error: null, email: "" };
 
-const fieldClass =
-  "h-12 rounded-lg border-transparent bg-muted pl-11 text-sm focus-visible:bg-card";
-
 export function LoginForm({ companySlug }: { companySlug: string }) {
   const [state, formAction, pending] = useActionState(
     loginAction,
     initialState,
   );
-  const [showPassword, setShowPassword] = useState(false);
 
   return (
     <form action={formAction} className="space-y-5">
@@ -46,57 +34,33 @@ export function LoginForm({ companySlug }: { companySlug: string }) {
         <Label htmlFor="email" className="text-[13px] font-semibold">
           Correo electrónico
         </Label>
-        <div className="relative flex items-center">
-          <AtSign
-            className="pointer-events-none absolute left-4 size-5 text-muted-foreground"
-            aria-hidden
-          />
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            autoComplete="username"
-            placeholder="ejemplo@correo.com"
-            defaultValue={state.email}
-            required
-            className={fieldClass}
-          />
-        </div>
+        <EmailField
+          id="email"
+          name="email"
+          autoComplete="username"
+          defaultValue={state.email}
+          required
+        />
       </div>
 
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="password" className="text-[13px] font-semibold">
-          Contraseña
-        </Label>
-        <div className="relative flex items-center">
-          <Lock
-            className="pointer-events-none absolute left-4 size-5 text-muted-foreground"
-            aria-hidden
-          />
-          <Input
-            id="password"
-            name="password"
-            type={showPassword ? "text" : "password"}
-            autoComplete="current-password"
-            placeholder="••••••••"
-            required
-            className={`${fieldClass} pr-12`}
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword((v) => !v)}
-            aria-label={
-              showPassword ? "Ocultar contraseña" : "Mostrar contraseña"
-            }
-            className="absolute right-3 rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
+        <div className="flex items-center justify-between">
+          <Label htmlFor="password" className="text-[13px] font-semibold">
+            Contraseña
+          </Label>
+          <Link
+            href={`/${companySlug}/recuperar`}
+            className="text-[13px] font-semibold text-primary hover:text-accent-foreground"
           >
-            {showPassword ? (
-              <EyeOff className="size-5" />
-            ) : (
-              <Eye className="size-5" />
-            )}
-          </button>
+            ¿Olvidaste tu contraseña?
+          </Link>
         </div>
+        <PasswordField
+          id="password"
+          name="password"
+          autoComplete="current-password"
+          required
+        />
       </div>
 
       <div className="flex items-center justify-between pt-0.5">

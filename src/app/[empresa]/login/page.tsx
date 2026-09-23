@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
+import { CircleCheck } from "lucide-react";
 
 import { AuthShell } from "@/components/shared/auth-shell";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getCurrentStaffSession } from "@/server/http/staff-session";
 import { getActiveCompanyBySlug } from "@/server/services/companies";
 
@@ -11,8 +13,10 @@ export const metadata: Metadata = { title: "Iniciar sesión" };
 
 export default async function LoginPage({
   params,
+  searchParams,
 }: PageProps<"/[empresa]/login">) {
   const { empresa } = await params;
+  const { restablecida } = await searchParams;
   const company = await getActiveCompanyBySlug(empresa);
   if (!company) notFound();
 
@@ -25,6 +29,14 @@ export default async function LoginPage({
       title="¡Bienvenido de vuelta!"
       description={`Ingresa con tu cuenta de ${company.name} para continuar.`}
     >
+      {restablecida === "1" && (
+        <Alert className="mb-5">
+          <CircleCheck className="text-green-700" />
+          <AlertDescription>
+            Tu contraseña se actualizó. Ya puedes iniciar sesión.
+          </AlertDescription>
+        </Alert>
+      )}
       <LoginForm companySlug={company.slug} />
     </AuthShell>
   );

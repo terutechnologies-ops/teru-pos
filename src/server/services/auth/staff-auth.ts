@@ -3,6 +3,7 @@ import "server-only";
 import type { RequestContext, StaffSessionDto } from "@/server/dto/auth";
 import {
   countRecentAuthEvents,
+  findLatestAuthEventAt,
   recordAuthEvent,
 } from "@/server/data/auth-audit";
 import {
@@ -87,10 +88,17 @@ export async function loginStaff(
   const user = await findUserCredentialsByEmail(company.id, email);
 
   if (user) {
+    // Restablecer la contraseña desbloquea la cuenta: solo cuentan los
+    // fallos posteriores al último restablecimiento.
+    const lastReset = await findLatestAuthEventAt({
+      action: AUTH_EVENTS.PASSWORD_RESET_COMPLETED,
+      actorId: user.id,
+      since,
+    });
     const accountFailures = await countRecentAuthEvents({
       action: AUTH_EVENTS.LOGIN_FAILED,
       actorId: user.id,
-      since,
+      since: lastReset ?? since,
     });
     if (accountFailures >= MAX_FAILED_LOGINS_PER_ACCOUNT) {
       await audit(AUTH_EVENTS.LOGIN_BLOCKED, user.id);

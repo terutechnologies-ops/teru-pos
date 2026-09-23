@@ -8,15 +8,23 @@ import { NextResponse, type NextRequest } from "next/server";
 // no se importa porque ese módulo es server-only y depende de next/headers.
 const STAFF_SESSION_COOKIE = "staff_session";
 
+// Primeros segmentos que no son empresas (ver RESERVED_SLUGS en
+// src/server/validations/auth.ts).
+const NON_COMPANY_PREFIXES = new Set(["dev"]);
+
 // Subrutas de empresa accesibles sin sesión.
-const PUBLIC_COMPANY_PATHS = new Set(["login"]);
+const PUBLIC_COMPANY_PATHS = new Set(["login", "recuperar", "restablecer"]);
 
 export function proxy(request: NextRequest) {
   const [companySlug, section] = request.nextUrl.pathname
     .split("/")
     .filter(Boolean);
 
-  if (!companySlug || (section && PUBLIC_COMPANY_PATHS.has(section))) {
+  if (
+    !companySlug ||
+    NON_COMPANY_PREFIXES.has(companySlug) ||
+    (section && PUBLIC_COMPANY_PATHS.has(section))
+  ) {
     return NextResponse.next();
   }
 

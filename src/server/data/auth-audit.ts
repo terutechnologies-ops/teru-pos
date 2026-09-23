@@ -37,3 +37,20 @@ export async function countRecentAuthEvents(params: {
     },
   });
 }
+
+export async function findLatestAuthEventAt(params: {
+  action: string;
+  actorId: string;
+  since: Date;
+}): Promise<Date | null> {
+  const event = await db.authAuditLog.findFirst({
+    where: {
+      action: params.action,
+      actorId: params.actorId,
+      createdAt: { gte: params.since },
+    },
+    orderBy: { createdAt: "desc" },
+    select: { createdAt: true },
+  });
+  return event?.createdAt ?? null;
+}
