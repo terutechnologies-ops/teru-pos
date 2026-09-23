@@ -36,7 +36,7 @@ un componente a la vez, aprobación explícita antes de continuar).
 5. **Pruebas, seed y revisión** (`336e15b`): Vitest (16 unitarias, 18 de
    integración contra `su-arepa-test`), `prisma/seed.ts`, README.
 
-Fase inicial pendiente de **aprobación final** (punto 13 de las reglas §9).
+**Fase inicial aprobada** (2026-09-22) y subida a GitHub.
 
 ### Decisiones técnicas
 
@@ -85,8 +85,6 @@ Detalle en `docs/decisiones/0001-autenticacion-y-sesiones.md`. Resumen:
 
 ### Próximo paso recomendado
 
-1. Revisión y aprobación final de la fase inicial (probar en el navegador
-   `/su-arepa/login` con el OWNER del seed y el flujo de recuperación).
-2. Hacer `git push` de los commits de la sesión (no se ha hecho).
-3. Antes de la siguiente fase: definir el modelo de roles/permisos, la
-   gestión de usuarios (alta de personal) y el proveedor de correo.
+No iniciar la siguiente fase hasta que el usuario lo indique. Antes de
+empezarla: definir su alcance, el modelo de roles/permisos, la gestión de
+usuarios (alta de personal) y el proveedor de correo.
