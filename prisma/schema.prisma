@@ -33,8 +33,9 @@ model Company {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  users     User[]
-  customers Customer[]
+  users        User[]
+  userSessions UserSession[]
+  customers    Customer[]
 
   @@map("companies")
 }
@@ -61,6 +62,7 @@ model User {
   updatedAt    DateTime  @updatedAt
 
   passwordResetTokens UserPasswordResetToken[]
+  sessions            UserSession[]
 
   @@unique([companyId, email])
   @@index([companyId])
@@ -78,6 +80,31 @@ model UserPasswordResetToken {
 
   @@index([userId])
   @@map("user_password_reset_tokens")
+}
+
+// Sesión del personal. La cookie guarda un token aleatorio; aquí solo su
+// hash, así una fuga de la BD no permite suplantar sesiones. companyId se
+// duplica (ya está en User) para validar la sesión contra la empresa de la
+// ruta sin un join extra. persistent = "Recordar mi sesión" y define la
+// duración de la renovación deslizante.
+model UserSession {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId  String
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  tokenHash  String    @unique
+  persistent Boolean   @default(false)
+  expiresAt  DateTime
+  lastUsedAt DateTime  @default(now())
+  revokedAt  DateTime?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@index([companyId])
+  @@map("user_sessions")
 }
 
 // --- Clientes finales (login "cliente") --------------------------------
@@ -142,5 +169,7 @@ model AuthAuditLog {
 
   @@index([companyId])
   @@index([actorType, actorId])
+  // Límite de intentos: conteo de fallos recientes por IP y acción.
+  @@index([ipAddress, action, createdAt])
   @@map("auth_audit_logs")
 }
