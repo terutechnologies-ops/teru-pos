@@ -36,6 +36,12 @@ Se podrá migrar a subdominios más adelante sin cambiar la lógica de negocio.
   contiene solo un token aleatorio (32 bytes); en BD se guarda su hash SHA-256.
 - Duración: 12 h con renovación deslizante mientras haya actividad.
   "Recordar mi sesión" extiende a 30 días.
+- Cookie `staff_session` con `path=/<slug-empresa>`: el navegador no la envía
+  a otras empresas, y se puede tener sesión en varias a la vez.
+- Sin "recordar", la cookie es de sesión del navegador (se borra al cerrarlo)
+  y la BD aplica las 12 h deslizantes. Con "recordar", la cookie vence a los
+  30 días del login (tope fijo, no se reenvía en cada request, porque los
+  Server Components no pueden escribir cookies).
 - Logout: se revoca la sesión en BD y se borra la cookie.
 - Cambio o restablecimiento de contraseña revoca todas las sesiones del usuario.
 

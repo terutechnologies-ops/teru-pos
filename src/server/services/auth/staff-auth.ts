@@ -5,7 +5,6 @@ import {
   countRecentAuthEvents,
   recordAuthEvent,
 } from "@/server/data/auth-audit";
-import { findActiveCompanyBySlug } from "@/server/data/companies";
 import {
   createUserSession,
   extendUserSession,
@@ -16,7 +15,8 @@ import {
   findUserCredentialsByEmail,
   markUserLoggedIn,
 } from "@/server/data/users";
-import { companySlugSchema, staffLoginSchema } from "@/server/validations/auth";
+import { getActiveCompanyBySlug } from "@/server/services/companies";
+import { staffLoginSchema } from "@/server/validations/auth";
 
 import {
   AUTH_EVENTS,
@@ -36,14 +36,14 @@ export type StaffLoginError =
   | "TOO_MANY_ATTEMPTS";
 
 export type StaffLoginResult =
-  | { ok: true; token: string; expiresAt: Date }
+  | {
+      ok: true;
+      token: string;
+      expiresAt: Date;
+      persistent: boolean;
+      companySlug: string;
+    }
   | { ok: false; error: StaffLoginError };
-
-async function resolveCompany(companySlug: string) {
-  const slug = companySlugSchema.safeParse(companySlug);
-  if (!slug.success) return null;
-  return findActiveCompanyBySlug(slug.data);
-}
 
 function sessionTtl(persistent: boolean) {
   return persistent ? PERSISTENT_SESSION_TTL_MS : SESSION_TTL_MS;
@@ -58,7 +58,7 @@ export async function loginStaff(
   if (!input.success) return { ok: false, error: "INVALID_INPUT" };
   const { email, password, remember } = input.data;
 
-  const company = await resolveCompany(companySlug);
+  const company = await getActiveCompanyBySlug(companySlug);
   if (!company) return { ok: false, error: "COMPANY_NOT_FOUND" };
 
   const audit = (action: string, actorId: string | null) =>
@@ -126,13 +126,20 @@ export async function loginStaff(
   await markUserLoggedIn(user.id, company.id, now);
   await audit(AUTH_EVENTS.LOGIN_SUCCESS, user.id);
 
-  return { ok: true, token, expiresAt: session.expiresAt };
+  return {
+    ok: true,
+    token,
+    expiresAt: session.expiresAt,
+    persistent: remember,
+    companySlug: company.slug,
+  };
 }
 
 export type StaffSessionResult = {
   session: StaffSessionDto;
-  // true si se extendió el vencimiento: quien llama debe reenviar la cookie
-  // con el nuevo expiresAt.
+  // true si se extendió el vencimiento en BD. La cookie no necesita
+  // reenviarse: sin "recordar" es de sesión del navegador, y con "recordar"
+  // vence a los 30 días del login (tope fijo, ver ADR 0001).
   renewed: boolean;
 };
 
@@ -143,7 +150,7 @@ export async function getStaffSession(
   token: string,
 ): Promise<StaffSessionResult | null> {
   if (!token) return null;
-  const company = await resolveCompany(companySlug);
+  const company = await getActiveCompanyBySlug(companySlug);
   if (!company) return null;
 
   const found = await findActiveUserSession(hashToken(token), company.id);
@@ -176,7 +183,7 @@ export async function logoutStaff(
   ctx: RequestContext,
 ): Promise<void> {
   if (!token) return;
-  const company = await resolveCompany(companySlug);
+  const company = await getActiveCompanyBySlug(companySlug);
   if (!company) return;
 
   const tokenHash = hashToken(token);
