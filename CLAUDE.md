@@ -89,8 +89,78 @@ Detalle en `docs/decisiones/0001-autenticacion-y-sesiones.md`. Resumen:
 - npm bloquea los scripts de instalación (`argon2`, `esbuild`); funcionan con
   sus binarios precompilados.
 
+### Próximo paso recomendado (cerrado)
+
+Resuelto en la sesión 2026-09-23: ver fase 2 abajo. El proveedor de correo
+sigue pendiente.
+
+## Sesión 2026-09-23 — Fase 2: Empresa, sucursal y equipo
+
+Referencia visual: `../Diseño_configuracion_empresa.txt` (asistente de 4
+pasos). **Es solo guía visual**: se puede mejorar y no se modela todo lo que
+muestra; los datos se agregan cuando el módulo que los usa se construye.
+
+### Alcance aprobado (opción A)
+
+Pasos 1 (datos de empresa, moneda y formatos) y "Equipo" del asistente, más
+sucursal principal. Los pasos de insumos y producto/receta se sumarán al
+asistente cuando existan los módulos de inventario y productos. Fuera de
+alcance por ahora: impuestos, redondeo de efectivo, logo, rubro, invitación
+por celular, POS/caja, roles nuevos.
+
+Decisiones del usuario:
+- Alta de personal por **invitación con enlace** (token de un solo uso,
+  72 h, se envía por `MessageSender`; outbox en dev).
+- Empresas nuevas **por script** (`npm run company:create`), sin registro
+  público ni superadmin.
+- **Roles fijos + permisos en código** (OWNER, ADMIN, STAFF; se agregan
+  roles como CASHIER cuando exista el módulo que los necesite).
+
+Componentes:
+1. Modelo de datos — **aprobado** (2026-09-24, ver abajo).
+2. Autorización: mapa rol→permisos en código, `requirePermission` en
+   backend, solo OWNER entra al asistente, redirección al asistente si
+   `setupCompletedAt` es null.
+3. Asistente paso 1: datos de empresa + moneda/formato, con vista previa y
+   borrador.
+4. Paso Equipo: invitar/listar/reenviar/revocar, desactivar miembros, página
+   `/[empresa]/invitacion?token=` para crear contraseña.
+5. Confirmación y cierre: resumen, marcar configuración completa, pruebas,
+   revisión, ADR 0002 y README.
+
+### Componente 1 — Modelo de datos (aprobado)
+
+- `Company` + `taxId`, `phone`, `email`, `address` (opcionales, texto libre)
+  y `setupCompletedAt`. `currency`/`dateFormat` ya existían; la moneda se
+  validará contra lista ISO 4217 en código y el formato sale de `Intl`.
+- `Branch` (sin vincular usuarios aún). Índice único parcial
+  `branches_one_main_per_company` (solo en SQL).
+- `StaffInvitation` (hash del token, `invitedById` null = script, `userId`
+  al aceptar). Tabla aparte en lugar de `User` inactivo para no tocar el
+  login aprobado.
+- Migración `20260923120000_add_company_setup_branches_invitations`: RLS en
+  tablas nuevas y backfill de "Sede principal" para empresas existentes.
+  **Ya aplicada en `su-arepa-test` y `su-arepa-dev`.**
+- Datos: `src/server/data/companies.ts` (config, marcar completado, alta con
+  invitación OWNER), `branches.ts`, `staff-invitations.ts` (reemplazar,
+  buscar válida, listar pendientes, revocar, aceptar transaccional con
+  resultados `ACCEPTED | INVALID | EMAIL_TAKEN`).
+- Servicio `createCompany` en `src/server/services/companies.ts`; script
+  `scripts/create-company.ts`; `STAFF_INVITATION_TTL_MS` y `STAFF_EVENTS`
+  en `services/auth/config.ts` (auditoría en `auth_audit_logs`).
+- Seed crea también la sucursal principal. `emailSchema` ahora exportado.
+- Pruebas: `tests/integration/company-setup-data.test.ts` (8). Verificado:
+  typecheck, lint, build y suite completa (42/42).
+
+### Errores y riesgos conocidos (fase 2)
+
+- El enlace de `company:create` apunta a `/[empresa]/invitacion`, que aún no
+  existe (componente 4): hasta entonces da 404.
+- Aceptar una invitación con correo ya registrado devuelve `EMAIL_TAKEN`
+  sin consumirla; el servicio del componente 4 debe evitar invitar correos
+  con cuenta activa.
+
 ### Próximo paso recomendado
 
-No iniciar la siguiente fase hasta que el usuario lo indique. Antes de
-empezarla: definir su alcance, el modelo de roles/permisos, la gestión de
-usuarios (alta de personal) y el proveedor de correo.
+Componente 1 aprobado y con commit (2026-09-24). Siguiente: Analizar/Diseñar
+el componente 2 (autorización) y presentarlo para aprobación.

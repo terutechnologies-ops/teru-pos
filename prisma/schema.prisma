@@ -33,11 +33,40 @@ model Company {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  users        User[]
-  userSessions UserSession[]
-  customers    Customer[]
+  // Datos del asistente de configuración; opcionales y sin formato de un
+  // país en particular.
+  taxId            String?
+  phone            String?
+  email            String?
+  address          String?
+  // null = el propietario aún no completa el asistente de configuración.
+  setupCompletedAt DateTime?
+
+  users            User[]
+  userSessions     UserSession[]
+  customers        Customer[]
+  branches         Branch[]
+  staffInvitations StaffInvitation[]
 
   @@map("companies")
+}
+
+// Sucursal. La migración garantiza una sola principal (isMain) por empresa
+// con un índice único parcial, que Prisma no puede declarar.
+model Branch {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  name      String
+  address   String?
+  isMain    Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@map("branches")
 }
 
 // --- Personal interno (login "panel operativo") -----------------------
@@ -63,6 +92,8 @@ model User {
 
   passwordResetTokens UserPasswordResetToken[]
   sessions            UserSession[]
+  sentInvitations     StaffInvitation[]        @relation("InvitationSender")
+  acceptedInvitation  StaffInvitation?         @relation("InvitationAcceptedUser")
 
   @@unique([companyId, email])
   @@index([companyId])
@@ -105,6 +136,31 @@ model UserSession {
   @@index([userId])
   @@index([companyId])
   @@map("user_sessions")
+}
+
+// Invitación para dar de alta a un miembro del personal. Tabla aparte (y no
+// un User inactivo sin contraseña) para que users solo tenga cuentas reales
+// y quede el historial. Como en las sesiones, en BD solo va el hash del
+// token. invitedById null = creada por script (p. ej. el primer OWNER).
+model StaffInvitation {
+  id          String    @id @default(cuid())
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  email       String
+  name        String
+  role        StaffRole
+  tokenHash   String    @unique
+  invitedById String?
+  invitedBy   User?     @relation("InvitationSender", fields: [invitedById], references: [id], onDelete: SetNull)
+  userId      String?   @unique
+  user        User?     @relation("InvitationAcceptedUser", fields: [userId], references: [id], onDelete: SetNull)
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([companyId, email])
+  @@map("staff_invitations")
 }
 
 // --- Clientes finales (login "cliente") --------------------------------

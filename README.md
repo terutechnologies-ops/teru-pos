@@ -50,6 +50,7 @@ Los archivos `.env*` no se versionan (salvo `.env.example`).
 | `npm run test:db:migrate` | Aplica migraciones a la BD de pruebas (`.env.test`) |
 | `npm run db:migrate:deploy` | Aplica migraciones pendientes |
 | `npm run db:seed` | Datos iniciales (idempotente) |
+| `npm run company:create -- --name ... --slug ... --owner-name ... --owner-email ...` | Alta de empresa: sucursal principal + enlace de invitación del propietario (72 h) |
 
 ## Pruebas
 

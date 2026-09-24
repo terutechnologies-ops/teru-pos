@@ -11,7 +11,7 @@ export const companySlugSchema = z
   .max(64)
   .refine((slug) => !RESERVED_SLUGS.has(slug));
 
-const emailSchema = z.string().trim().toLowerCase().pipe(z.email().max(254));
+export const emailSchema = z.string().trim().toLowerCase().pipe(z.email().max(254));
 
 export const staffLoginSchema = z.object({
   email: emailSchema,

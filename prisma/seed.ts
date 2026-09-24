@@ -1,4 +1,5 @@
-// Datos iniciales: la empresa Su Arepa y su usuario propietario.
+// Datos iniciales: la empresa Su Arepa, su sucursal principal y su usuario
+// propietario.
 // Idempotente: si ya existen, no los modifica (nunca pisa una contraseña).
 //
 // Uso: SEED_OWNER_EMAIL, SEED_OWNER_NAME y SEED_OWNER_PASSWORD en .env,
@@ -6,6 +7,7 @@
 import "dotenv/config";
 
 import { db } from "@/lib/db";
+import { MAIN_BRANCH_NAME } from "@/server/data/companies";
 import { hashPassword } from "@/server/services/auth/passwords";
 import {
   companySlugSchema,
@@ -35,6 +37,11 @@ async function main() {
     where: { slug },
     update: {},
     create: { name: COMPANY.name, slug },
+  });
+  await db.branch.upsert({
+    where: { companyId_name: { companyId: company.id, name: MAIN_BRANCH_NAME } },
+    update: {},
+    create: { companyId: company.id, name: MAIN_BRANCH_NAME, isMain: true },
   });
 
   const existing = await db.user.findUnique({
