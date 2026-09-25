@@ -106,7 +106,7 @@ export function ProfileForm({
       )}
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <section className="flex flex-col gap-5 rounded-xl bg-card p-5 shadow-sm sm:p-6">
+        <section className="flex min-w-0 flex-col gap-5 rounded-xl bg-card p-5 shadow-sm sm:p-6">
           <SectionTitle
             icon={<BadgeCheck className="size-5" aria-hidden />}
             title="Identidad comercial"
@@ -158,14 +158,14 @@ export function ProfileForm({
           />
         </section>
 
-        <section className="flex flex-col gap-5 rounded-xl bg-card p-5 shadow-sm sm:p-6">
+        <section className="flex min-w-0 flex-col gap-5 rounded-xl bg-card p-5 shadow-sm sm:p-6">
           <SectionTitle
             icon={<Wallet className="size-5" aria-hidden />}
             title="Moneda y formatos"
             description="Moneda base para precios, costos y reportes."
           />
 
-          <fieldset className="flex flex-col gap-2">
+          <fieldset className="flex min-w-0 flex-col gap-2">
             <legend className="mb-2 text-[13px] font-semibold">Moneda</legend>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {FEATURED_CURRENCIES.map((code) => (
@@ -198,7 +198,7 @@ export function ProfileForm({
                   setOtherCurrency(event.target.value);
                   setCurrencyChoice(OTHER_CURRENCY);
                 }}
-                className={cn(fieldClass, "flex-1 border px-3 outline-none")}
+                className={cn(fieldClass, "w-full min-w-0 flex-1 border px-3 outline-none")}
               >
                 <option value="">Elige otra moneda…</option>
                 {CURRENCY_CODES.map((code) => (
@@ -211,7 +211,7 @@ export function ProfileForm({
             <FieldError name="currency" error={fieldErrors.currency} />
           </fieldset>
 
-          <fieldset className="flex flex-col gap-2">
+          <fieldset className="flex min-w-0 flex-col gap-2">
             <legend className="mb-2 text-[13px] font-semibold">
               Formato de fecha
             </legend>
