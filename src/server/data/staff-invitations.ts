@@ -88,12 +88,11 @@ export type AcceptStaffInvitationResult =
   | { status: "INVALID" }
   | { status: "EMAIL_TAKEN" };
 
-class InvitationRaceError extends Error {}
 
-// En una transacción: crea el usuario con el rol invitado y consume la
-// invitación (solo si sigue pendiente, así dos envíos simultáneos no pueden
-// usarla dos veces). Si el correo ya tiene cuenta en la empresa no consume
-// nada.
+class EmailTakenError extends Error {}
+
+// En una transacción: reclama la invitación y crea el usuario con el rol
+// invitado. Si el correo ya tiene cuenta en la empresa no consume nada.
 export async function acceptStaffInvitation(params: {
   tokenHash: string;
   companyId: string;
@@ -103,51 +102,44 @@ export async function acceptStaffInvitation(params: {
   const now = params.now ?? new Date();
   try {
     return await db.$transaction(async (tx) => {
-      const invitation = await tx.staffInvitation.findFirst({
+      // Reclamar antes de crear el usuario: el UPDATE bloquea la fila, así una
+      // aceptación simultánea espera a que esta termine y luego ya no la
+      // encuentra pendiente (INVALID). Con una lectura previa, que no
+      // bloquea, la segunda veía el usuario recién creado como EMAIL_TAKEN.
+      const [invitation] = await tx.staffInvitation.updateManyAndReturn({
         where: validInvitationWhere(params.tokenHash, params.companyId, now),
+        data: { acceptedAt: now },
         select: { id: true, email: true, name: true, role: true },
       });
       if (!invitation) return { status: "INVALID" } as const;
 
-      const existing = await tx.user.findUnique({
-        where: {
-          companyId_email: {
+      try {
+        const user = await tx.user.create({
+          data: {
             companyId: params.companyId,
             email: invitation.email,
+            name: invitation.name,
+            role: invitation.role,
+            passwordHash: params.passwordHash,
+            acceptedInvitation: { connect: { id: invitation.id } },
           },
-        },
-        select: { id: true },
-      });
-      if (existing) return { status: "EMAIL_TAKEN" } as const;
-
-      const user = await tx.user.create({
-        data: {
-          companyId: params.companyId,
-          email: invitation.email,
-          name: invitation.name,
-          role: invitation.role,
-          passwordHash: params.passwordHash,
-        },
-        select: { id: true },
-      });
-      const consumed = await tx.staffInvitation.updateMany({
-        where: { id: invitation.id, ...pending },
-        data: { acceptedAt: now, userId: user.id },
-      });
-      // Otro envío la consumió primero: el throw deshace el usuario creado.
-      if (consumed.count !== 1) throw new InvitationRaceError();
-      return { status: "ACCEPTED", userId: user.id } as const;
+          select: { id: true },
+        });
+        return { status: "ACCEPTED", userId: user.id } as const;
+      } catch (error) {
+        // Unique (companyId, email) de users: el correo ya tenía cuenta. El
+        // throw deshace el reclamo para no consumir la invitación.
+        if (
+          error instanceof Prisma.PrismaClientKnownRequestError &&
+          error.code === "P2002"
+        ) {
+          throw new EmailTakenError();
+        }
+        throw error;
+      }
     });
   } catch (error) {
-    if (error instanceof InvitationRaceError) return { status: "INVALID" };
-    // Carrera con otra aceptación simultánea: la segunda choca con el
-    // unique (companyId, email) de users al crear el usuario.
-    if (
-      error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === "P2002"
-    ) {
-      return { status: "INVALID" };
-    }
+    if (error instanceof EmailTakenError) return { status: "EMAIL_TAKEN" };
     throw error;
   }
 }

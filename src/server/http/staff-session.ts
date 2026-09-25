@@ -5,6 +5,10 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 
 import type { RequestContext } from "@/server/dto/auth";
+import {
+  hasPermission,
+  type Permission,
+} from "@/server/services/auth/permissions";
 import { getStaffSession } from "@/server/services/auth/staff-auth";
 
 // Adaptador entre Next (cookies, cabeceras, redirecciones) y los servicios
@@ -67,5 +71,18 @@ export const getCurrentStaffSession = cache(async (companySlug: string) => {
 export async function requireStaffSession(companySlug: string) {
   const session = await getCurrentStaffSession(companySlug);
   if (!session) redirect(`/${encodeURIComponent(companySlug)}/login`);
+  return session;
+}
+
+// Sin permiso redirige al panel en lugar de usar forbidden(), que en Next 16
+// sigue siendo experimental (experimental.authInterrupts).
+export async function requirePermission(
+  companySlug: string,
+  permission: Permission,
+) {
+  const session = await requireStaffSession(companySlug);
+  if (!hasPermission(session.user.role, permission)) {
+    redirect(`/${encodeURIComponent(session.company.slug)}`);
+  }
   return session;
 }

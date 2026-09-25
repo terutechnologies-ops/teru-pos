@@ -118,9 +118,7 @@ Decisiones del usuario:
 
 Componentes:
 1. Modelo de datos — **aprobado** (2026-09-24, ver abajo).
-2. Autorización: mapa rol→permisos en código, `requirePermission` en
-   backend, solo OWNER entra al asistente, redirección al asistente si
-   `setupCompletedAt` es null.
+2. Autorización — **aprobado** (2026-09-24, ver abajo).
 3. Asistente paso 1: datos de empresa + moneda/formato, con vista previa y
    borrador.
 4. Paso Equipo: invitar/listar/reenviar/revocar, desactivar miembros, página
@@ -152,6 +150,32 @@ Componentes:
 - Pruebas: `tests/integration/company-setup-data.test.ts` (8). Verificado:
   typecheck, lint, build y suite completa (42/42).
 
+### Componente 2 — Autorización (aprobado)
+
+- `src/server/services/auth/permissions.ts`: permisos `company.setup` y
+  `team.manage`, ambos solo OWNER (decisión del usuario; dar `team.manage`
+  a ADMIN es una línea). `hasPermission`, `assertPermission` (lanza
+  `ForbiddenError`, para servicios).
+- `requirePermission(slug, permiso)` en `http/staff-session.ts`: sin permiso
+  redirige al panel. No se usa `forbidden()` (experimental en Next 16).
+- La sesión trae `company.setupCompletedAt` (DTO y `findActiveCompanyBySlug`).
+- `(panel)/layout.tsx`: con configuración incompleta, quien tiene
+  `company.setup` va a `/[empresa]/configuracion`; el resto ve el panel con
+  un aviso (sin bucle de redirecciones).
+- `/[empresa]/configuracion`: esqueleto protegido; si ya está completa,
+  redirige al panel. El contenido llega en el componente 3.
+- **Corrección del componente 1** hallada al probar: `acceptStaffInvitation`
+  leía la invitación sin bloquearla y, en una carrera, la segunda aceptación
+  podía responder `EMAIL_TAKEN` en vez de `INVALID` (prueba intermitente).
+  Ahora reclama primero con `updateManyAndReturn` (bloquea la fila) y crea el
+  usuario conectado a la invitación; un P2002 deshace el reclamo y da
+  `EMAIL_TAKEN`.
+- Pruebas: `tests/unit/permissions.test.ts` (2) y `setupCompletedAt` en
+  `staff-auth.test.ts`. Verificado: typecheck, lint, build, suite 44/44 y el
+  archivo de invitaciones 3 veces seguidas.
+- No probado a mano en el navegador. Nota: `su-arepa` en dev tiene
+  `setupCompletedAt` null, así que su OWNER ahora cae en `/configuracion`.
+
 ### Errores y riesgos conocidos (fase 2)
 
 - El enlace de `company:create` apunta a `/[empresa]/invitacion`, que aún no
@@ -162,5 +186,6 @@ Componentes:
 
 ### Próximo paso recomendado
 
-Componente 1 aprobado y con commit (2026-09-24). Siguiente: Analizar/Diseñar
-el componente 2 (autorización) y presentarlo para aprobación.
+Componente 1 aprobado y con commit `ffb7eca` (2026-09-24). Componente 2
+aprobado y con commit (2026-09-24). Siguiente: Analizar/Diseñar el
+componente 3 (asistente paso 1: datos de empresa, moneda y formato).

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { LogOut } from "lucide-react";
+import { Clock, LogOut } from "lucide-react";
 
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -34,6 +35,15 @@ export default async function PanelPage({ params }: PageProps<"/[empresa]">) {
           </Button>
         </form>
       </div>
+      {!company.setupCompletedAt && (
+        <Alert>
+          <Clock />
+          <AlertDescription>
+            El propietario aún está configurando la empresa. Algunas funciones
+            estarán disponibles cuando termine.
+          </AlertDescription>
+        </Alert>
+      )}
       <Card>
         <CardHeader>
           <CardTitle>Hola, {user.name}</CardTitle>

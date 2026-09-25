@@ -91,6 +91,7 @@ describe("getStaffSession y logoutStaff", () => {
     const s = await getStaffSession(a.slug, r.token);
     expect(s?.session.user).toMatchObject({ email: ownerEmail, role: "OWNER" });
     expect(s?.renewed).toBe(false);
+    expect(s?.session.company.setupCompletedAt).toBeNull();
     expect(await getStaffSession(b.slug, r.token)).toBeNull();
     expect(await getStaffSession(a.slug, "token-falso")).toBeNull();
 
@@ -98,8 +99,13 @@ describe("getStaffSession y logoutStaff", () => {
       where: { id: s!.session.sessionId },
       data: { expiresAt: new Date(Date.now() + 3600e3) },
     });
+    await db.company.update({
+      where: { id: a.id },
+      data: { setupCompletedAt: new Date() },
+    });
     const renewed = await getStaffSession(a.slug, r.token);
     expect(renewed?.renewed).toBe(true);
+    expect(renewed?.session.company.setupCompletedAt).toBeInstanceOf(Date);
     expect(renewed!.session.expiresAt.getTime()).toBeGreaterThan(
       Date.now() + 11 * 3600e3,
     );
