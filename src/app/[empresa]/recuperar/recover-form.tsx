@@ -25,7 +25,7 @@ export function RecoverForm({ companySlug }: { companySlug: string }) {
   const backToLogin = (
     <Link
       href={`/${companySlug}/login`}
-      className="flex items-center justify-center gap-1.5 text-[13px] font-semibold text-primary hover:text-accent-foreground"
+      className="flex items-center justify-center gap-1.5 text-[13px] font-semibold text-link underline-offset-4 hover:underline"
     >
       <ArrowLeft className="size-4" aria-hidden />
       Volver a iniciar sesión
@@ -36,7 +36,7 @@ export function RecoverForm({ companySlug }: { companySlug: string }) {
     return (
       <div className="space-y-6 text-center" aria-live="polite">
         <div className="flex flex-col items-center gap-3 rounded-lg bg-muted p-5">
-          <MailCheck className="size-8 text-primary" aria-hidden />
+          <MailCheck className="size-8 text-accent-foreground" aria-hidden />
           <p className="text-sm">
             Si <strong>{state.email}</strong> está registrado, recibirás un
             enlace para restablecer tu contraseña. Vence en 20 minutos.

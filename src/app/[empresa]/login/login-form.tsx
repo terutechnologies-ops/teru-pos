@@ -50,7 +50,7 @@ export function LoginForm({ companySlug }: { companySlug: string }) {
           </Label>
           <Link
             href={`/${companySlug}/recuperar`}
-            className="text-[13px] font-semibold text-primary hover:text-accent-foreground"
+            className="text-[13px] font-semibold text-link underline-offset-4 hover:underline"
           >
             ¿Olvidaste tu contraseña?
           </Link>

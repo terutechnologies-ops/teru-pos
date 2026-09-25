@@ -24,6 +24,13 @@
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
   --color-ring: var(--ring);
+  --color-link: var(--link);
+  --color-success: var(--success);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-muted-foreground: var(--brand-muted-foreground);
+  --color-highlight: var(--highlight);
+  --color-highlight-foreground: var(--highlight-foreground);
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
@@ -49,41 +56,54 @@
 }
 
 :root {
-  /* Paleta del diseño Su Arepa (crema/naranja). El primario usa un naranja
-     más oscuro que el #f97316 del diseño para que el texto blanco de los
-     botones cumpla contraste AA. */
-  --background: #fff8f1;
-  --foreground: #1e1b15;
+  /* Paleta TERU, esquema híbrido: contenido claro para leer y llenar
+     formularios con buena luz, y estructura en morado oscuro con detalles
+     lima. Base: Morado intenso #6C2BFF, Verde lima #B8FF3D, Negro #111114,
+     Blanco #F7F7F5 y Morado oscuro #24104F.
+     Reglas: un solo color de acción por zona (morado en lo claro, lima en
+     lo oscuro); el lima nunca como texto sobre claro (1.12:1); el morado
+     sobre negro solo en formas grandes (3.08:1). Grises derivados del negro
+     (matiz frío); error y éxito propios para no confundirlos con el CTA. */
+  --background: #f7f7f5;
+  --foreground: #111114;
   --card: #ffffff;
-  --card-foreground: #1e1b15;
+  --card-foreground: #111114;
   --popover: #ffffff;
-  --popover-foreground: #1e1b15;
-  --primary: #c2410c;
+  --popover-foreground: #111114;
+  --primary: #6c2bff;
   --primary-foreground: #ffffff;
-  --secondary: #f5ede3;
-  --secondary-foreground: #1e1b15;
-  --muted: #faf2e9;
-  --muted-foreground: #584237;
-  --accent: #ffdbca;
-  --accent-foreground: #783200;
-  --destructive: #ba1a1a;
-  --border: #e9e1d8;
-  --input: #e0c0b1;
-  --ring: #f97316;
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --secondary: #efeff2;
+  --secondary-foreground: #111114;
+  --muted: #efeff2;
+  --muted-foreground: #5b5b66;
+  --accent: #eee7ff;
+  --accent-foreground: #4a1db8;
+  --destructive: #c4231a;
+  --border: #e2e2e7;
+  --input: #8a8a96;
+  --ring: #6c2bff;
+  --link: #6c2bff;
+  --success: #1e7b34;
+  /* Estructura de marca (encabezados, fondos de acceso). */
+  --brand: #24104f;
+  --brand-foreground: #f7f7f5;
+  --brand-muted-foreground: #c9c2e6;
+  --highlight: #b8ff3d;
+  --highlight-foreground: #111114;
+  --chart-1: #6c2bff;
+  --chart-2: #b8ff3d;
+  --chart-3: #24104f;
+  --chart-4: #8a8a96;
+  --chart-5: #111114;
   --radius: 0.625rem;
-  --sidebar: #faf2e9;
-  --sidebar-foreground: #1e1b15;
-  --sidebar-primary: #c2410c;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #ffdbca;
-  --sidebar-accent-foreground: #783200;
-  --sidebar-border: #e9e1d8;
-  --sidebar-ring: #f97316;
+  --sidebar: #24104f;
+  --sidebar-foreground: #f7f7f5;
+  --sidebar-primary: #b8ff3d;
+  --sidebar-primary-foreground: #111114;
+  --sidebar-accent: #3a2270;
+  --sidebar-accent-foreground: #f7f7f5;
+  --sidebar-border: #3a2270;
+  --sidebar-ring: #b8ff3d;
 }
 
 .dark {

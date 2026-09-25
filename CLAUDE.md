@@ -119,8 +119,7 @@ Decisiones del usuario:
 Componentes:
 1. Modelo de datos — **aprobado** (2026-09-24, ver abajo).
 2. Autorización — **aprobado** (2026-09-24, ver abajo).
-3. Asistente paso 1: datos de empresa + moneda/formato, con vista previa y
-   borrador.
+3. Asistente paso 1 "Negocio" — **aprobado** (2026-09-24, ver abajo).
 4. Paso Equipo: invitar/listar/reenviar/revocar, desactivar miembros, página
    `/[empresa]/invitacion?token=` para crear contraseña.
 5. Confirmación y cierre: resumen, marcar configuración completa, pruebas,
@@ -176,6 +175,54 @@ Componentes:
 - No probado a mano en el navegador. Nota: `su-arepa` en dev tiene
   `setupCompletedAt` null, así que su OWNER ahora cae en `/configuracion`.
 
+### Componente 3 — Paso "Negocio" (aprobado)
+
+- Stepper de 3 pasos en esta fase: Negocio → Equipo → Confirmar (insumos y
+  producto se insertan con sus módulos). `configuracion/layout.tsx` (permiso,
+  redirige al panel si ya está completa, encabezado y stepper con
+  `useSelectedLayoutSegment`); `/configuracion` redirige a `/negocio`.
+- `src/lib/company-formats.ts` (cliente y servidor): monedas ISO desde
+  `Intl.supportedValuesOf`, `formatMoney` con separadores `es-CO` fijos
+  (**decisión**: el formato de números por empresa se agrega con productos y
+  precios), `formatDate` con componentes UTC (sin desajustes de zona).
+- `companyProfileSchema` (vacíos → null, correo opcional, moneda ISO,
+  3 formatos de fecha); servicios `getCompanyProfile` y `saveCompanyProfile`
+  con `assertPermission`. Sin migración.
+- Formulario: moneda con 4 tarjetas + "Otra" (radio `OTRA` + selector con la
+  lista completa; funciona sin JS), fecha en tarjetas, vista previa en vivo.
+  Sin botón de borrador: cada guardado queda en BD y se retoma al volver.
+  Guardar llama a `refresh()` (el nombre sale en el encabezado). Hasta el
+  componente 4 muestra "Datos guardados" en la misma página.
+- Pruebas: `tests/unit/company-profile.test.ts`,
+  `tests/integration/company-profile.test.ts`. Verificado: typecheck, lint,
+  build, suite 58/58. Probado por HTTP contra dev (sin navegador): cadena de
+  redirecciones, render, envío sin JS con errores y guardado.
+- Scripts ad hoc contra dev: `node --env-file=.env --conditions=react-server
+  --import tsx <archivo>` y sin `await` de nivel superior (tsx compila a CJS).
+
+### Paleta TERU, esquema híbrido (aprobada)
+
+Su Arepa es marca de TERU: los colores salen de `../Paleta@1x.png` (se
+reemplazó una primera versión Oro/Papiro el mismo día). Paleta: Morado
+intenso `#6C2BFF`, Verde lima `#B8FF3D`, Negro `#111114`, Blanco `#F7F7F5`,
+Morado oscuro `#24104F`. Esquema híbrido aprobado por el usuario:
+- Contenido claro: fondo Blanco, texto Negro, tarjetas `#FFFFFF`; `primary`
+  Morado con texto blanco (5.7:1); texto morado de apoyo `accent-foreground`
+  `#4A1DB8`; enlaces `link` = Morado.
+- Estructura oscura: tokens nuevos `brand` (Morado oscuro) y `highlight`
+  (Lima, texto Negro). Fondo de las pantallas de acceso (`AuthShell`) y
+  encabezado del asistente. `sidebar-*` ya apunta a lo mismo para el futuro.
+- Reglas: un solo color de acción por zona (morado en claro, lima en
+  oscuro); lima nunca como texto sobre claro (1.12:1); morado sobre negro
+  solo en formas grandes (3.08:1).
+- Grises fríos derivados del negro; `destructive` `#C4231A` y `success`
+  `#1E7B34` propios para no confundirlos con el CTA. Advertencia (ámbar) se
+  agrega cuando algo la use.
+- Pantallas oscuras completas (POS, cocina) cuando existan esos módulos.
+  `.dark` sigue con valores por defecto de shadcn (no se activa).
+- Verificado: lint y build; revisada y aprobada por el usuario frente a las
+  otras dos paletas (crema/naranja del diseño y TERU v1 Oro/Papiro).
+
 ### Errores y riesgos conocidos (fase 2)
 
 - El enlace de `company:create` apunta a `/[empresa]/invitacion`, que aún no
@@ -187,5 +234,7 @@ Componentes:
 ### Próximo paso recomendado
 
 Componente 1 aprobado y con commit `ffb7eca` (2026-09-24). Componente 2
-aprobado y con commit (2026-09-24). Siguiente: Analizar/Diseñar el
-componente 3 (asistente paso 1: datos de empresa, moneda y formato).
+aprobado y con commit `1e7e39d`; ambos subidos a GitHub. Componente 3
+y paleta TERU aprobados, con commit y subidos. Siguiente: Analizar/Diseñar el
+componente 4 (paso Equipo: invitaciones y `/[empresa]/invitacion`); al
+hacerlo, "Guardar y continuar" del paso 1 debe redirigir a `/equipo`.

@@ -31,7 +31,7 @@ export default async function LoginPage({
     >
       {restablecida === "1" && (
         <Alert className="mb-5">
-          <CircleCheck className="text-green-700" />
+          <CircleCheck className="text-success" />
           <AlertDescription>
             Tu contraseña se actualizó. Ya puedes iniciar sesión.
           </AlertDescription>
