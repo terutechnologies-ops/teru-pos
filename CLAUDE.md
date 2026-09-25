@@ -231,10 +231,22 @@ Morado oscuro `#24104F`. Esquema híbrido aprobado por el usuario:
   sin consumirla; el servicio del componente 4 debe evitar invitar correos
   con cuenta activa.
 
+### Sesión 2026-09-24 — resumen
+
+- Componentes 1, 2 y 3 aprobados, con commit y subidos (`ffb7eca`,
+  `1e7e39d`, `5dddf7b`) + corrección de desborde en la tarjeta de moneda
+  (`8567a70`: los `fieldset` tienen `min-width: min-content`; usar `min-w-0`
+  en fieldsets y elementos de grilla con selects de opciones largas).
+- Corregida una carrera en `acceptStaffInvitation` (ver componente 2).
+- Paleta TERU híbrida aprobada (ver arriba). Referencia: `../Paleta@1x.png`.
+- Local y remoto sincronizados, sin cambios pendientes.
+
 ### Próximo paso recomendado
 
-Componente 1 aprobado y con commit `ffb7eca` (2026-09-24). Componente 2
-aprobado y con commit `1e7e39d`; ambos subidos a GitHub. Componente 3
-y paleta TERU aprobados, con commit y subidos. Siguiente: Analizar/Diseñar el
-componente 4 (paso Equipo: invitaciones y `/[empresa]/invitacion`); al
-hacerlo, "Guardar y continuar" del paso 1 debe redirigir a `/equipo`.
+Analizar/Diseñar el componente 4 (paso Equipo): invitar, listar, reenviar y
+revocar invitaciones, desactivar miembros, página `/[empresa]/invitacion`
+para crear la contraseña (hoy da 404 el enlace de `company:create`), y hacer
+que "Guardar y continuar" del paso Negocio redirija a `/equipo`. Tener en
+cuenta: no invitar correos con cuenta activa (`EMAIL_TAKEN`), aplicar la
+paleta híbrida y el patrón de formularios del paso Negocio (slug en campo
+oculto, `useActionState`, funciona sin JS). Después, componente 5.
