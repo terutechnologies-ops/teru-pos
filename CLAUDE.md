@@ -691,8 +691,45 @@ grupo "Catálogo" con Productos y Categorías.
 - Cliente HTTP de prueba del scratchpad: `submit_form(op, path, predicate,
   overrides)` para elegir el formulario exacto de una fila.
 
+### Componente 3 — Productos (aprobado 2026-09-27)
+
+Decisiones aprobadas: precio con campo numérico + vista previa formateada
+y decimales según la moneda; auditoría con el elemento afectado.
+
+- Migración `20260927230000_add_audit_target` (**aplicada en test y
+  dev**): `auth_audit_logs.targetType` y `targetId` (nullable) + índice.
+  `recordAuthEvent` acepta `target: { type, id }`.
+- `lib/company-formats.ts`: `currencyDecimals`. `validations/catalog.ts`:
+  `priceSchema(currency)` (texto con punto; COP sin centavos, USD/MXN/EUR 2;
+  tope de Decimal(12,2); normaliza a texto sin pasar por float; "16.500"
+  con COP se rechaza) y `productSchema(currency)`.
+- Datos: `findProductCategory`; `createProduct` devuelve `{ status, id }`.
+- Servicio (`catalog.manage`): `getProductCatalog` (búsqueda, categoría,
+  archivados; precio como texto), `getProductForm` (categorías activas + la
+  actual si está inactiva), `createCatalogProduct`, `updateCatalogProduct`
+  (no audita si nada cambió; `PRODUCT_PRICE_CHANGED` aparte), archivar /
+  restaurar y agotado / disponible (no repiten eventos). No se asigna una
+  categoría inactiva, salvo que el producto ya esté en ella.
+  `PRODUCT_EVENTS` en `auth/config.ts`, target `PRODUCT`.
+- UI `components/catalog/`: `product-fields`, `product-actions` (crear y
+  editar redirigen a la lista con `?aviso=creado|guardado`),
+  `product-form` (precio controlado para la vista previa), `product-list`
+  (agrupado por categoría), `product-row-button`. Páginas
+  `catalogo/productos` (filtros por GET `q`, `categoria`, pestañas
+  Activos/Archivados `archivados=1`, estados vacíos), `/nuevo`
+  (`?categoria=` preselecciona) y `/[id]`. Menú: "Productos" antes de
+  "Categorías".
+- Pruebas: unitarias de precio y producto, integración
+  `catalog-products.test.ts` (6). Por HTTP contra dev (empresa temporal,
+  ya borrada): lista vacía, crear, precio con centavos rechazado
+  conservando lo escrito, agrupado, búsqueda, filtro, editar precio,
+  agotado, archivar/archivados, STAFF sin acceso, id inexistente 404;
+  auditoría con el producto afectado. Verificado: typecheck, lint, build y
+  suite 135/135.
+- Nota del cliente HTTP de prueba: solo lee `<input>`; los `<select>` y
+  `<textarea>` hay que enviarlos a mano.
+
 ### Próximo paso recomendado
 
-Fase 4: aprobación del componente 2; luego diseño del componente 3
-(productos: servicio con precio según decimales de la moneda, auditoría de
-productos, lista con búsqueda y filtro, crear/editar, archivar, agotado).
+Fase 4: aprobación del componente 3; luego diseño del componente 4 (foto
+del producto con el almacenamiento de archivos).

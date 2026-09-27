@@ -268,17 +268,23 @@ enum ActorType {
 }
 
 model AuthAuditLog {
-  id        String    @id @default(cuid())
-  companyId String?
-  actorType ActorType
-  actorId   String?
-  action    String
-  ipAddress String?
-  userAgent String?
-  createdAt DateTime  @default(now())
+  id         String    @id @default(cuid())
+  companyId  String?
+  actorType  ActorType
+  actorId    String?
+  action     String
+  ipAddress  String?
+  userAgent  String?
+  // Elemento afectado (p. ej. "PRODUCT" + id del producto). null en los
+  // eventos de sesión y en los anteriores a la fase 4.
+  targetType String?
+  targetId   String?
+  createdAt  DateTime  @default(now())
 
   @@index([companyId])
   @@index([actorType, actorId])
+  // Historial de un elemento.
+  @@index([targetType, targetId])
   // Límite de intentos: conteo de fallos recientes por IP y acción.
   @@index([ipAddress, action, createdAt])
   @@map("auth_audit_logs")

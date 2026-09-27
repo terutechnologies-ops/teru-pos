@@ -10,10 +10,14 @@ export type AuthEventInput = {
   action: string;
   ipAddress?: string | null;
   userAgent?: string | null;
+  // Elemento afectado, cuando la acción es sobre algo concreto.
+  target?: { type: string; id: string };
 };
 
-export async function recordAuthEvent(input: AuthEventInput) {
-  await db.authAuditLog.create({ data: input });
+export async function recordAuthEvent({ target, ...input }: AuthEventInput) {
+  await db.authAuditLog.create({
+    data: { ...input, targetType: target?.type, targetId: target?.id },
+  });
 }
 
 // Cuenta eventos recientes de una acción por IP o por actor, para el límite

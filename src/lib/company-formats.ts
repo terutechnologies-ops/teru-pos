@@ -21,6 +21,12 @@ export function currencyName(code: string) {
 // Los decimales los define la moneda: COP 0, USD 2.
 const MONEY_LOCALE = "es-CO";
 
+// Decimales que usa la moneda (COP 0, USD 2).
+export function currencyDecimals(currency: string) {
+  return new Intl.NumberFormat(MONEY_LOCALE, { style: "currency", currency })
+    .resolvedOptions().maximumFractionDigits ?? 2;
+}
+
 export function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat(MONEY_LOCALE, {
     style: "currency",

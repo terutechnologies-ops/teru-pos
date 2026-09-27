@@ -110,6 +110,13 @@ export async function moveProductCategory(
   });
 }
 
+export async function findProductCategory(companyId: string, categoryId: string) {
+  return db.productCategory.findFirst({
+    where: { id: categoryId, companyId },
+    select: { id: true, name: true, isActive: true },
+  });
+}
+
 // Solo si nunca tuvo productos (ni archivados). true si se borró.
 export async function deleteProductCategory(companyId: string, categoryId: string) {
   try {
@@ -171,13 +178,17 @@ export type ProductData = {
   price: string;
 };
 
+// Devuelve el id creado (para la auditoría) o el motivo del rechazo.
 export async function createProduct(companyId: string, data: ProductData) {
-  return catalogWrite(async () => {
-    await db.product.create({
+  let id: string | null = null;
+  const status = await catalogWrite(async () => {
+    ({ id } = await db.product.create({
       data: { companyId, ...data, price: new Prisma.Decimal(data.price) },
-    });
+      select: { id: true },
+    }));
     return 1;
   });
+  return { status, id };
 }
 
 export async function updateProduct(

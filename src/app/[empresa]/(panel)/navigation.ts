@@ -1,4 +1,4 @@
-import { FolderTree, House, Store, Users, type LucideIcon } from "lucide-react";
+import { FolderTree, House, Package, Store, Users, type LucideIcon } from "lucide-react";
 
 import type { StaffRole } from "@/generated/prisma/enums";
 import {
@@ -40,6 +40,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: House,
     group: "general",
     permission: null,
+  },
+  {
+    id: "catalog-products",
+    label: "Productos",
+    description: "Lo que vendes, con su precio y estado.",
+    path: "catalogo/productos",
+    icon: Package,
+    group: "catalog",
+    permission: "catalog.manage",
   },
   {
     id: "catalog-categories",

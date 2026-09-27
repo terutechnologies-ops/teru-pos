@@ -79,13 +79,13 @@ describe("productos", () => {
     const ajena = await categoryId(b.id, "Bebidas");
     const data = { categoryId: arepas, name: "Reina Pepiada", description: null, price: "16500" };
 
-    expect(await createProduct(a.id, data)).toBe("OK");
-    expect(await createProduct(a.id, { ...data, name: "reina PEPIADA" })).toBe("NAME_TAKEN");
+    expect((await createProduct(a.id, data)).status).toBe("OK");
+    expect((await createProduct(a.id, { ...data, name: "reina PEPIADA" })).status).toBe("NAME_TAKEN");
     // La FK compuesta impide una categoría de otra empresa.
-    expect(await createProduct(a.id, { ...data, name: "Otra", categoryId: ajena })).toBe(
+    expect((await createProduct(a.id, { ...data, name: "Otra", categoryId: ajena })).status).toBe(
       "CATEGORY_NOT_FOUND",
     );
-    expect(await createProduct(a.id, { ...data, name: "Otra", categoryId: "no-existe" })).toBe(
+    expect((await createProduct(a.id, { ...data, name: "Otra", categoryId: "no-existe" })).status).toBe(
       "CATEGORY_NOT_FOUND",
     );
     await expect(
