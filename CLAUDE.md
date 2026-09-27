@@ -121,8 +121,8 @@ Componentes:
 2. Autorización — **aprobado** (2026-09-24, ver abajo).
 3. Asistente paso 1 "Negocio" — **aprobado** (2026-09-24, ver abajo).
 4. Paso Equipo — **aprobado** (2026-09-26, ver abajo).
-5. Confirmación y cierre: resumen, marcar configuración completa, pruebas,
-   revisión, ADR 0002 y README.
+5. Confirmación y cierre — **aprobado** (2026-09-27); faltan revisión de la
+   fase, ADR 0002 y README.
 
 ### Componente 1 — Modelo de datos (aprobado)
 
@@ -404,6 +404,30 @@ configuración inicial (tras el esqueleto del panel). Será un campo opcional
 de "Identidad comercial" con Supabase Storage (bucket público: se muestra en
 el login), usado en pantallas de acceso y encabezado; sin logo, el ícono de
 tienda.
+
+### Componente 5 — Confirmar (aprobado 2026-09-27)
+
+Commit previo con los ajustes de eslogan y monedas: `9668329`.
+
+- Servicio (`services/companies.ts`, ambos con `company.setup`):
+  `getSetupSummary` (empresa, sede principal, miembros activos e
+  invitaciones pendientes con `expired`) y `completeCompanySetup`
+  (`markCompanySetupCompleted` + evento `COMPANY_EVENTS.SETUP_COMPLETED` en
+  `auth_audit_logs` solo la primera vez; idempotente, devuelve `{ marked }`).
+- UI `/[empresa]/configuracion/confirmar`: tarjetas Negocio (datos, moneda y
+  fecha con ejemplo), Sede principal (nombre de la sucursal + dirección de
+  Negocio) y Equipo, cada una con "Editar"; bloque oscuro "Todo listo";
+  pie con "Atrás" y "Finalizar configuración" (`finish-form.tsx`,
+  `useActionState`, funciona sin JS). Al finalizar redirige al panel.
+- Refactor: `configuracion/section-title.tsx` (antes duplicado en Negocio y
+  Equipo; ahora acepta `action`).
+- Pruebas: `tests/integration/company-setup-completion.test.ts` (4).
+  Verificado: typecheck, lint, build y suite completa 78/78. No probado en
+  el navegador ni por HTTP contra dev (finalizar marcaría a `su-arepa` como
+  configurada).
+- Riesgo conocido: la dirección se guarda en `Company.address`; la
+  `Branch.address` de la sede principal sigue vacía. Decidir cuál es la
+  fuente cuando exista el módulo de sucursales.
 
 ### Próximo paso recomendado
 

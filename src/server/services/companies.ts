@@ -2,16 +2,21 @@ import "server-only";
 
 import { z } from "zod";
 
-import type { StaffSessionDto } from "@/server/dto/auth";
+import type { RequestContext, StaffSessionDto } from "@/server/dto/auth";
 import { recordAuthEvent } from "@/server/data/auth-audit";
+import { findMainBranch } from "@/server/data/branches";
 import {
   createCompanyWithOwnerInvitation,
   findActiveCompanyBySlug,
   findCompanySettings,
+  markCompanySetupCompleted,
   updateCompanySettings,
 } from "@/server/data/companies";
+import { listPendingStaffInvitations } from "@/server/data/staff-invitations";
+import { listCompanyMembers } from "@/server/data/users";
 import { getAppUrl } from "@/server/env";
 import {
+  COMPANY_EVENTS,
   STAFF_EVENTS,
   STAFF_INVITATION_TTL_MS,
 } from "@/server/services/auth/config";
@@ -91,4 +96,50 @@ export async function saveCompanyProfile(
   }
   await updateCompanySettings(session.company.id, parsed.data);
   return { ok: true };
+}
+
+// Paso "Confirmar" del asistente: lo guardado en los pasos anteriores.
+// null si la empresa ya no existe.
+export async function getSetupSummary(session: StaffSessionDto, now = new Date()) {
+  assertPermission(session, "company.setup");
+  const companyId = session.company.id;
+  const [profile, mainBranch, members, invitations] = await Promise.all([
+    findCompanySettings(companyId),
+    findMainBranch(companyId),
+    listCompanyMembers(companyId),
+    listPendingStaffInvitations(companyId),
+  ]);
+  if (!profile) return null;
+  return {
+    profile,
+    mainBranch,
+    members: members.filter((member) => member.isActive),
+    invitations: invitations.map((invitation) => ({
+      ...invitation,
+      expired: invitation.expiresAt <= now,
+    })),
+  };
+}
+
+export type SetupSummary = NonNullable<Awaited<ReturnType<typeof getSetupSummary>>>;
+
+// Cierra el asistente. Idempotente: si ya estaba completa no cambia la fecha
+// ni registra otro evento. Las invitaciones pendientes no lo impiden.
+export async function completeCompanySetup(
+  session: StaffSessionDto,
+  ctx: RequestContext,
+) {
+  assertPermission(session, "company.setup");
+  const marked = await markCompanySetupCompleted(session.company.id);
+  if (marked) {
+    await recordAuthEvent({
+      companyId: session.company.id,
+      actorType: "STAFF",
+      actorId: session.user.id,
+      action: COMPANY_EVENTS.SETUP_COMPLETED,
+      ipAddress: ctx.ipAddress,
+      userAgent: ctx.userAgent,
+    });
+  }
+  return { marked };
 }

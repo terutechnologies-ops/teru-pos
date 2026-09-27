@@ -35,6 +35,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { CompanyProfileField } from "@/server/services/companies";
 
+import { SectionTitle } from "../section-title";
 import { saveCompanyProfileAction } from "./actions";
 import type { ProfileFormState, ProfileFormValues } from "./profile-fields";
 
@@ -216,28 +217,6 @@ export function ProfileForm({
         </Button>
       </div>
     </form>
-  );
-}
-
-function SectionTitle({
-  icon,
-  title,
-  description,
-}: {
-  icon: ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="flex items-start gap-3">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-        {icon}
-      </span>
-      <div>
-        <h2 className="text-lg font-bold">{title}</h2>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
-    </div>
   );
 }
 

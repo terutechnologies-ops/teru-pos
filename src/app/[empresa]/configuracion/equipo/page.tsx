@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { requirePermission } from "@/server/http/staff-session";
 import { getTeam, type TeamOverview } from "@/server/services/team";
 
+import { SectionTitle } from "../section-title";
 import { InviteForm } from "./invite-form";
 import { RowAction } from "./row-action";
 
@@ -196,28 +197,6 @@ function Row({
       </div>
       {action && <div className="shrink-0 self-end sm:self-auto">{action}</div>}
     </li>
-  );
-}
-
-function SectionTitle({
-  icon,
-  title,
-  description,
-}: {
-  icon: ReactNode;
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="flex items-start gap-3">
-      <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-        {icon}
-      </span>
-      <div>
-        <h2 className="text-lg font-bold">{title}</h2>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
-    </div>
   );
 }
 
