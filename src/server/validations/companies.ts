@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { isCurrencyCode, isDateFormat } from "@/lib/company-formats";
+import { isDateFormat, isSupportedCurrency } from "@/lib/company-formats";
 import { companySlugSchema, emailSchema } from "@/server/validations/auth";
 
 const nameSchema = z.string().trim().min(2).max(120);
@@ -46,7 +46,7 @@ export const companyProfileSchema = z.object({
     .string()
     .trim()
     .toUpperCase()
-    .refine(isCurrencyCode, { error: "Elige una moneda válida." }),
+    .refine(isSupportedCurrency, { error: "Elige una moneda válida." }),
   dateFormat: z.string().refine(isDateFormat, {
     error: "Elige un formato de fecha válido.",
   }),

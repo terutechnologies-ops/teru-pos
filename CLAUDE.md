@@ -384,6 +384,27 @@ Verificado: typecheck, lint, build, pruebas unitarias (35) y consultas HTTP
   pruebas unitarias).
 - El usuario tiene más novedades de su prueba completa que aún no reportó.
 
+### Sesión 2026-09-27 — novedades de la prueba del usuario
+
+1. **Encabezado del asistente sin eslogan:** solo el nombre de la empresa
+   (se quitó `PlatformMark` de `configuracion/layout.tsx`). La firma "Con la
+   tecnología de Teru POS" sigue al pie de `AuthShell` (el usuario no pidió
+   quitarla allí).
+2. **Solo 4 monedas:** `SUPPORTED_CURRENCIES` (COP, USD, MXN, EUR) en
+   `lib/company-formats.ts` reemplaza a la lista ISO completa y a la opción
+   "Otra" con selector. La validación del servidor usa la misma lista
+   (`isSupportedCurrency`). Para habilitar otra moneda basta con agregarla a
+   esa constante.
+
+Verificado: typecheck, lint, build, unitarias (36) e integración del
+perfil (3). Aprobados por el usuario.
+
+Decisión del usuario: el **logo de la empresa** se deja para después de la
+configuración inicial (tras el esqueleto del panel). Será un campo opcional
+de "Identidad comercial" con Supabase Storage (bucket público: se muestra en
+el login), usado en pantallas de acceso y encabezado; sin logo, el ícono de
+tienda.
+
 ### Próximo paso recomendado
 
 Pedir al usuario el resto de novedades de su prueba completa y atenderlas

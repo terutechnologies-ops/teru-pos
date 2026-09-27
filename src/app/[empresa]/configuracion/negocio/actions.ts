@@ -6,11 +6,7 @@ import { redirect } from "next/navigation";
 import { requirePermission } from "@/server/http/staff-session";
 import { saveCompanyProfile } from "@/server/services/companies";
 
-import {
-  OTHER_CURRENCY,
-  type ProfileFormState,
-  type ProfileFormValues,
-} from "./profile-fields";
+import type { ProfileFormState, ProfileFormValues } from "./profile-fields";
 
 export async function saveCompanyProfileAction(
   _prev: ProfileFormState,
@@ -21,15 +17,13 @@ export async function saveCompanyProfileAction(
   // sesión en esa empresa y el permiso.
   const session = await requirePermission(field("company"), "company.setup");
 
-  const currencyChoice = field("currency");
   const values: ProfileFormValues = {
     name: field("name"),
     taxId: field("taxId"),
     phone: field("phone"),
     email: field("email"),
     address: field("address"),
-    currency:
-      currencyChoice === OTHER_CURRENCY ? field("otherCurrency") : currencyChoice,
+    currency: field("currency"),
     dateFormat: field("dateFormat"),
   };
 

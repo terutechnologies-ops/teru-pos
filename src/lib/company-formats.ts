@@ -1,14 +1,12 @@
 // Moneda y formatos de la empresa. Se usa en el servidor (validación) y en
 // el cliente (vista previa del asistente), por eso no depende de nada más.
 
-// Monedas ISO 4217 que conoce el runtime (Node y navegadores modernos).
-export const CURRENCY_CODES: readonly string[] = Intl.supportedValuesOf("currency");
+// Monedas habilitadas (códigos ISO 4217). Para habilitar otra basta con
+// agregarla aquí: el asistente y la validación usan esta lista.
+export const SUPPORTED_CURRENCIES = ["COP", "USD", "MXN", "EUR"] as const;
 
-// Accesos rápidos del asistente; el resto se elige de la lista completa.
-export const FEATURED_CURRENCIES = ["COP", "USD", "MXN", "EUR"] as const;
-
-export function isCurrencyCode(code: string) {
-  return CURRENCY_CODES.includes(code);
+export function isSupportedCurrency(code: string) {
+  return (SUPPORTED_CURRENCIES as readonly string[]).includes(code);
 }
 
 const currencyNames = new Intl.DisplayNames("es", { type: "currency" });

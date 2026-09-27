@@ -24,24 +24,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  CURRENCY_CODES,
   DATE_FORMATS,
-  FEATURED_CURRENCIES,
+  SUPPORTED_CURRENCIES,
   currencyName,
   formatDate,
   formatMoney,
-  isCurrencyCode,
   isDateFormat,
+  isSupportedCurrency,
 } from "@/lib/company-formats";
 import { cn } from "@/lib/utils";
 import type { CompanyProfileField } from "@/server/services/companies";
 
 import { saveCompanyProfileAction } from "./actions";
-import {
-  OTHER_CURRENCY,
-  type ProfileFormState,
-  type ProfileFormValues,
-} from "./profile-fields";
+import type { ProfileFormState, ProfileFormValues } from "./profile-fields";
 
 // Fecha fija para los ejemplos: día mayor que 12 para que se note el orden
 // de día y mes.
@@ -52,9 +47,6 @@ const fieldClass =
   "h-11 rounded-lg border-transparent bg-muted text-sm focus-visible:bg-card";
 const iconClass =
   "pointer-events-none absolute left-3.5 size-4 text-muted-foreground";
-
-const isFeatured = (code: string) =>
-  (FEATURED_CURRENCIES as readonly string[]).includes(code);
 
 export function ProfileForm({
   companySlug,
@@ -73,16 +65,8 @@ export function ProfileForm({
 
   // Controlados solo para la vista previa; sin JS el formulario funciona
   // igual con los valores enviados.
-  const [currencyChoice, setCurrencyChoice] = useState(
-    isFeatured(values.currency) ? values.currency : OTHER_CURRENCY,
-  );
-  const [otherCurrency, setOtherCurrency] = useState(
-    isFeatured(values.currency) ? "" : values.currency,
-  );
+  const [currency, setCurrency] = useState(values.currency);
   const [dateFormat, setDateFormat] = useState(values.dateFormat);
-
-  const previewCurrency =
-    currencyChoice === OTHER_CURRENCY ? otherCurrency : currencyChoice;
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
@@ -158,45 +142,17 @@ export function ProfileForm({
           <fieldset className="flex min-w-0 flex-col gap-2">
             <legend className="mb-2 text-[13px] font-semibold">Moneda</legend>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {FEATURED_CURRENCIES.map((code) => (
+              {SUPPORTED_CURRENCIES.map((code) => (
                 <OptionCard
                   key={code}
                   name="currency"
                   value={code}
-                  checked={currencyChoice === code}
-                  onChange={() => setCurrencyChoice(code)}
+                  checked={currency === code}
+                  onChange={() => setCurrency(code)}
                   title={code}
                   subtitle={currencyName(code)}
                 />
               ))}
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <OptionCard
-                name="currency"
-                value={OTHER_CURRENCY}
-                checked={currencyChoice === OTHER_CURRENCY}
-                onChange={() => setCurrencyChoice(OTHER_CURRENCY)}
-                title="Otra"
-                subtitle="De la lista"
-                className="sm:w-32"
-              />
-              <select
-                name="otherCurrency"
-                aria-label="Otra moneda"
-                value={otherCurrency}
-                onChange={(event) => {
-                  setOtherCurrency(event.target.value);
-                  setCurrencyChoice(OTHER_CURRENCY);
-                }}
-                className={cn(fieldClass, "w-full min-w-0 flex-1 border px-3 outline-none")}
-              >
-                <option value="">Elige otra moneda…</option>
-                {CURRENCY_CODES.map((code) => (
-                  <option key={code} value={code}>
-                    {code} · {currencyName(code)}
-                  </option>
-                ))}
-              </select>
             </div>
             <FieldError name="currency" error={fieldErrors.currency} />
           </fieldset>
@@ -227,8 +183,8 @@ export function ProfileForm({
             </p>
             <div className="mt-2 flex flex-wrap items-baseline justify-between gap-2">
               <span className="text-2xl font-extrabold text-link">
-                {isCurrencyCode(previewCurrency)
-                  ? formatMoney(SAMPLE_PRICE, previewCurrency)
+                {isSupportedCurrency(currency)
+                  ? formatMoney(SAMPLE_PRICE, currency)
                   : "—"}
               </span>
               <span className="text-sm font-semibold text-muted-foreground">
@@ -238,8 +194,8 @@ export function ProfileForm({
               </span>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
-              {isCurrencyCode(previewCurrency)
-                ? currencyName(previewCurrency)
+              {isSupportedCurrency(currency)
+                ? currencyName(currency)
                 : "Elige una moneda"}
             </p>
           </div>

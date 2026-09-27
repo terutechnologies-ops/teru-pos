@@ -1,7 +1,6 @@
 import { redirect } from "next/navigation";
 import { LogOut, Store } from "lucide-react";
 
-import { PlatformMark } from "@/components/shared/platform-mark";
 import { Button } from "@/components/ui/button";
 import { requirePermission } from "@/server/http/staff-session";
 
@@ -27,12 +26,9 @@ export default async function SetupLayout({
             <span className="flex size-9 items-center justify-center rounded-full bg-highlight text-highlight-foreground">
               <Store className="size-5" aria-hidden />
             </span>
-            <div className="flex flex-col">
-              <span className="text-lg leading-6 font-bold tracking-tight">
-                {company.name}
-              </span>
-              <PlatformMark className="text-[11px]" />
-            </div>
+            <span className="text-lg leading-6 font-bold tracking-tight">
+              {company.name}
+            </span>
           </div>
           <form action={logoutAction.bind(null, company.slug)}>
             <Button

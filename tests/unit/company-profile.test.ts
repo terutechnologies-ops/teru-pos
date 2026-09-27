@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatDate,
   formatMoney,
-  isCurrencyCode,
+  isSupportedCurrency,
 } from "@/lib/company-formats";
 import { companyProfileSchema } from "@/server/validations/companies";
 
@@ -42,6 +42,7 @@ describe("companyProfileSchema", () => {
     ["name", "A"],
     ["email", "no-es-correo"],
     ["currency", "XYZ"],
+    ["currency", "ARS"],
     ["currency", ""],
     ["dateFormat", "DD-MM-YY"],
     ["taxId", "x".repeat(31)],
@@ -54,9 +55,10 @@ describe("companyProfileSchema", () => {
 });
 
 describe("formatos", () => {
-  it("valida monedas ISO 4217", () => {
-    expect(isCurrencyCode("COP")).toBe(true);
-    expect(isCurrencyCode("XYZ")).toBe(false);
+  it("acepta solo las monedas habilitadas", () => {
+    expect(isSupportedCurrency("COP")).toBe(true);
+    expect(isSupportedCurrency("ARS")).toBe(false);
+    expect(isSupportedCurrency("XYZ")).toBe(false);
   });
 
   it("formatea dinero con los decimales de cada moneda", () => {
