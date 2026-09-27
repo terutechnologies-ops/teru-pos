@@ -21,3 +21,20 @@ export const INVITABLE_ROLE_DESCRIPTIONS: Record<InvitableRole, string> = {
 export function isInvitableRole(value: string): value is InvitableRole {
   return (INVITABLE_ROLES as readonly string[]).includes(value);
 }
+
+// Qué roles puede gestionar cada rol (invitar, reenviar, revocar, activar).
+// El OWNER no se gestiona desde la aplicación. Complementa el permiso
+// team.manage: el permiso da acceso, esto limita sobre quién.
+const MANAGEABLE_ROLES: Record<StaffRole, readonly InvitableRole[]> = {
+  OWNER: INVITABLE_ROLES,
+  ADMIN: ["STAFF"],
+  STAFF: [],
+};
+
+export function manageableRoles(actor: StaffRole): readonly InvitableRole[] {
+  return MANAGEABLE_ROLES[actor];
+}
+
+export function canManageRole(actor: StaffRole, target: StaffRole) {
+  return (MANAGEABLE_ROLES[actor] as readonly StaffRole[]).includes(target);
+}

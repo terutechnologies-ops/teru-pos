@@ -252,7 +252,7 @@ describe("activar y desactivar miembros", () => {
 
 describe("autorización", () => {
   it("solo quien tiene team.manage gestiona el equipo", async () => {
-    for (const role of ["ADMIN", "STAFF"] as const) {
+    for (const role of ["STAFF"] as const) {
       const session = sessionFor(a, "otro", role);
       await expect(getTeam(session)).rejects.toThrow(ForbiddenError);
       await expect(
@@ -266,5 +266,89 @@ describe("autorización", () => {
         ForbiddenError,
       );
     }
+  });
+});
+
+describe("administrador: solo gestiona al Personal", () => {
+  let admin: { id: string };
+  let adminSession: StaffSessionDto;
+  let otherAdmin: { id: string };
+  let staff: { id: string };
+
+  beforeAll(async () => {
+    admin = await createUser({ companyId: a.id, email: `admin@${tag}.co`, role: "ADMIN" });
+    adminSession = sessionFor(a, admin.id, "ADMIN");
+    otherAdmin = await createUser({ companyId: a.id, email: `admin2@${tag}.co`, role: "ADMIN" });
+    staff = await createUser({ companyId: a.id, email: `personal@${tag}.co` });
+  });
+
+  it("ve el equipo y solo puede invitar Personal", async () => {
+    const team = await getTeam(adminSession);
+    expect(team.invitableRoles).toEqual(["STAFF"]);
+    const flags = Object.fromEntries(team.members.map((m) => [m.id, m.canManage]));
+    expect(flags[owner.id]).toBe(false);
+    expect(flags[admin.id]).toBe(false);
+    expect(flags[otherAdmin.id]).toBe(false);
+    expect(flags[staff.id]).toBe(true);
+
+    expect(
+      await inviteStaffMember(
+        adminSession,
+        { name: "Nuevo Admin", email: `nuevo-admin@${tag}.co`, role: "ADMIN" },
+        context,
+      ),
+    ).toEqual({ ok: false, fieldErrors: { role: expect.any(String) } });
+    expect(
+      await db.staffInvitation.count({ where: { email: `nuevo-admin@${tag}.co` } }),
+    ).toBe(0);
+
+    expect(
+      await inviteStaffMember(
+        adminSession,
+        { name: "Nuevo Personal", email: `nuevo-personal@${tag}.co`, role: "STAFF" },
+        context,
+      ),
+    ).toEqual({ ok: true });
+  });
+
+  it("no reenvía ni revoca invitaciones de administradores", async () => {
+    const email = `invitado-admin@${tag}.co`;
+    await inviteStaffMember(ownerSession, { name: "Invitado Admin", email, role: "ADMIN" }, context);
+    const { id } = await db.staffInvitation.findFirstOrThrow({
+      where: { email, revokedAt: null },
+    });
+
+    expect(await resendStaffInvitation(adminSession, id, context)).toMatchObject({ ok: false });
+    expect(await revokeInvitation(adminSession, id, context)).toMatchObject({ ok: false });
+    const invitation = await db.staffInvitation.findUniqueOrThrow({ where: { id } });
+    expect(invitation.revokedAt).toBeNull();
+
+    const team = await getTeam(adminSession);
+    expect(team.invitations.find((i) => i.id === id)?.canManage).toBe(false);
+  });
+
+  it("desactiva al Personal pero no a otro administrador", async () => {
+    expect(await setStaffMemberActive(adminSession, otherAdmin.id, false, context)).toMatchObject({
+      ok: false,
+    });
+    expect(await db.user.findUniqueOrThrow({ where: { id: otherAdmin.id } })).toMatchObject({
+      isActive: true,
+    });
+
+    expect(await setStaffMemberActive(adminSession, staff.id, false, context)).toEqual({
+      ok: true,
+    });
+    expect(await setStaffMemberActive(adminSession, staff.id, true, context)).toEqual({
+      ok: true,
+    });
+  });
+
+  it("el propietario sí gestiona administradores", async () => {
+    expect(await setStaffMemberActive(ownerSession, otherAdmin.id, false, context)).toEqual({
+      ok: true,
+    });
+    expect(await setStaffMemberActive(ownerSession, otherAdmin.id, true, context)).toEqual({
+      ok: true,
+    });
   });
 });

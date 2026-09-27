@@ -7,7 +7,7 @@ export type Permission = "company.manage" | "team.manage";
 
 const ROLE_PERMISSIONS = {
   OWNER: ["company.manage", "team.manage"],
-  ADMIN: [],
+  ADMIN: ["team.manage"],
   STAFF: [],
 } satisfies Record<StaffRole, readonly Permission[]>;
 

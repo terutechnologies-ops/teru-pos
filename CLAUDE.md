@@ -535,9 +535,37 @@ tablero con cifras, rol CASHIER.
   Cliente de prueba reutilizable en el scratchpad de la sesión (no en repo).
 - No probado en el navegador.
 
+### Componente 3 — Configuración > Equipo (aprobado 2026-09-27)
+
+- `/[empresa]/configuracion/equipo` dentro del panel (`team.manage`).
+  **ADMIN recibe `team.manage`.** Entrada "Equipo" en el menú; para ADMIN,
+  `/configuracion` lleva a Equipo.
+- Jerarquía (diseño aprobado): `lib/staff-roles.ts` → `manageableRoles` y
+  `canManageRole` (OWNER gestiona ADMIN y STAFF; ADMIN solo STAFF; nadie al
+  OWNER). En `services/team.ts`: invitar valida el rol (error en el campo
+  `role`), reenviar y revocar leen la invitación y validan su rol,
+  `setMemberActive` (data) recibe `roles` y filtra en la misma consulta.
+  `getTeam` devuelve `invitableRoles` y `canManage` por miembro e
+  invitación (la UI oculta botones; el servicio decide).
+- Interfaz movida a `components/team/` (`invite-form` con prop `roles`,
+  `row-action`, `team-fields`, `actions` compartidas, `team-list`,
+  `team-manager` con las dos tarjetas). El paso Equipo del asistente usa
+  `TeamManager` con su pie; el panel, `PageHeader` + `TeamManager`.
+- ADMIN puede gestionar al Personal aunque la configuración inicial esté
+  pendiente (decisión de diseño aprobada).
+- Pruebas: integración ADMIN (ve el equipo, solo invita STAFF, no
+  reenvía/revoca invitaciones ADMIN, no desactiva ADMIN, sí STAFF; OWNER sí
+  gestiona ADMIN), unitarias de jerarquía, permisos y menú. Verificado:
+  typecheck, lint, build, suite 91/91. Por HTTP contra dev (empresas
+  temporales, ya borradas): ADMIN solo ve el rol Personal y botones en el
+  Personal, invitaciones y desactivaciones forzadas rechazadas, sin menú
+  Negocio; OWNER ve ambos roles y botones en administradores; el
+  desactivado no entra; asistente Equipo igual. Solo las acciones reales
+  quedaron en auditoría.
+- No probado en el navegador.
+
 ### Próximo paso recomendado
 
-Fase 3: que el usuario pruebe el componente 2 y lo apruebe; luego diseñar
-el componente 3 (Configuración > Equipo; ADMIN recibe `team.manage` y
-gestiona solo al Personal, según la propuesta). Pendiente antes de
+Fase 3: que el usuario pruebe el componente 3 y lo apruebe; luego diseñar
+el componente 4 (logo de la empresa, Supabase Storage). Pendiente antes de
 producción: proveedor de correo real.

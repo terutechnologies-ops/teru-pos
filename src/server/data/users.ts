@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { StaffRole } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
 
 // Único punto que lee passwordHash; el resultado no debe salir de los
@@ -44,18 +45,26 @@ export async function listCompanyMembers(companyId: string) {
   });
 }
 
-// Activa o desactiva a un miembro que no sea OWNER. Al desactivar se
-// revocan sus sesiones en la misma transacción. true si hubo cambio.
+// Activa o desactiva a un miembro (nunca OWNER) cuyo rol esté en `roles`.
+// Al desactivar se revocan sus sesiones en la misma transacción. true si
+// hubo cambio.
 export async function setMemberActive(params: {
   userId: string;
   companyId: string;
   isActive: boolean;
+  // Solo cambia a miembros con uno de estos roles (nunca incluye OWNER).
+  roles: readonly StaffRole[];
   now?: Date;
 }) {
-  const { userId, companyId, isActive, now = new Date() } = params;
+  const { userId, companyId, isActive, roles, now = new Date() } = params;
   return db.$transaction(async (tx) => {
     const result = await tx.user.updateMany({
-      where: { id: userId, companyId, role: { not: "OWNER" }, isActive: !isActive },
+      where: {
+        id: userId,
+        companyId,
+        role: { in: roles.filter((role) => role !== "OWNER") },
+        isActive: !isActive,
+      },
       data: { isActive },
     });
     if (result.count !== 1) return false;

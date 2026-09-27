@@ -15,9 +15,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
-  INVITABLE_ROLES,
   INVITABLE_ROLE_DESCRIPTIONS,
   STAFF_ROLE_LABELS,
+  type InvitableRole,
 } from "@/lib/staff-roles";
 import { cn } from "@/lib/utils";
 
@@ -33,7 +33,15 @@ const fieldClass =
 const iconClass =
   "pointer-events-none absolute left-3.5 size-4 text-muted-foreground";
 
-export function InviteForm({ companySlug }: { companySlug: string }) {
+// `roles`: los que esta persona puede invitar (el servidor lo vuelve a
+// verificar).
+export function InviteForm({
+  companySlug,
+  roles,
+}: {
+  companySlug: string;
+  roles: readonly InvitableRole[];
+}) {
   const [state, formAction, pending] = useActionState(inviteStaffAction, {
     status: "idle",
     message: null,
@@ -89,7 +97,7 @@ export function InviteForm({ companySlug }: { companySlug: string }) {
       <fieldset className="flex min-w-0 flex-col gap-2">
         <legend className="mb-2 text-[13px] font-semibold">Rol</legend>
         <div className="grid gap-2 sm:grid-cols-2">
-          {INVITABLE_ROLES.map((role) => (
+          {roles.map((role) => (
             <label
               key={role}
               className="flex cursor-pointer flex-col gap-0.5 rounded-lg border-2 border-transparent bg-muted px-3 py-2.5 transition-colors hover:border-input has-[:checked]:border-ring has-[:checked]:bg-accent/60 has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-ring/50"

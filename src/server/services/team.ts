@@ -3,7 +3,11 @@ import "server-only";
 import { z } from "zod";
 
 import type { StaffRole } from "@/generated/prisma/enums";
-import { STAFF_ROLE_LABELS } from "@/lib/staff-roles";
+import {
+  STAFF_ROLE_LABELS,
+  canManageRole,
+  manageableRoles,
+} from "@/lib/staff-roles";
 import type { RequestContext, StaffSessionDto } from "@/server/dto/auth";
 import { recordAuthEvent } from "@/server/data/auth-audit";
 import {
@@ -59,13 +63,18 @@ export async function getTeam(session: StaffSessionDto, now = new Date()) {
     listCompanyMembers(session.company.id),
     listPendingStaffInvitations(session.company.id),
   ]);
+  const role = session.user.role;
   return {
+    // Roles que esta persona puede invitar (el formulario solo muestra esos).
+    invitableRoles: manageableRoles(role),
     members: members.map((member) => ({
       ...member,
       isSelf: member.id === session.user.id,
+      canManage: member.id !== session.user.id && canManageRole(role, member.role),
     })),
     invitations: invitations.map((invitation) => ({
       ...invitation,
+      canManage: canManageRole(role, invitation.role),
       expired: invitation.expiresAt <= now,
       hoursLeft: Math.max(
         0,
@@ -140,6 +149,13 @@ export async function inviteStaffMember(
     };
   }
 
+  if (!canManageRole(session.user.role, parsed.data.role)) {
+    return {
+      ok: false,
+      fieldErrors: { role: "No puedes invitar a alguien con este rol." },
+    };
+  }
+
   // Una invitación para un correo con cuenta nunca se podría aceptar.
   if (await userExistsWithEmail(session.company.id, parsed.data.email)) {
     return {
@@ -159,6 +175,7 @@ export async function inviteStaffMember(
 export type TeamActionResult = { ok: true } | { ok: false; error: string };
 
 const GONE = "La invitación ya no está pendiente. Actualiza la lista.";
+const NOT_ALLOWED = "No tienes permiso para gestionar a esta persona.";
 
 // Nuevo enlace con los mismos datos; el anterior deja de funcionar.
 export async function resendStaffInvitation(
@@ -172,6 +189,9 @@ export async function resendStaffInvitation(
     session.company.id,
   );
   if (!invitation) return { ok: false, error: GONE };
+  if (!canManageRole(session.user.role, invitation.role)) {
+    return { ok: false, error: NOT_ALLOWED };
+  }
 
   if (await userExistsWithEmail(session.company.id, invitation.email)) {
     await revokeStaffInvitation(invitation.id, session.company.id);
@@ -190,6 +210,14 @@ export async function revokeInvitation(
   ctx: RequestContext,
 ): Promise<TeamActionResult> {
   assertPermission(session, "team.manage");
+  const invitation = await findPendingStaffInvitation(
+    invitationId,
+    session.company.id,
+  );
+  if (!invitation) return { ok: false, error: GONE };
+  if (!canManageRole(session.user.role, invitation.role)) {
+    return { ok: false, error: NOT_ALLOWED };
+  }
   const revoked = await revokeStaffInvitation(invitationId, session.company.id);
   if (!revoked) return { ok: false, error: GONE };
   await audit(session, STAFF_EVENTS.INVITATION_REVOKED, ctx);
@@ -197,7 +225,8 @@ export async function revokeInvitation(
 }
 
 // El OWNER y uno mismo quedan fuera: nadie puede dejar la empresa sin
-// propietario ni bloquearse solo.
+// propietario ni bloquearse solo. Además, solo sobre roles gestionables
+// (un ADMIN no cambia a otro ADMIN); se filtra en la misma consulta.
 export async function setStaffMemberActive(
   session: StaffSessionDto,
   userId: string,
@@ -212,6 +241,7 @@ export async function setStaffMemberActive(
     userId,
     companyId: session.company.id,
     isActive,
+    roles: manageableRoles(session.user.role),
   });
   if (!changed) {
     return { ok: false, error: "No se pudo cambiar el estado de este miembro." };

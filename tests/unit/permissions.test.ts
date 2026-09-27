@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { canManageRole, manageableRoles } from "@/lib/staff-roles";
 import {
   assertPermission,
   ForbiddenError,
@@ -7,12 +8,16 @@ import {
 } from "@/server/services/auth/permissions";
 
 describe("hasPermission", () => {
-  it("solo OWNER configura la empresa y gestiona el equipo", () => {
-    for (const permission of ["company.manage", "team.manage"] as const) {
-      expect(hasPermission("OWNER", permission)).toBe(true);
-      expect(hasPermission("ADMIN", permission)).toBe(false);
-      expect(hasPermission("STAFF", permission)).toBe(false);
-    }
+  it("solo OWNER configura la empresa", () => {
+    expect(hasPermission("OWNER", "company.manage")).toBe(true);
+    expect(hasPermission("ADMIN", "company.manage")).toBe(false);
+    expect(hasPermission("STAFF", "company.manage")).toBe(false);
+  });
+
+  it("OWNER y ADMIN gestionan el equipo", () => {
+    expect(hasPermission("OWNER", "team.manage")).toBe(true);
+    expect(hasPermission("ADMIN", "team.manage")).toBe(true);
+    expect(hasPermission("STAFF", "team.manage")).toBe(false);
   });
 });
 
@@ -23,5 +28,19 @@ describe("assertPermission", () => {
     expect(() =>
       assertPermission({ user: { role: "OWNER" } }, "team.manage"),
     ).not.toThrow();
+  });
+});
+
+describe("roles gestionables", () => {
+  it("OWNER gestiona ADMIN y STAFF; ADMIN solo STAFF; nadie al OWNER", () => {
+    expect(manageableRoles("OWNER")).toEqual(["STAFF", "ADMIN"]);
+    expect(manageableRoles("ADMIN")).toEqual(["STAFF"]);
+    expect(manageableRoles("STAFF")).toEqual([]);
+    expect(canManageRole("OWNER", "ADMIN")).toBe(true);
+    expect(canManageRole("ADMIN", "ADMIN")).toBe(false);
+    expect(canManageRole("ADMIN", "STAFF")).toBe(true);
+    for (const actor of ["OWNER", "ADMIN", "STAFF"] as const) {
+      expect(canManageRole(actor, "OWNER")).toBe(false);
+    }
   });
 });

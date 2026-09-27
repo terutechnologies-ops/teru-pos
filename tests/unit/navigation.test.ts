@@ -32,6 +32,14 @@ describe("navigationFor", () => {
     expect(ids("STAFF")).not.toContain("settings-business");
   });
 
+  it("propietario y administrador ven Equipo; el personal no", () => {
+    const ids = (role: "OWNER" | "ADMIN" | "STAFF") =>
+      navigationFor(role).map((item) => item.id);
+    expect(ids("OWNER")).toContain("settings-team");
+    expect(ids("ADMIN")).toContain("settings-team");
+    expect(ids("STAFF")).not.toContain("settings-team");
+  });
+
   it("los ids de las secciones no se repiten", () => {
     const ids = NAV_ITEMS.map((item) => item.id);
     expect(new Set(ids).size).toBe(ids.length);
