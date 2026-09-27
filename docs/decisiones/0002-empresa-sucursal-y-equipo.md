@@ -4,6 +4,11 @@
 - **Fecha:** 2026-09-27
 - **Fase:** 2 (configuración inicial de la empresa)
 
+> Actualizada por el [ADR 0003](0003-panel-permisos-y-archivos.md):
+> `company.setup` ahora se llama `company.manage`, el asistente vive en
+> `/configuracion-inicial`, el ADMIN gestiona al personal y la empresa ya
+> puede tener logo.
+
 ## Contexto
 
 Teru POS es una plataforma multiempresa: cada empresa cliente (la primera es

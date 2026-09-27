@@ -608,9 +608,23 @@ guardarlo en la BD), para reutilizarlo con las fotos de productos.
   sirviendo la copia en caché hasta que venza. Sin impacto: la ruta es única
   y ya no se usa. `su-arepa-test` no tiene clave: las pruebas usan memoria.
 
+### Componente 5 — Cierre de la fase 3 (aprobado 2026-09-27)
+
+**Fase 3 aprobada** (2026-09-27).
+
+- Revisión de la fase (62 archivos: permisos, jerarquía del equipo, menú,
+  formularios compartidos, proxy, almacenamiento y logo): sin errores de
+  seguridad ni de lógica nuevos. Riesgos registrados en el ADR 0003.
+- `docs/decisiones/0003-panel-permisos-y-archivos.md`; nota en el ADR 0002
+  sobre lo que cambió; README actualizado (estado, rutas, variables
+  `SUPABASE_*`, `storage:setup`, estructura, pruebas, ADR).
+- Verificado en el componente 4: typecheck, lint, build y suite 97/97; este
+  componente solo cambia documentación.
+
 ### Próximo paso recomendado
 
-Fase 3: que el usuario pruebe el logo en el navegador y lo apruebe; luego
-el componente 5 (cierre de
-la fase: revisión, ADR 0003, README). Pendiente antes de producción:
-proveedor de correo real y clave de Storage por entorno.
+Fase 3 cerrada y subida. Siguiente fase por definir con el usuario
+(Analizar primero). Candidatos: módulo de productos y menú (primer
+módulo de negocio; reutiliza el almacenamiento de archivos para fotos),
+o conectar el proveedor de correo real. Pendiente antes de producción:
+proveedor de correo, clave de Storage y bucket por entorno.

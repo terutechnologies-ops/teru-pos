@@ -4,8 +4,9 @@ Plataforma de gestión multiempresa de TERU (ventas, inventario, caja, etc.).
 Cada negocio es una empresa cliente con su propia URL; la arepería
 **Su Arepa** es la primera, no el modelo del sistema.
 
-**Estado:** fase 2 cerrada (autenticación del personal y configuración
-inicial de la empresa: negocio, sucursal principal y equipo).
+**Estado:** fase 3 cerrada (autenticación del personal, configuración
+inicial de la empresa y panel con menú por rol, configuración de negocio y
+equipo, y logo de la empresa).
 
 ## Stack
 
@@ -22,6 +23,7 @@ npm install
 cp .env.example .env      # completar DATABASE_URL, DIRECT_URL y APP_URL
 npm run db:migrate:deploy # aplica las migraciones
 npm run db:seed           # crea la empresa su-arepa y su OWNER (ver abajo)
+npm run storage:setup     # crea el bucket de archivos (requiere SUPABASE_*)
 npm run dev
 ```
 
@@ -29,7 +31,11 @@ npm run dev
 - Login del personal: `http://localhost:3000/<slug-empresa>/login`
   (ej. `/su-arepa/login`).
 - Mientras la empresa no termine su configuración, el propietario entra al
-  asistente `/<slug-empresa>/configuracion` (Negocio → Equipo → Confirmar).
+  asistente `/<slug-empresa>/configuracion-inicial` (Negocio → Equipo →
+  Confirmar).
+- Panel `/<slug-empresa>`: menú lateral según el rol. Configuración >
+  Negocio (propietario) y Configuración > Equipo (propietario y
+  administrador).
 - En desarrollo, los correos (recuperación de contraseña e invitaciones) se
   ven en `http://localhost:3000/dev/outbox`.
 
@@ -40,6 +46,7 @@ npm run dev
 | `DATABASE_URL` | Conexión de la app (Supabase: transaction pooler, puerto 6543) |
 | `DIRECT_URL` | Conexión para migraciones (session pooler, puerto 5432) |
 | `APP_URL` | URL pública, para armar enlaces de recuperación e invitación |
+| `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | Almacenamiento de archivos (logos) en Supabase Storage. Opcionales: sin ellas no se pueden subir logos. La clave es secreta (`sb_secret_...`) |
 | `SEED_OWNER_EMAIL`, `SEED_OWNER_NAME`, `SEED_OWNER_PASSWORD` | Solo para `npm run db:seed` |
 
 Los archivos `.env*` no se versionan (salvo `.env.example`).
@@ -57,12 +64,15 @@ Los archivos `.env*` no se versionan (salvo `.env.example`).
 | `npm run db:migrate:deploy` | Aplica migraciones pendientes |
 | `npm run db:seed` | Datos iniciales (idempotente) |
 | `npm run company:create -- --name ... --slug ... --owner-name ... --owner-email ...` | Alta de empresa: sucursal principal + enlace de invitación del propietario (72 h) |
+| `npm run storage:setup` | Crea el bucket público `company-assets` (idempotente, una vez por entorno) |
 
 ## Pruebas
 
 - **Unitarias** (`tests/unit`): no requieren BD.
 - **Integración** (`tests/integration`): corren contra el proyecto Supabase
   `su-arepa-test`, configurado en `.env.test` (mismas variables que `.env`).
+  El almacenamiento de archivos usa una versión en memoria: no necesitan
+  `SUPABASE_SECRET_KEY`.
   Se niegan a correr si `.env.test` apunta a la BD de desarrollo.
 
 ```bash
@@ -94,17 +104,20 @@ Nunca editar una migración ya aplicada: crear una nueva.
 src/
   app/                  Rutas (App Router)
     [empresa]/          Rutas por empresa: login, recuperar, restablecer,
-                        invitacion, configuracion (asistente) y panel
+                        invitacion, configuracion-inicial (asistente) y
+                        (panel): inicio y configuracion/{negocio,equipo}
     dev/outbox/         Bandeja de correos (solo desarrollo)
   components/
     ui/                 Componentes shadcn/ui
     shared/             Componentes propios reutilizables
+    company/            Formularios de datos y logo de la empresa
+    team/               Invitaciones y lista del equipo
   lib/                  Cliente Prisma, marca, formatos, roles y utilidades
   proxy.ts              Redirección optimista a login (no es autorización)
   server/
     data/               Único acceso a Prisma; filtra siempre por empresa
     services/           Lógica de negocio (auth y permisos, empresas, equipo,
-                        mensajería)
+                        mensajería, almacenamiento de archivos)
     http/               Adaptador Next: cookies, cabeceras, sesión actual
     validations/        Esquemas Zod
     dto/                Tipos expuestos fuera de los servicios
@@ -118,3 +131,4 @@ docs/decisiones/        Decisiones de arquitectura (ADR)
 
 - [ADR 0001 — Autenticación y sesiones](docs/decisiones/0001-autenticacion-y-sesiones.md)
 - [ADR 0002 — Empresa, sucursal y equipo](docs/decisiones/0002-empresa-sucursal-y-equipo.md)
+- [ADR 0003 — Panel, permisos por rol y almacenamiento de archivos](docs/decisiones/0003-panel-permisos-y-archivos.md)
