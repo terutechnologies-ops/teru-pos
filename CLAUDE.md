@@ -121,8 +121,8 @@ Componentes:
 2. Autorización — **aprobado** (2026-09-24, ver abajo).
 3. Asistente paso 1 "Negocio" — **aprobado** (2026-09-24, ver abajo).
 4. Paso Equipo — **aprobado** (2026-09-26, ver abajo).
-5. Confirmación y cierre — **aprobado** (2026-09-27); faltan revisión de la
-   fase, ADR 0002 y README.
+5. Confirmación y cierre — **aprobado** (2026-09-27, `fe9033c`). Revisión,
+   ADR 0002 y README hechos. **Fase 2 aprobada** (2026-09-27).
 
 ### Componente 1 — Modelo de datos (aprobado)
 
@@ -429,10 +429,22 @@ Commit previo con los ajustes de eslogan y monedas: `9668329`.
   `Branch.address` de la sede principal sigue vacía. Decidir cuál es la
   fuente cuando exista el módulo de sucursales.
 
+### Cierre de la fase 2 (aprobado 2026-09-27)
+
+- Revisión de toda la fase (permisos, sesión, invitaciones, equipo,
+  asistente): sin errores de seguridad ni de lógica. Corrección menor: el
+  panel usaba sus propias etiquetas de roles; ahora `STAFF_ROLE_LABELS`.
+- Hallazgos que quedan como riesgos (en el ADR): la auditoría no guarda sobre
+  qué invitación o miembro se actuó; si el envío del correo falla, la
+  invitación queda pendiente sin entregar (se puede reenviar).
+- `docs/decisiones/0002-empresa-sucursal-y-equipo.md` y README actualizado
+  (estado, rutas, asistente, outbox de invitaciones, estructura, ADR).
+- Verificado: typecheck, lint y build. Suite completa 78/78 antes de la
+  corrección menor (solo de interfaz).
+
 ### Próximo paso recomendado
 
-Pedir al usuario el resto de novedades de su prueba completa y atenderlas
-una por una (analizar antes de cambiar código). Después, implementar el
-componente 5 con el diseño ya aprobado y cerrar la fase 2 (revisión, ADR
-0002, README). Luego, lo primero de la siguiente fase: el esqueleto del
-panel con su sección de configuración.
+Fase 2 cerrada y subida a GitHub. Siguiente, fase 3 (empezar por Analizar):
+esqueleto del panel (navegación) con su sección de configuración para
+editar negocio y equipo; después, el logo de la empresa (decisión del
+usuario). Pendiente antes de producción: proveedor de correo real.

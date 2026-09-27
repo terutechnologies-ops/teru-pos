@@ -10,13 +10,12 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { STAFF_ROLE_LABELS } from "@/lib/staff-roles";
 import { requireStaffSession } from "@/server/http/staff-session";
 
 import { logoutAction } from "./actions";
 
 export const metadata: Metadata = { title: "Panel" };
-
-const ROLE_LABELS = { OWNER: "Propietario", ADMIN: "Administrador", STAFF: "Personal" };
 
 // Panel provisional: solo confirma que la sesión funciona. Los módulos de
 // negocio llegarán en fases posteriores.
@@ -49,7 +48,7 @@ export default async function PanelPage({ params }: PageProps<"/[empresa]">) {
           <CardTitle>Hola, {user.name}</CardTitle>
           <CardDescription className="flex items-center gap-2">
             {user.email}
-            <Badge variant="secondary">{ROLE_LABELS[user.role]}</Badge>
+            <Badge variant="secondary">{STAFF_ROLE_LABELS[user.role]}</Badge>
           </CardDescription>
         </CardHeader>
       </Card>

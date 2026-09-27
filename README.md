@@ -1,9 +1,11 @@
 # Teru POS
 
-Sistema de gestión multiempresa (ventas, inventario, caja, etc.). La
-arepería **Su Arepa** es el primer caso de uso real, no el modelo del sistema.
+Plataforma de gestión multiempresa de TERU (ventas, inventario, caja, etc.).
+Cada negocio es una empresa cliente con su propia URL; la arepería
+**Su Arepa** es la primera, no el modelo del sistema.
 
-**Estado:** fase inicial (base del proyecto y autenticación del personal).
+**Estado:** fase 2 cerrada (autenticación del personal y configuración
+inicial de la empresa: negocio, sucursal principal y equipo).
 
 ## Stack
 
@@ -23,9 +25,13 @@ npm run db:seed           # crea la empresa su-arepa y su OWNER (ver abajo)
 npm run dev
 ```
 
-Login del personal: `http://localhost:3000/<slug-empresa>/login`
-(ej. `/su-arepa/login`). En desarrollo, los correos (recuperación de
-contraseña) se ven en `http://localhost:3000/dev/outbox`.
+- Inicio: `http://localhost:3000/` (buscador "Ingresa a tu empresa").
+- Login del personal: `http://localhost:3000/<slug-empresa>/login`
+  (ej. `/su-arepa/login`).
+- Mientras la empresa no termine su configuración, el propietario entra al
+  asistente `/<slug-empresa>/configuracion` (Negocio → Equipo → Confirmar).
+- En desarrollo, los correos (recuperación de contraseña e invitaciones) se
+  ven en `http://localhost:3000/dev/outbox`.
 
 ### Variables de entorno
 
@@ -33,7 +39,7 @@ contraseña) se ven en `http://localhost:3000/dev/outbox`.
 |---|---|
 | `DATABASE_URL` | Conexión de la app (Supabase: transaction pooler, puerto 6543) |
 | `DIRECT_URL` | Conexión para migraciones (session pooler, puerto 5432) |
-| `APP_URL` | URL pública, para armar enlaces de recuperación |
+| `APP_URL` | URL pública, para armar enlaces de recuperación e invitación |
 | `SEED_OWNER_EMAIL`, `SEED_OWNER_NAME`, `SEED_OWNER_PASSWORD` | Solo para `npm run db:seed` |
 
 Los archivos `.env*` no se versionan (salvo `.env.example`).
@@ -87,20 +93,23 @@ Nunca editar una migración ya aplicada: crear una nueva.
 ```
 src/
   app/                  Rutas (App Router)
-    [empresa]/          Rutas por empresa: login, recuperar, restablecer, panel
+    [empresa]/          Rutas por empresa: login, recuperar, restablecer,
+                        invitacion, configuracion (asistente) y panel
     dev/outbox/         Bandeja de correos (solo desarrollo)
   components/
     ui/                 Componentes shadcn/ui
     shared/             Componentes propios reutilizables
-  lib/                  Cliente Prisma y utilidades
+  lib/                  Cliente Prisma, marca, formatos, roles y utilidades
   proxy.ts              Redirección optimista a login (no es autorización)
   server/
     data/               Único acceso a Prisma; filtra siempre por empresa
-    services/           Lógica de negocio (auth, empresas, mensajería)
+    services/           Lógica de negocio (auth y permisos, empresas, equipo,
+                        mensajería)
     http/               Adaptador Next: cookies, cabeceras, sesión actual
     validations/        Esquemas Zod
     dto/                Tipos expuestos fuera de los servicios
 prisma/                 Esquema, migraciones y seed
+scripts/                Scripts de soporte (alta de empresas)
 tests/                  Pruebas unitarias e integración
 docs/decisiones/        Decisiones de arquitectura (ADR)
 ```
@@ -108,3 +117,4 @@ docs/decisiones/        Decisiones de arquitectura (ADR)
 ## Decisiones
 
 - [ADR 0001 — Autenticación y sesiones](docs/decisiones/0001-autenticacion-y-sesiones.md)
+- [ADR 0002 — Empresa, sucursal y equipo](docs/decisiones/0002-empresa-sucursal-y-equipo.md)
