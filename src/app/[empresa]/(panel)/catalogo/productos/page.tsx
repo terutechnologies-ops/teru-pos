@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CircleCheck, PackageOpen, Plus, Search } from "lucide-react";
+import { CircleCheck, PackageOpen, Plus, Search, TriangleAlert } from "lucide-react";
 
 import { PRODUCT_NOTICES } from "@/components/catalog/product-fields";
 import { ProductList } from "@/components/catalog/product-list";
@@ -40,6 +40,8 @@ export default async function ProductsPage({
   const slug = session.company.slug;
   const base = `/${slug}/catalogo/productos`;
   const filtered = Boolean(search || categoryId);
+  // Solo se crean productos en categorías activas.
+  const canCreate = categories.some((category) => category.isActive);
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
@@ -49,7 +51,7 @@ export default async function ProductsPage({
           title="Productos"
           description="Lo que vendes, agrupado por categoría en el orden en que se verá al vender."
         />
-        {categories.length > 0 && (
+        {canCreate && (
           <Button asChild className="h-11 gap-2 px-5">
             <Link href={`${base}/nuevo`}>
               <Plus aria-hidden />
@@ -58,6 +60,19 @@ export default async function ProductsPage({
           </Button>
         )}
       </div>
+
+      {categories.length > 0 && !canCreate && (
+        <Alert>
+          <TriangleAlert />
+          <AlertDescription>
+            Todas tus categorías están inactivas: activa al menos una en{" "}
+            <Link href={`/${slug}/catalogo/categorias`} className="font-semibold text-link underline">
+              Categorías
+            </Link>{" "}
+            para crear productos.
+          </AlertDescription>
+        </Alert>
+      )}
 
       {notice && (
         <Alert aria-live="polite">
@@ -145,12 +160,14 @@ export default async function ProductsPage({
               title="Aún no tienes productos"
               text="Agrega lo que vendes con su precio. Luego podrás marcarlo como agotado o archivarlo."
               action={
-                <Button asChild>
-                  <Link href={`${base}/nuevo`}>
-                    <Plus aria-hidden />
-                    Nuevo producto
-                  </Link>
-                </Button>
+                canCreate && (
+                  <Button asChild>
+                    <Link href={`${base}/nuevo`}>
+                      <Plus aria-hidden />
+                      Nuevo producto
+                    </Link>
+                  </Button>
+                )
               }
             />
           )}

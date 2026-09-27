@@ -779,8 +779,22 @@ puede subir desde "Nuevo producto", en el mismo formulario.
   (empresa temporal y su foto borradas; bucket verificado vacío).
   Verificado: typecheck, lint, build y suite 143/143.
 
+### Componente 5 — Cierre de la fase 4 (aprobado 2026-09-27)
+
+**Fase 4 aprobada** (2026-09-27).
+
+- Revisión de la fase (39 archivos: modelo, categorías, productos, precio,
+  auditoría con target, fotos). Corrección: con todas las categorías
+  inactivas la lista mostraba "Nuevo producto" y `/nuevo` devolvía a la
+  lista sin explicar; ahora el botón se oculta y un aviso enlaza a
+  Categorías. Sin errores de seguridad ni de aislamiento.
+- `docs/decisiones/0004-catalogo-de-venta.md` (capas, modelo, precio,
+  permiso, auditoría, fotos y riesgos) y README (estado, rutas, variables,
+  estructura, ADR).
+
 ### Próximo paso recomendado
 
-Fase 4: que el usuario pruebe en el navegador la foto (al crear y al
-editar, en especial una foto de celular grande) y apruebe; luego el
-componente 5 (cierre: revisión, ADR 0004, README).
+Fase 4 cerrada y subida. Siguiente fase por definir con el usuario
+(Analizar primero). Según el orden acordado: inventario (insumos,
+unidades de medida, bodegas y movimientos). Pendiente antes de producción:
+proveedor de correo, clave de Storage y bucket por entorno.
