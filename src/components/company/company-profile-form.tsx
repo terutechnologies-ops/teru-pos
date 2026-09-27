@@ -9,11 +9,13 @@ import {
 import {
   ArrowRight,
   BadgeCheck,
+  CircleCheck,
   Loader2,
   MapPin,
   Mail,
   Phone,
   ReceiptText,
+  Save,
   Store,
   TriangleAlert,
   Wallet,
@@ -35,9 +37,13 @@ import {
 import { cn } from "@/lib/utils";
 import type { CompanyProfileField } from "@/server/services/companies";
 
-import { SectionTitle } from "../section-title";
-import { saveCompanyProfileAction } from "./actions";
-import type { ProfileFormState, ProfileFormValues } from "./profile-fields";
+import { SectionTitle } from "@/components/shared/section-title";
+
+import {
+  initialProfileState,
+  type ProfileFormValues,
+  type SaveProfileAction,
+} from "./company-profile-fields";
 
 // Fecha fija para los ejemplos: día mayor que 12 para que se note el orden
 // de día y mes.
@@ -49,19 +55,23 @@ const fieldClass =
 const iconClass =
   "pointer-events-none absolute left-3.5 size-4 text-muted-foreground";
 
-export function ProfileForm({
+// Datos del negocio. Lo usan el asistente ("setup": guarda y pasa al paso
+// siguiente) y la configuración del panel ("settings": guarda y se queda).
+export function CompanyProfileForm({
+  mode,
+  action,
   companySlug,
   initialValues,
 }: {
+  mode: "setup" | "settings";
+  action: SaveProfileAction;
   companySlug: string;
   initialValues: ProfileFormValues;
 }) {
-  const [state, formAction, pending] = useActionState(saveCompanyProfileAction, {
-    status: "idle",
-    message: null,
-    fieldErrors: {},
-    values: initialValues,
-  } satisfies ProfileFormState);
+  const [state, formAction, pending] = useActionState(
+    action,
+    initialProfileState(initialValues),
+  );
   const { values, fieldErrors } = state;
 
   // Controlados solo para la vista previa; sin JS el formulario funciona
@@ -76,6 +86,12 @@ export function ProfileForm({
       {state.status === "error" && state.message && (
         <Alert variant="destructive" aria-live="polite">
           <TriangleAlert />
+          <AlertDescription>{state.message}</AlertDescription>
+        </Alert>
+      )}
+      {state.status === "saved" && state.message && (
+        <Alert aria-live="polite">
+          <CircleCheck className="text-success" />
           <AlertDescription>{state.message}</AlertDescription>
         </Alert>
       )}
@@ -203,17 +219,24 @@ export function ProfileForm({
         </section>
       </div>
 
-      <div className="sticky bottom-0 -mx-4 flex items-center justify-between gap-3 border-t border-border bg-background/90 px-4 py-4 backdrop-blur md:-mx-12 md:px-12">
+      <div
+        className={cn(
+          "sticky bottom-0 -mx-4 flex items-center justify-between gap-3 border-t border-border bg-background/90 px-4 py-4 backdrop-blur",
+          mode === "setup" ? "md:-mx-12 md:px-12" : "-mb-6 md:-mx-8 md:px-8",
+        )}
+      >
         <span className="text-sm font-semibold text-muted-foreground">
-          Paso 1 de 3 · Negocio
+          {mode === "setup" ? "Paso 1 de 3 · Negocio" : "Los cambios se aplican al guardar."}
         </span>
         <Button type="submit" disabled={pending} className="h-11 gap-2 px-5">
           {pending ? (
             <Loader2 className="animate-spin" aria-hidden />
-          ) : (
+          ) : mode === "setup" ? (
             <ArrowRight aria-hidden />
+          ) : (
+            <Save aria-hidden />
           )}
-          Guardar y continuar
+          {mode === "setup" ? "Guardar y continuar" : "Guardar cambios"}
         </Button>
       </div>
     </form>

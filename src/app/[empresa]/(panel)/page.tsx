@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Clock, Sparkles } from "lucide-react";
 
+import { PageHeader } from "@/components/shared/page-header";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { requireStaffSession } from "@/server/http/staff-session";
 
@@ -18,14 +19,7 @@ export default async function PanelHomePage({ params }: PageProps<"/[empresa]">)
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-      <div>
-        <span className="text-[11px] font-bold tracking-widest text-accent-foreground uppercase">
-          {company.name}
-        </span>
-        <h1 className="mt-1 text-[28px] leading-9 font-extrabold tracking-tight">
-          Hola, {user.name}
-        </h1>
-      </div>
+      <PageHeader eyebrow={company.name} title={`Hola, ${user.name}`} />
 
       {!company.setupCompletedAt && (
         <Alert>

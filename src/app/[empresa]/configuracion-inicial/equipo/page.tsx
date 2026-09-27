@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 import { requirePermission } from "@/server/http/staff-session";
 import { getTeam, type TeamOverview } from "@/server/services/team";
 
-import { SectionTitle } from "../section-title";
+import { SectionTitle } from "@/components/shared/section-title";
 import { InviteForm } from "./invite-form";
 import { RowAction } from "./row-action";
 

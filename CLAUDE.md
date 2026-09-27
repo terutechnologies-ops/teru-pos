@@ -504,8 +504,40 @@ tablero con cifras, rol CASHIER.
   menú; asistente completo → panel; `/configuracion` → 404 por ahora.
 - No probado en el navegador (aspecto visual, menú en tablet/celular).
 
+### Componente 2 — Configuración > Negocio (aprobado 2026-09-27)
+
+- `/[empresa]/configuracion/negocio` dentro del panel (`company.manage`,
+  solo OWNER). Entrada "Negocio" en el grupo "Configuración" del menú y
+  tarjeta en el Inicio. `/configuracion` redirige a la primera sección de
+  configuración del rol, o al Inicio si no tiene ninguna.
+- Formulario compartido: `components/company/company-profile-form.tsx`
+  (`CompanyProfileForm`, `mode` "setup" | "settings", recibe la acción).
+  `company-profile-fields.ts`: tipos, `readProfileForm`,
+  `toProfileFormValues`, `initialProfileState`, `profileErrorState`.
+  Acciones: `saveSetupProfileAction` (asistente, redirige a Equipo) y
+  `saveCompanySettingsAction` (se queda y muestra "Cambios guardados.").
+  Ambas hacen `refresh()` (nombre en menú y pestaña).
+- Movidos a compartidos: `components/shared/section-title.tsx` y nuevo
+  `components/shared/page-header.tsx` (Inicio y Negocio del panel; el
+  asistente conserva su encabezado propio).
+- **Auditoría:** `saveCompanyProfile(session, input, ctx)` compara con lo
+  guardado y, si algo cambió, registra `COMPANY_PROFILE_UPDATED` (sin los
+  valores). También aplica al asistente.
+- Riesgo anotado para el módulo de ventas: cambiar la moneda con ventas o
+  precios existentes deja datos inconsistentes; habrá que bloquearlo o
+  advertir.
+- Pruebas: integración de auditoría (sin cambios no audita) y menú por rol.
+  Verificado: typecheck, lint, build, suite 84/84. Por HTTP contra dev con
+  empresas temporales (ya borradas): OWNER entra, `/configuracion` redirige,
+  menú activo, tarjeta en Inicio, guardar válido (aviso y nombre nuevo en
+  el menú), inválido (errores), ADMIN y STAFF redirigidos sin ver la
+  sección, asistente guarda y pasa a Equipo; un evento por guardado válido.
+  Cliente de prueba reutilizable en el scratchpad de la sesión (no en repo).
+- No probado en el navegador.
+
 ### Próximo paso recomendado
 
-Fase 3: que el usuario pruebe el componente 1 en el navegador y lo apruebe;
-luego diseñar el componente 2 (Configuración > Negocio). Pendiente antes de
+Fase 3: que el usuario pruebe el componente 2 y lo apruebe; luego diseñar
+el componente 3 (Configuración > Equipo; ADMIN recibe `team.manage` y
+gestiona solo al Personal, según la propuesta). Pendiente antes de
 producción: proveedor de correo real.

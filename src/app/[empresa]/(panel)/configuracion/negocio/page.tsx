@@ -3,41 +3,35 @@ import { notFound } from "next/navigation";
 
 import { CompanyProfileForm } from "@/components/company/company-profile-form";
 import { toProfileFormValues } from "@/components/company/company-profile-fields";
+import { PageHeader } from "@/components/shared/page-header";
 import { requirePermission } from "@/server/http/staff-session";
 import { getCompanyProfile } from "@/server/services/companies";
 
-import { saveSetupProfileAction } from "./actions";
+import { saveCompanySettingsAction } from "./actions";
 
 export const metadata: Metadata = { title: "Configuración · Negocio" };
 
-export default async function SetupBusinessPage({
+export default async function BusinessSettingsPage({
   params,
-}: PageProps<"/[empresa]/configuracion-inicial/negocio">) {
+}: PageProps<"/[empresa]/configuracion/negocio">) {
   const { empresa } = await params;
   const session = await requirePermission(empresa, "company.manage");
   const profile = await getCompanyProfile(session);
   if (!profile) notFound();
 
   return (
-    <>
-      <div>
-        <span className="text-[11px] font-bold tracking-widest text-accent-foreground uppercase">
-          Configuración inicial
-        </span>
-        <h1 className="mt-1 text-[28px] leading-9 font-extrabold tracking-tight">
-          Cuéntanos sobre tu negocio
-        </h1>
-        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          Estos datos aparecen en tickets y reportes. La moneda será la base
-          para precios y costos.
-        </p>
-      </div>
+    <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-6">
+      <PageHeader
+        eyebrow="Configuración"
+        title="Datos del negocio"
+        description="Identidad comercial, moneda y formatos que aparecen en tickets y reportes."
+      />
       <CompanyProfileForm
-        mode="setup"
-        action={saveSetupProfileAction}
+        mode="settings"
+        action={saveCompanySettingsAction}
         companySlug={profile.slug}
         initialValues={toProfileFormValues(profile)}
       />
-    </>
+    </div>
   );
 }

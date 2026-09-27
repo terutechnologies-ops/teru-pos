@@ -24,6 +24,14 @@ describe("navigationFor", () => {
     }
   });
 
+  it("solo el propietario ve la configuración del negocio", () => {
+    const ids = (role: "OWNER" | "ADMIN" | "STAFF") =>
+      navigationFor(role).map((item) => item.id);
+    expect(ids("OWNER")).toContain("settings-business");
+    expect(ids("ADMIN")).not.toContain("settings-business");
+    expect(ids("STAFF")).not.toContain("settings-business");
+  });
+
   it("los ids de las secciones no se repiten", () => {
     const ids = NAV_ITEMS.map((item) => item.id);
     expect(new Set(ids).size).toBe(ids.length);

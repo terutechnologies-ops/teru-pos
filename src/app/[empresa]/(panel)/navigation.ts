@@ -1,4 +1,4 @@
-import { House, type LucideIcon } from "lucide-react";
+import { House, Store, type LucideIcon } from "lucide-react";
 
 import type { StaffRole } from "@/generated/prisma/enums";
 import {
@@ -38,6 +38,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: House,
     group: "general",
     permission: null,
+  },
+  {
+    id: "settings-business",
+    label: "Negocio",
+    description: "Datos comerciales, moneda y formatos.",
+    path: "configuracion/negocio",
+    icon: Store,
+    group: "settings",
+    permission: "company.manage",
   },
 ];
 

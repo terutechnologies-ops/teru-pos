@@ -1,7 +1,6 @@
 "use server";
 
 import { refresh } from "next/cache";
-import { redirect } from "next/navigation";
 
 import {
   profileErrorState,
@@ -14,13 +13,11 @@ import {
 } from "@/server/http/staff-session";
 import { saveCompanyProfile } from "@/server/services/companies";
 
-// Paso Negocio del asistente: guarda y pasa al paso Equipo.
-export async function saveSetupProfileAction(
+// Configuración > Negocio: guarda y se queda en la página.
+export async function saveCompanySettingsAction(
   _prev: ProfileFormState,
   formData: FormData,
 ): Promise<ProfileFormState> {
-  // Viene del cliente como cualquier otro campo: requirePermission valida la
-  // sesión en esa empresa y el permiso.
   const session = await requirePermission(
     String(formData.get("company") ?? ""),
     "company.manage",
@@ -31,12 +28,12 @@ export async function saveSetupProfileAction(
   try {
     result = await saveCompanyProfile(session, values, await getRequestContext());
   } catch (error) {
-    console.error("saveSetupProfileAction: error inesperado", (error as Error).name);
+    console.error("saveCompanySettingsAction: error inesperado", (error as Error).name);
     return profileErrorState(values);
   }
   if (!result.ok) return profileErrorState(values, result.fieldErrors);
 
-  // El nombre de la empresa aparece en el encabezado del asistente.
+  // El nombre de la empresa aparece en el menú y en el título de la pestaña.
   refresh();
-  redirect(`/${session.company.slug}/configuracion-inicial/equipo`);
+  return { status: "saved", message: "Cambios guardados.", fieldErrors: {}, values };
 }

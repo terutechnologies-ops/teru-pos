@@ -77,11 +77,13 @@ export type SaveCompanyProfileResult =
   | { ok: true }
   | { ok: false; fieldErrors: Partial<Record<CompanyProfileField, string>> };
 
-// Paso "Negocio" del asistente. Guarda directo en la empresa: si el
-// propietario sale y vuelve, retoma con lo que guardó.
+// Datos del negocio (asistente y configuración). Guarda directo en la
+// empresa: si el propietario sale del asistente, retoma con lo guardado.
+// Solo audita si algo cambió; no registra los valores.
 export async function saveCompanyProfile(
   session: StaffSessionDto,
   input: CompanyProfileInput,
+  ctx: RequestContext,
 ): Promise<SaveCompanyProfileResult> {
   assertPermission(session, "company.manage");
   const parsed = companyProfileSchema.safeParse(input);
@@ -94,7 +96,23 @@ export async function saveCompanyProfile(
       ),
     };
   }
+  const current = await findCompanySettings(session.company.id);
+  const changed =
+    !current ||
+    (Object.keys(parsed.data) as CompanyProfileField[]).some(
+      (field) => parsed.data[field] !== current[field],
+    );
+  if (!changed) return { ok: true };
+
   await updateCompanySettings(session.company.id, parsed.data);
+  await recordAuthEvent({
+    companyId: session.company.id,
+    actorType: "STAFF",
+    actorId: session.user.id,
+    action: COMPANY_EVENTS.PROFILE_UPDATED,
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
+  });
   return { ok: true };
 }
 

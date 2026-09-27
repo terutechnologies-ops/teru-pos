@@ -23,7 +23,7 @@ import { STAFF_ROLE_LABELS } from "@/lib/staff-roles";
 import { requirePermission } from "@/server/http/staff-session";
 import { getSetupSummary, type SetupSummary } from "@/server/services/companies";
 
-import { SectionTitle } from "../section-title";
+import { SectionTitle } from "@/components/shared/section-title";
 import { FinishSetupForm } from "./finish-form";
 
 export const metadata: Metadata = { title: "Configuración · Confirmar" };
