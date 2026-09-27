@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import type { ProductDto } from "@/server/services/catalog";
 
 import { ProductRowButton } from "./product-row-button";
+import { ProductThumb } from "./product-thumb";
 
 // Productos agrupados por categoría, en el orden del POS (ya vienen
 // ordenados del servicio).
@@ -50,23 +51,26 @@ export function ProductList({
               >
                 <div
                   className={cn(
-                    "flex min-w-0 flex-1 flex-col gap-0.5",
+                    "flex min-w-0 flex-1 items-center gap-3",
                     (product.isArchived || !product.isAvailable) && "opacity-70",
                   )}
                 >
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="font-bold">{product.name}</span>
-                    {product.isArchived && <Badge variant="secondary">Archivado</Badge>}
-                    {!product.isAvailable && <Badge variant="destructive">Agotado</Badge>}
-                  </div>
-                  {product.description && (
-                    <p className="line-clamp-1 text-sm text-muted-foreground">
-                      {product.description}
+                  <ProductThumb imageUrl={product.imageUrl} productName={product.name} size="sm" />
+                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-bold">{product.name}</span>
+                      {product.isArchived && <Badge variant="secondary">Archivado</Badge>}
+                      {!product.isAvailable && <Badge variant="destructive">Agotado</Badge>}
+                    </div>
+                    {product.description && (
+                      <p className="line-clamp-1 text-sm text-muted-foreground">
+                        {product.description}
+                      </p>
+                    )}
+                    <p className="text-sm font-extrabold text-link">
+                      {formatMoney(Number(product.price), currency)}
                     </p>
-                  )}
-                  <p className="text-sm font-extrabold text-link">
-                    {formatMoney(Number(product.price), currency)}
-                  </p>
+                  </div>
                 </div>
                 <div className="flex shrink-0 flex-wrap items-start justify-end gap-2">
                   <Button asChild variant="outline" size="sm">

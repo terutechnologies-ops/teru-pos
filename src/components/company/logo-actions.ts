@@ -13,10 +13,7 @@ import {
   type CompanyLogoResult,
 } from "@/server/services/companies";
 
-export type LogoFormState = {
-  status: "idle" | "saved" | "error";
-  message: string | null;
-};
+import type { ImageFormState } from "@/components/shared/image-upload-fields";
 
 const UNEXPECTED = "No pudimos guardar el logo. Inténtalo de nuevo en un momento.";
 
@@ -27,7 +24,7 @@ async function run(
   label: string,
   saved: string,
   action: (session: StaffSessionDto) => Promise<CompanyLogoResult>,
-): Promise<LogoFormState> {
+): Promise<ImageFormState> {
   // requirePermission valida la sesión en la empresa enviada y el permiso.
   const session = await requirePermission(
     String(formData.get("company") ?? ""),
@@ -46,10 +43,10 @@ async function run(
 }
 
 export async function uploadLogoAction(
-  _prev: LogoFormState,
+  _prev: ImageFormState,
   formData: FormData,
-): Promise<LogoFormState> {
-  const file = formData.get("logo");
+): Promise<ImageFormState> {
+  const file = formData.get("image");
   return run(formData, "uploadLogoAction", "Logo actualizado.", async (session) =>
     updateCompanyLogo(
       session,
@@ -60,9 +57,9 @@ export async function uploadLogoAction(
 }
 
 export async function removeLogoAction(
-  _prev: LogoFormState,
+  _prev: ImageFormState,
   formData: FormData,
-): Promise<LogoFormState> {
+): Promise<ImageFormState> {
   return run(formData, "removeLogoAction", "Logo quitado.", async (session) =>
     removeCompanyLogo(session, await getRequestContext()),
   );

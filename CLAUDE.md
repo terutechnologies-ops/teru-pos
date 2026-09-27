@@ -729,7 +729,58 @@ y decimales según la moneda; auditoría con el elemento afectado.
 - Nota del cliente HTTP de prueba: solo lee `<input>`; los `<select>` y
   `<textarea>` hay que enviarlos a mano.
 
+### Componente 4 — Foto del producto (aprobado 2026-09-27)
+
+Decisión del usuario: **opción A, reducir en el navegador** (1200 px,
+WebP → PNG → JPEG, elimina EXIF/GPS), sin librerías nuevas.
+
+- Refactor compartido: `lib/images.ts` (`IMAGE_MAX_BYTES`, `IMAGE_TYPES`,
+  `IMAGE_ACCEPT`, `detectImageType`; reemplaza a `lib/company-logo.ts`) y
+  `server/services/images.ts` (`publicFileUrl`, `removeFileQuietly`,
+  `replaceImage({ file, pathPrefix, savePath })`). El logo usa ambos; su
+  mensaje de tamaño ahora es "La imagen no puede superar 1 MB".
+- `lib/prepare-image.ts` (solo navegador): `prepareImageForUpload`; si no
+  puede leer la imagen (p. ej. HEIC) devuelve el original.
+- `components/shared/image-upload-card.tsx` + `image-upload-fields.ts`:
+  tarjeta de subir/cambiar/quitar con vista previa; al elegir archivo lo
+  reduce y lo reemplaza en el campo (`DataTransfer`). El campo se llama
+  `image` (antes `logo`). `CompanyLogoCard` pasó a usarla.
+- Datos: `replaceProductImagePath`. Servicio: `updateProductImage`,
+  `removeProductImage` (verifican que el producto sea de la empresa antes
+  de subir; eventos `PRODUCT_IMAGE_UPDATED/REMOVED` con target). El DTO
+  del producto trae `imageUrl` en vez de `imagePath`. Ruta:
+  `companies/{companyId}/products/{productId}-{uuid}.{ext}`.
+- UI: `product-image-card`, `product-image-actions`, `product-thumb`
+  (miniatura en la lista, grande en la página). Al crear un producto se
+  abre su página con "Producto creado. Puedes agregarle una foto."
+- Pruebas: `tests/unit/images.test.ts` (renombrada),
+  `tests/integration/product-image.test.ts` (4). Por HTTP contra Supabase
+  Storage real (empresa temporal, ya borrada; bucket vacío verificado):
+  crear → página del producto, rechazo de más de 1 MB, subir, miniatura en
+  la lista, cambiar, quitar, y logo con el campo renombrado. Verificado:
+  typecheck, lint, build y suite 139/139.
+- **No probado:** la reducción en el navegador (requiere navegador real).
+
+**Ajuste pedido por el usuario (foto al crear):** la foto también se
+puede subir desde "Nuevo producto", en el mismo formulario.
+- `components/shared/image-picker.tsx`: selector con vista previa y
+  reducción, extraído de la tarjeta; se limpia con el evento `reset` del
+  formulario. Lo usan `ImageUploadCard` y `ProductForm` (solo al crear).
+- `services/images.ts` + `validateImage` (valida sin subir).
+  `createCatalogProduct(session, input, ctx, image?)`: valida la foto antes
+  de crear (errores junto a los del resto, campo `image`); crea; sube con
+  `updateProductImage`. Si solo falla la subida → `imageFailed: true` y la
+  acción abre el producto con `?aviso=sin-foto`. Si no, vuelve a la lista
+  con "Producto creado.".
+- Con otro error en el formulario, el navegador descarta el archivo: el
+  estado trae `imageDropped` y se pide volver a elegir la foto.
+- Pruebas: 4 más en `product-image.test.ts` (con foto, campo vacío, foto
+  inválida no crea nada, falla de subida). HTTP contra Storage real
+  (empresa temporal y su foto borradas; bucket verificado vacío).
+  Verificado: typecheck, lint, build y suite 143/143.
+
 ### Próximo paso recomendado
 
-Fase 4: aprobación del componente 3; luego diseño del componente 4 (foto
-del producto con el almacenamiento de archivos).
+Fase 4: que el usuario pruebe en el navegador la foto (al crear y al
+editar, en especial una foto de celular grande) y apruebe; luego el
+componente 5 (cierre: revisión, ADR 0004, README).

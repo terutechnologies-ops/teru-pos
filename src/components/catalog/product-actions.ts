@@ -46,12 +46,14 @@ async function saveProduct(
 ): Promise<ProductFormState> {
   const session = await sessionFrom(formData);
   const values = readProductForm(formData);
+  const image = formData.get("image");
+  const imageDropped = image instanceof Blob && image.size > 0;
   let result: SaveProductResult;
   try {
     result = await save(session, values);
   } catch (error) {
     console.error(`${label}: error inesperado`, (error as Error).name);
-    return { status: "error", message: UNEXPECTED, fieldErrors: {}, values };
+    return { status: "error", message: UNEXPECTED, fieldErrors: {}, values, imageDropped };
   }
   if (!result.ok) {
     return {
@@ -59,17 +61,27 @@ async function saveProduct(
       message: result.error ?? "Revisa los campos marcados.",
       fieldErrors: result.fieldErrors,
       values,
+      imageDropped,
     };
   }
-  redirect(`/${session.company.slug}/catalogo/productos?aviso=${notice}`);
+  const base = `/${session.company.slug}/catalogo/productos`;
+  // Si la foto falló, se abre el producto para reintentarla.
+  if (result.imageFailed) redirect(`${base}/${result.productId}?aviso=sin-foto`);
+  redirect(`${base}?aviso=${notice}`);
 }
 
 export async function createProductAction(
   _prev: ProductFormState,
   formData: FormData,
 ): Promise<ProductFormState> {
+  const image = formData.get("image");
   return saveProduct(formData, "createProductAction", "creado", async (session, values) =>
-    createCatalogProduct(session, values, await getRequestContext()),
+    createCatalogProduct(
+      session,
+      values,
+      await getRequestContext(),
+      image instanceof Blob ? image : null,
+    ),
   );
 }
 

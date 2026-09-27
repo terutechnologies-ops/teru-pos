@@ -14,6 +14,7 @@ import {
   listProducts,
   moveProductCategory,
   renameProductCategory,
+  replaceProductImagePath,
   setProductArchived,
   setProductAvailable,
   setProductCategoryActive,
@@ -23,6 +24,12 @@ import {
 import { findCompanySettings } from "@/server/data/companies";
 import { PRODUCT_EVENTS } from "@/server/services/auth/config";
 import { assertPermission } from "@/server/services/auth/permissions";
+import {
+  publicFileUrl,
+  removeFileQuietly,
+  replaceImage,
+  validateImage,
+} from "@/server/services/images";
 import {
   categoryNameSchema,
   productSchema,
@@ -151,9 +158,10 @@ function auditProduct(
 }
 
 // Precio como texto (Decimal serializado): la vista lo formatea con la
-// moneda de la empresa.
+// moneda de la empresa. La foto, como URL pública.
 function toProductDto(product: NonNullable<Awaited<ReturnType<typeof findProduct>>>) {
-  return { ...product, price: product.price.toString() };
+  const { imagePath, ...rest } = product;
+  return { ...rest, price: product.price.toString(), imageUrl: publicFileUrl(imagePath) };
 }
 
 export type ProductDto = ReturnType<typeof toProductDto>;
@@ -202,9 +210,13 @@ export async function getProductForm(session: StaffSessionDto, productId?: strin
 
 export type ProductField = keyof ProductInput;
 
+// "image": foto opcional al crear.
+export type ProductFormField = ProductField | "image";
+
 export type SaveProductResult =
-  | { ok: true; productId: string }
-  | { ok: false; fieldErrors: Partial<Record<ProductField, string>>; error?: string };
+  // imageFailed: el producto se creó pero la foto no se pudo subir.
+  | { ok: true; productId: string; imageFailed?: boolean }
+  | { ok: false; fieldErrors: Partial<Record<ProductFormField, string>>; error?: string };
 
 const PRODUCT_GONE = "El producto ya no existe. Actualiza la página.";
 
@@ -236,15 +248,29 @@ const INACTIVE_CATEGORY: SaveProductResult = {
   fieldErrors: { categoryId: "Esa categoría está inactiva. Actívala o elige otra." },
 };
 
+// La foto es opcional. Se valida antes de crear: si no sirve, no se crea
+// nada. Si falla solo la subida (después de crear), el producto queda sin
+// foto y el resultado lo indica.
 export async function createCatalogProduct(
   session: StaffSessionDto,
   input: ProductInput,
   ctx: RequestContext,
+  image: Blob | null = null,
 ): Promise<SaveProductResult> {
   assertPermission(session, "catalog.manage");
   const companyId = session.company.id;
-  const parsed = await parseProduct(companyId, input);
-  if (!parsed.ok) return parsed;
+  const hasImage = Boolean(image && image.size > 0);
+  const [parsed, validImage] = await Promise.all([
+    parseProduct(companyId, input),
+    hasImage ? validateImage(image) : null,
+  ]);
+  const imageError = validImage && !validImage.ok ? validImage.error : undefined;
+  if (!parsed.ok || imageError) {
+    return {
+      ok: false,
+      fieldErrors: { ...(parsed.ok ? {} : parsed.fieldErrors), image: imageError },
+    };
+  }
 
   const category = await findProductCategory(companyId, parsed.data.categoryId);
   if (category && !category.isActive) return INACTIVE_CATEGORY;
@@ -253,7 +279,15 @@ export async function createCatalogProduct(
   if (status !== "OK") return statusError(status);
   if (!id) throw new Error("createProduct no devolvió el id");
   await auditProduct(session, PRODUCT_EVENTS.CREATED, id, ctx);
-  return { ok: true, productId: id };
+
+  if (!hasImage) return { ok: true, productId: id };
+  let uploaded = false;
+  try {
+    uploaded = (await updateProductImage(session, id, image, ctx)).ok;
+  } catch (error) {
+    console.error("createCatalogProduct: no se pudo subir la foto", (error as Error).message);
+  }
+  return { ok: true, productId: id, imageFailed: !uploaded };
 }
 
 export async function updateCatalogProduct(
@@ -323,5 +357,40 @@ export async function setCatalogProductAvailable(
   if (current.isAvailable === available) return { ok: true };
   await setProductAvailable(session.company.id, productId, available);
   await auditProduct(session, PRODUCT_EVENTS.AVAILABILITY_CHANGED, productId, ctx);
+  return { ok: true };
+}
+
+// --- Foto del producto ------------------------------------------------------
+
+export async function updateProductImage(
+  session: StaffSessionDto,
+  productId: string,
+  file: Blob | null,
+  ctx: RequestContext,
+): Promise<CatalogResult> {
+  assertPermission(session, "catalog.manage");
+  const companyId = session.company.id;
+  if (!(await findProduct(companyId, productId))) return { ok: false, error: PRODUCT_GONE };
+  const result = await replaceImage({
+    file,
+    pathPrefix: `companies/${companyId}/products/${productId}`,
+    savePath: (path) => replaceProductImagePath(companyId, productId, path),
+  });
+  if (result.ok) await auditProduct(session, PRODUCT_EVENTS.IMAGE_UPDATED, productId, ctx);
+  return result;
+}
+
+export async function removeProductImage(
+  session: StaffSessionDto,
+  productId: string,
+  ctx: RequestContext,
+): Promise<CatalogResult> {
+  assertPermission(session, "catalog.manage");
+  const companyId = session.company.id;
+  if (!(await findProduct(companyId, productId))) return { ok: false, error: PRODUCT_GONE };
+  const previous = await replaceProductImagePath(companyId, productId, null);
+  if (!previous) return { ok: true };
+  await removeFileQuietly(previous);
+  await auditProduct(session, PRODUCT_EVENTS.IMAGE_REMOVED, productId, ctx);
   return { ok: true };
 }

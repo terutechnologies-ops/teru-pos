@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useActionState, useState, type ReactNode } from "react";
-import { Loader2, Package, Save, TriangleAlert } from "lucide-react";
+import { ImagePlus, Loader2, Package, Save, TriangleAlert } from "lucide-react";
 
+import { ImagePicker } from "@/components/shared/image-picker";
 import { SectionTitle } from "@/components/shared/section-title";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { currencyDecimals, currencyName, formatMoney } from "@/lib/company-formats";
 import { cn } from "@/lib/utils";
 
+import { ProductThumb } from "./product-thumb";
 import type {
   ProductFormState,
   ProductFormValues,
@@ -51,6 +53,9 @@ export function ProductForm({
   } satisfies ProductFormState);
   const { values, fieldErrors } = state;
   const [price, setPrice] = useState(values.price);
+  const [preparing, setPreparing] = useState(false);
+  // Al crear, la foto va en el mismo formulario; al editar, en su tarjeta.
+  const withImage = !productId;
   const decimals = currencyDecimals(currency);
   const amount = Number(price);
   const listHref = `/${companySlug}/catalogo/productos`;
@@ -154,11 +159,33 @@ export function ProductForm({
         </Field>
       </section>
 
+      {withImage && (
+        <section className="flex flex-col gap-5 rounded-xl bg-card p-5 shadow-sm sm:p-6">
+          <SectionTitle
+            icon={<ImagePlus className="size-5" aria-hidden />}
+            title="Foto (opcional)"
+            description="PNG, JPG o WebP. Puedes subir la foto del celular: se reduce antes de enviarla."
+          />
+          <ImagePicker
+            id="image"
+            current={<ProductThumb imageUrl={null} productName="" size="lg" />}
+            invalid={Boolean(fieldErrors.image)}
+            describedBy={fieldErrors.image || state.imageDropped ? "image-error" : undefined}
+            onPreparingChange={setPreparing}
+          />
+          {(fieldErrors.image || state.imageDropped) && (
+            <p id="image-error" className="text-xs font-medium text-destructive">
+              {fieldErrors.image ?? "Vuelve a elegir la foto: el navegador la descarta al corregir el formulario."}
+            </p>
+          )}
+        </section>
+      )}
+
       <div className="sticky bottom-0 -mx-4 -mb-6 flex items-center justify-end gap-3 border-t border-border bg-background/90 px-4 py-4 backdrop-blur md:-mx-8 md:px-8">
         <Button asChild variant="outline" className="h-11 px-4">
           <Link href={listHref}>Cancelar</Link>
         </Button>
-        <Button type="submit" disabled={pending} className="h-11 gap-2 px-5">
+        <Button type="submit" disabled={pending || preparing} className="h-11 gap-2 px-5">
           {pending ? <Loader2 className="animate-spin" aria-hidden /> : <Save aria-hidden />}
           {submitLabel}
         </Button>

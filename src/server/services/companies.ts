@@ -1,9 +1,7 @@
 import "server-only";
 
-import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
-import { LOGO_MAX_BYTES, LOGO_TYPES, detectLogoType } from "@/lib/company-logo";
 import type { RequestContext, StaffSessionDto } from "@/server/dto/auth";
 import { recordAuthEvent } from "@/server/data/auth-audit";
 import { findMainBranch } from "@/server/data/branches";
@@ -25,7 +23,12 @@ import {
 } from "@/server/services/auth/config";
 import { assertPermission } from "@/server/services/auth/permissions";
 import { generateToken, hashToken } from "@/server/services/auth/tokens";
-import { getFileStorage } from "@/server/services/storage";
+import {
+  publicFileUrl,
+  removeFileQuietly,
+  replaceImage,
+  type ImageResult,
+} from "@/server/services/images";
 import { companySlugSchema } from "@/server/validations/auth";
 import {
   companyProfileSchema,
@@ -170,11 +173,10 @@ export async function completeCompanySetup(
 
 // URL pública del logo, o null si no hay logo o no hay almacenamiento.
 export function companyLogoUrl(logoPath: string | null) {
-  if (!logoPath) return null;
-  return getFileStorage()?.publicUrl(logoPath) ?? null;
+  return publicFileUrl(logoPath);
 }
 
-export type CompanyLogoResult = { ok: true } | { ok: false; error: string };
+export type CompanyLogoResult = ImageResult;
 
 function auditCompany(session: StaffSessionDto, action: string, ctx: RequestContext) {
   return recordAuthEvent({
@@ -187,48 +189,19 @@ function auditCompany(session: StaffSessionDto, action: string, ctx: RequestCont
   });
 }
 
-// Borrar el archivo anterior no debe hacer fallar la operación: si falla,
-// queda un archivo huérfano, no un logo roto.
-async function removeFileQuietly(path: string) {
-  try {
-    await getFileStorage()?.remove(path);
-  } catch (error) {
-    console.error("removeFileQuietly: no se pudo borrar", (error as Error).message);
-  }
-}
-
-// Sube un logo nuevo con ruta única (así el navegador no muestra el viejo
-// desde su caché) y borra el anterior.
 export async function updateCompanyLogo(
   session: StaffSessionDto,
   file: Blob | null,
   ctx: RequestContext,
 ): Promise<CompanyLogoResult> {
   assertPermission(session, "company.manage");
-  const storage = getFileStorage();
-  if (!storage) {
-    return { ok: false, error: "No hay almacenamiento de archivos configurado." };
-  }
-  if (!file || file.size === 0) return { ok: false, error: "Elige una imagen." };
-  if (file.size > LOGO_MAX_BYTES) {
-    return { ok: false, error: "El logo no puede superar 1 MB." };
-  }
-  const bytes = new Uint8Array(await file.arrayBuffer());
-  const type = detectLogoType(bytes);
-  if (!type) return { ok: false, error: "Usa una imagen PNG, JPG o WebP." };
-
-  const path = `companies/${session.company.id}/logo-${randomUUID()}.${LOGO_TYPES[type]}`;
-  await storage.upload(path, bytes, type);
-  let previous: string | null;
-  try {
-    previous = await replaceCompanyLogoPath(session.company.id, path);
-  } catch (error) {
-    await removeFileQuietly(path);
-    throw error;
-  }
-  if (previous) await removeFileQuietly(previous);
-  await auditCompany(session, COMPANY_EVENTS.LOGO_UPDATED, ctx);
-  return { ok: true };
+  const result = await replaceImage({
+    file,
+    pathPrefix: `companies/${session.company.id}/logo`,
+    savePath: (path) => replaceCompanyLogoPath(session.company.id, path),
+  });
+  if (result.ok) await auditCompany(session, COMPANY_EVENTS.LOGO_UPDATED, ctx);
+  return result;
 }
 
 export async function removeCompanyLogo(

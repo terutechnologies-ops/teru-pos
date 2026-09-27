@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type { StaffRole } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
-import { LOGO_MAX_BYTES } from "@/lib/company-logo";
+import { IMAGE_MAX_BYTES } from "@/lib/images";
 import type { StaffSessionDto } from "@/server/dto/auth";
 import { COMPANY_EVENTS } from "@/server/services/auth/config";
 import { ForbiddenError } from "@/server/services/auth/permissions";
@@ -86,7 +86,7 @@ describe("logo de la empresa", () => {
   it("rechaza archivos vacíos, grandes o que no son imágenes permitidas", async () => {
     const owner = sessionFor(a, "OWNER");
     const svg = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"/>');
-    const big = new Uint8Array(LOGO_MAX_BYTES + 1);
+    const big = new Uint8Array(IMAGE_MAX_BYTES + 1);
     big.set(PNG);
 
     for (const file of [null, blob(new Uint8Array()), blob(svg, "image/svg+xml"), blob(big)]) {

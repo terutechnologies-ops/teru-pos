@@ -1,4 +1,4 @@
-import type { ProductField } from "@/server/services/catalog";
+import type { ProductField, ProductFormField } from "@/server/services/catalog";
 
 // Compartido entre los formularios de productos (cliente) y sus acciones
 // (servidor).
@@ -8,8 +8,11 @@ export type ProductFormValues = Record<ProductField, string>;
 export type ProductFormState = {
   status: "idle" | "error";
   message: string | null;
-  fieldErrors: Partial<Record<ProductField, string>>;
+  fieldErrors: Partial<Record<ProductFormField, string>>;
   values: ProductFormValues;
+  // Se había elegido una foto: el navegador la descarta al reiniciar el
+  // formulario, así que hay que pedir que la elijan de nuevo.
+  imageDropped?: boolean;
 };
 
 export type SaveProductAction = (
@@ -33,8 +36,10 @@ export type ProductIntent = (typeof PRODUCT_INTENTS)[number];
 
 export type ProductRowState = { error: string | null };
 
-// Aviso en la lista tras crear o guardar (?aviso=...).
+// Avisos por ?aviso=... En la lista: creado y guardado. En la página del
+// producto: sin-foto (se creó pero la foto no se pudo subir).
 export const PRODUCT_NOTICES = {
   creado: "Producto creado.",
   guardado: "Cambios guardados.",
+  "sin-foto": "Producto creado, pero no se pudo subir la foto. Inténtalo de nuevo aquí.",
 } as const;

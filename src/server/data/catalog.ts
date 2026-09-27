@@ -205,6 +205,23 @@ export async function updateProduct(
   });
 }
 
+// Cambia la ruta de la foto y devuelve la anterior (para borrar su
+// archivo). Lanza si el producto no existe en la empresa.
+export async function replaceProductImagePath(
+  companyId: string,
+  productId: string,
+  imagePath: string | null,
+) {
+  return db.$transaction(async (tx) => {
+    const current = await tx.product.findFirstOrThrow({
+      where: { id: productId, companyId },
+      select: { imagePath: true },
+    });
+    await tx.product.update({ where: { id: productId }, data: { imagePath } });
+    return current.imagePath;
+  });
+}
+
 export async function setProductArchived(
   companyId: string,
   productId: string,

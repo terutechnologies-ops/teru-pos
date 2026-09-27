@@ -1,10 +1,11 @@
-// Crea el bucket público de archivos de las empresas en Supabase Storage.
+// Crea el bucket público de archivos de las empresas (logos y fotos de
+// productos) en Supabase Storage.
 // Idempotente: si ya existe, no hace nada. Correr una vez por entorno.
 //
 // Uso: npm run storage:setup
 import "dotenv/config";
 
-import { LOGO_MAX_BYTES, LOGO_TYPES } from "@/lib/company-logo";
+import { IMAGE_MAX_BYTES, IMAGE_TYPES } from "@/lib/images";
 import { getStorageConfig } from "@/server/env";
 
 async function main() {
@@ -20,8 +21,8 @@ async function main() {
       name: config.bucket,
       public: true,
       // Límites también en el proveedor, además de la validación propia.
-      file_size_limit: LOGO_MAX_BYTES,
-      allowed_mime_types: Object.keys(LOGO_TYPES),
+      file_size_limit: IMAGE_MAX_BYTES,
+      allowed_mime_types: Object.keys(IMAGE_TYPES),
     }),
   });
   const body = await response.text();
