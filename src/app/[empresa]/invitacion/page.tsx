@@ -5,7 +5,7 @@ import { UserPlus } from "lucide-react";
 import { AuthShell } from "@/components/shared/auth-shell";
 import { NewPasswordForm } from "@/components/shared/new-password-form";
 import { STAFF_ROLE_LABELS } from "@/lib/staff-roles";
-import { getActiveCompanyBySlug } from "@/server/services/companies";
+import { getRequestCompany } from "@/server/http/company";
 import { getInvitationPreview } from "@/server/services/team";
 import { PASSWORD_MIN_LENGTH } from "@/server/validations/auth";
 
@@ -24,7 +24,7 @@ export default async function InvitationPage({
 }: PageProps<"/[empresa]/invitacion">) {
   const { empresa } = await params;
   const { token } = await searchParams;
-  const company = await getActiveCompanyBySlug(empresa);
+  const company = await getRequestCompany(empresa);
   if (!company) notFound();
 
   const tokenValue = typeof token === "string" ? token : "";
@@ -45,7 +45,7 @@ export default async function InvitationPage({
     >
       {invitation ? (
         <>
-          <div className="mb-5 rounded-lg bg-muted px-4 py-3 text-sm">
+          <div className="mb-5 rounded-xl bg-muted px-4 py-3 text-sm">
             <span className="block text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
               Tu usuario
             </span>

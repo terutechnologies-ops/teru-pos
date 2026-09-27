@@ -1,9 +1,13 @@
 import type { ReactNode } from "react";
 import { Store } from "lucide-react";
 
-// Marco común de las pantallas de acceso (login y recuperación): fondo de
-// marca en morado oscuro con brillos morado y lima, y tarjeta clara centrada
-// (esquema híbrido de la paleta TERU).
+import { PlatformMark } from "@/components/shared/platform-mark";
+
+// Marco común de las pantallas de acceso (login, recuperación, invitación).
+// Misma estructura que la raíz de la plataforma: marco translúcido sobre el
+// fondo de marca, tarjeta clara con la identidad de la empresa y tarjeta
+// interna con el contenido. Dentro de una empresa se usa el ícono de tienda,
+// no el logo de Teru POS.
 export function AuthShell({
   companyName,
   icon,
@@ -20,46 +24,52 @@ export function AuthShell({
   children: ReactNode;
 }) {
   return (
-    <div className="flex flex-1 flex-col bg-brand text-brand-foreground">
-      <header className="px-4 pt-6 md:px-12">
-        <div className="mx-auto flex max-w-5xl items-center gap-3">
-          <span className="flex size-9 items-center justify-center rounded-full bg-highlight text-highlight-foreground">
-            <Store className="size-5" aria-hidden />
-          </span>
-          <span className="text-lg font-bold tracking-tight">{companyName}</span>
-        </div>
-      </header>
+    <div className="relative flex flex-1 flex-col overflow-hidden bg-brand">
+      <div className="pointer-events-none absolute -top-40 -left-40 size-[36rem] rounded-full bg-primary/40 blur-[120px]" />
+      <div className="pointer-events-none absolute -right-32 -bottom-32 size-[30rem] rounded-full bg-primary/25 blur-[140px]" />
 
-      <main className="flex flex-1 items-center justify-center px-4 py-8">
-        <div className="relative w-full max-w-[460px]">
-          <div className="pointer-events-none absolute -top-12 -left-12 size-48 rounded-full bg-primary/45 blur-3xl" />
-          <div className="pointer-events-none absolute -right-10 -bottom-10 size-52 rounded-full bg-highlight/15 blur-3xl" />
-
-          <div className="relative z-10 rounded-xl bg-card p-6 text-card-foreground shadow-xl sm:p-8">
-            <div className="mb-6 flex flex-col items-center text-center">
-              {icon && (
-                <div className="mb-4 flex size-16 items-center justify-center rounded-full bg-accent text-accent-foreground shadow-sm">
-                  {icon}
-                </div>
-              )}
-              {eyebrow && (
-                <span className="mb-1 text-[11px] font-bold tracking-widest text-accent-foreground uppercase">
-                  {eyebrow}
-                </span>
-              )}
-              <h1 className="mb-2 text-[22px] leading-7 font-extrabold">
-                {title}
-              </h1>
-              {description && (
-                <p className="max-w-xs text-sm text-muted-foreground">
-                  {description}
+      <main className="relative z-10 flex flex-1 items-center justify-center px-4 py-10">
+        <div className="w-full max-w-[480px] rounded-[28px] border border-white/20 bg-white/10 p-2.5 shadow-2xl backdrop-blur-md sm:p-3">
+          <div className="flex flex-col items-center gap-6 rounded-[20px] bg-background px-5 py-8 sm:px-8 sm:py-10">
+            <div className="flex flex-col items-center gap-3 text-center">
+              <span className="flex size-16 items-center justify-center rounded-2xl bg-brand text-highlight shadow-md">
+                <Store className="size-8" aria-hidden />
+              </span>
+              <div>
+                <p className="text-3xl font-extrabold tracking-tight">
+                  {companyName}
                 </p>
-              )}
+                {eyebrow && (
+                  <p className="mt-1 text-[11px] font-bold tracking-widest text-accent-foreground uppercase">
+                    {eyebrow}
+                  </p>
+                )}
+              </div>
             </div>
-            {children}
+
+            <div className="w-full rounded-2xl border border-border bg-card p-5 text-card-foreground shadow-lg sm:p-6">
+              <div className="mb-6 flex flex-col items-center text-center">
+                {icon && (
+                  <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-accent text-accent-foreground [&_svg]:size-6">
+                    {icon}
+                  </div>
+                )}
+                <h1 className="text-xl leading-7 font-extrabold">{title}</h1>
+                {description && (
+                  <p className="mt-1.5 max-w-xs text-sm text-muted-foreground">
+                    {description}
+                  </p>
+                )}
+              </div>
+              {children}
+            </div>
           </div>
         </div>
       </main>
+
+      <footer className="relative z-10 px-4 pb-6 text-center">
+        <PlatformMark />
+      </footer>
     </div>
   );
 }

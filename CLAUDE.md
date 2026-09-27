@@ -280,7 +280,8 @@ hasta que exista la navegación del panel.
   la empresa abierta (p. ej. la del propietario), el login redirige con esa
   sesión y el invitado no entra con su cuenta. En incógnito funciona bien
   (probado por el usuario el 2026-09-26). **Decisión del usuario: se deja
-  así**, porque el invitado abre el enlace desde su propio equipo.
+  así**, porque el invitado abre el enlace desde su propio equipo. Mitigado
+  después: el login ahora muestra la sesión abierta y permite cerrarla.
 
 ### Sesión 2026-09-24 — resumen
 
@@ -297,8 +298,96 @@ hasta que exista la navegación del panel.
 - Componente 4 (paso Equipo) implementado, verificado y **aprobado** por el
   usuario (probado en el navegador, en incógnito para el invitado).
 
+### Componente 5 — Confirmar y cierre (diseño aprobado, sin implementar)
+
+Aprobado por el usuario el 2026-09-26:
+- `/configuracion/confirmar`: resumen en tarjetas (Negocio con ejemplo de
+  moneda y fecha y enlace "Editar"; Sede principal con la dirección de
+  Negocio; Equipo con miembros activos e invitaciones pendientes y enlace
+  "Editar"), bloque "Todo listo" con "Finalizar configuración" y "Atrás".
+- `completeCompanySetup(session)`: `company.setup`, `markCompanySetupCompleted`,
+  evento `COMPANY_SETUP_COMPLETED` en auditoría y redirección al panel;
+  idempotente.
+- Las invitaciones pendientes no bloquean el cierre.
+- Tras finalizar, el asistente se cierra y no hay dónde editar negocio ni
+  equipo hasta que exista la navegación del panel: **lo primero de la
+  siguiente fase** será el esqueleto del panel con su sección de
+  configuración.
+- Pruebas de integración + prueba manual por HTTP; revisión de la fase 2,
+  ADR 0002 y README.
+
+### Ajustes previos al componente 5 (aprobados 2026-09-26)
+
+1. **Plataforma vs. empresa cliente.** Teru POS es la plataforma; Su Arepa es
+   una empresa cliente (tenant), no la compañía del sistema. El usuario había
+   cambiado a mano en `su-arepa-dev` el slug de Su Arepa a `teru-pos`; se
+   devolvió a `su-arepa` con un script de un solo uso (no queda en el repo).
+   El slug se considera fijo: va en enlaces enviados por correo. Si algún
+   día hay que cambiarlo, será con un script de soporte con auditoría, no
+   editando la BD.
+2. **Marca Teru POS visible:** `src/lib/brand.ts` (`PLATFORM_NAME`),
+   `components/shared/platform-mark.tsx` ("Con la tecnología de Teru POS")
+   en el pie de `AuthShell` y bajo el nombre de la empresa en el encabezado
+   del asistente. Títulos de pestaña "Página · Empresa · Teru POS": plantilla
+   en `app/layout.tsx` y en el nuevo `[empresa]/layout.tsx`
+   (`generateMetadata`), con `getRequestCompany` (`server/http/company.ts`,
+   `cache()` para no repetir la consulta en la página).
+3. **Página raíz `/`:** reemplaza la plantilla de Next; presenta Teru POS con
+   un formulario "Ingresa a tu empresa" (`company-finder.tsx` + Server
+   Action `findCompanyAction` en `app/actions.ts`; POST para que al recargar
+   no se repita la búsqueda ni quede lo escrito en la URL): `toCompanySlug` (`validations/auth.ts`) normaliza lo escrito ("Su
+   Arepa", "/su-arepa/login", tildes) y redirige a `/[slug]/login`; si no
+   existe, avisa en la misma página. No lista empresas (saber si una existe
+   ya era posible probando la URL). Idea para después: recordar la última
+   empresa usada.
+   Diseño de la raíz (referencia del usuario, colores de la paleta): marco
+   translúcido, tarjeta clara con el logo de Teru POS, título y subtítulo, y
+   tarjeta interna con el formulario (ícono de tienda dentro del campo,
+   botón morado con sombra). El sufijo ".teru.app" de la referencia no se
+   usó porque las URL son por ruta (`/empresa`), no por subdominio. El
+   degradado morado→verde del botón y el brillo verde tampoco: con esta
+   paleta el lima sobre morado oscuro se ve gris oliva, así que ambos
+   brillos son morados.
+   Logo: `src/assets/brand/logo-teru.png` (256 px), sacado de
+   `../logo-teru.png`, que trae el cuadriculado de "transparencia" pintado;
+   se recortó con máscara y alfa real. Importación estática para que el
+   nombre cambie con el contenido (el optimizador de imágenes de `next dev`
+   guardaba la versión vieja de `public/`). **Solo se usa en `/`**: dentro de
+   cada empresa sigue el ícono de tienda.
+4. **Pantallas de acceso con la misma estructura** (`AuthShell`): login,
+   recuperar, restablecer e invitación. Marco translúcido, tarjeta clara
+   con la identidad de la empresa (ícono de tienda lima sobre morado
+   oscuro, nombre y "eyebrow") y tarjeta interna con ícono de la página,
+   título, descripción y formulario. Sin encabezado superior; firma "Con la
+   tecnología de Teru POS" al pie. Campos (`auth-fields`) y botones de acceso
+   con el estilo del formulario de la raíz: borde de 2 px, `rounded-xl`,
+   anillo de foco morado y sombra morada en el botón. La API de `AuthShell`
+   no cambió.
+5. **Login con sesión abierta** (error reportado por el usuario: desde
+   recuperar, "Volver a iniciar sesión" terminaba en el asistente). El login
+   ya no redirige en silencio al panel si hay sesión: muestra "Ya iniciaste
+   sesión" con el usuario, "Continuar" y "Cerrar sesión y usar otra cuenta"
+   (`login/active-session.tsx`, reutiliza `logoutAction`). Probado por HTTP:
+   login → recuperar → login muestra la sesión → cerrar → formulario.
+
+Verificado: typecheck, lint, build, pruebas unitarias (35) y consultas HTTP
+(títulos, firma, formulario de `/` y `/teru-pos/login` → 404).
+
+### Sesión 2026-09-26 — cierre
+
+- Componente 4 aprobado y subido (`b1bcc81`).
+- Diseño del componente 5 aprobado (ver arriba), sin implementar.
+- Ajustes previos al componente 5 (puntos 1–5) aprobados por el usuario y
+  subidos. Verificado: typecheck, lint, build, pruebas unitarias y pruebas
+  por HTTP. La suite de integración no se volvió a correr después de estos
+  ajustes (no tocaron servicios ni datos, salvo `toCompanySlug`, que tiene
+  pruebas unitarias).
+- El usuario tiene más novedades de su prueba completa que aún no reportó.
+
 ### Próximo paso recomendado
 
-Analizar/Diseñar el componente 5: la página `/configuracion/confirmar` con
-el resumen, marcar `setupCompletedAt` (`markCompanySetupCompleted` ya
-existe), pruebas, revisión de la fase, ADR 0002 y README.
+Pedir al usuario el resto de novedades de su prueba completa y atenderlas
+una por una (analizar antes de cambiar código). Después, implementar el
+componente 5 con el diseño ya aprobado y cerrar la fase 2 (revisión, ADR
+0002, README). Luego, lo primero de la siguiente fase: el esqueleto del
+panel con su sección de configuración.

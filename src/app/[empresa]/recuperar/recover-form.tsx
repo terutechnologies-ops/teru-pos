@@ -35,7 +35,7 @@ export function RecoverForm({ companySlug }: { companySlug: string }) {
   if (state.status === "sent") {
     return (
       <div className="space-y-6 text-center" aria-live="polite">
-        <div className="flex flex-col items-center gap-3 rounded-lg bg-muted p-5">
+        <div className="flex flex-col items-center gap-3 rounded-xl bg-muted p-5">
           <MailCheck className="size-8 text-accent-foreground" aria-hidden />
           <p className="text-sm">
             Si <strong>{state.email}</strong> está registrado, recibirás un
@@ -71,7 +71,7 @@ export function RecoverForm({ companySlug }: { companySlug: string }) {
       <Button
         type="submit"
         disabled={pending}
-        className="h-12 w-full gap-2 text-[15px] font-bold shadow-md hover:shadow-lg"
+        className="h-12 w-full gap-2 rounded-xl text-[15px] font-bold shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40"
       >
         {pending ? (
           <>

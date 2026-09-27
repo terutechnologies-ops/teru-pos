@@ -11,6 +11,20 @@ export const companySlugSchema = z
   .max(64)
   .refine((slug) => !RESERVED_SLUGS.has(slug));
 
+// Lo que una persona escribe para buscar su empresa ("Su Arepa",
+// "/su-arepa/login", "Café Ñandú") llevado a forma de slug. El resultado
+// igual se valida con companySlugSchema.
+export function toCompanySlug(input: string) {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/^.*?\/?([^/]+)\/login\/?$/, "$1")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 export const emailSchema = z.string().trim().toLowerCase().pipe(z.email().max(254));
 
 export const staffLoginSchema = z.object({

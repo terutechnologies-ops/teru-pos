@@ -5,7 +5,7 @@ import { LockKeyhole } from "lucide-react";
 import { AuthShell } from "@/components/shared/auth-shell";
 import { NewPasswordForm } from "@/components/shared/new-password-form";
 import { isStaffResetTokenValid } from "@/server/services/auth/password-reset";
-import { getActiveCompanyBySlug } from "@/server/services/companies";
+import { getRequestCompany } from "@/server/http/company";
 import { PASSWORD_MIN_LENGTH } from "@/server/validations/auth";
 
 import { InvalidLink } from "./invalid-link";
@@ -23,7 +23,7 @@ export default async function ResetPage({
 }: PageProps<"/[empresa]/restablecer">) {
   const { empresa } = await params;
   const { token } = await searchParams;
-  const company = await getActiveCompanyBySlug(empresa);
+  const company = await getRequestCompany(empresa);
   if (!company) notFound();
 
   const tokenValue = typeof token === "string" ? token : "";

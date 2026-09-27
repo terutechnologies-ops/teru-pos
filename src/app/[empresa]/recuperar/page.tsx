@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { KeyRound } from "lucide-react";
 
 import { AuthShell } from "@/components/shared/auth-shell";
-import { getActiveCompanyBySlug } from "@/server/services/companies";
+import { getRequestCompany } from "@/server/http/company";
 
 import { RecoverForm } from "./recover-form";
 
@@ -13,7 +13,7 @@ export default async function RecoverPage({
   params,
 }: PageProps<"/[empresa]/recuperar">) {
   const { empresa } = await params;
-  const company = await getActiveCompanyBySlug(empresa);
+  const company = await getRequestCompany(empresa);
   if (!company) notFound();
 
   return (

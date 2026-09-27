@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
+
+import { PLATFORM_NAME } from "@/lib/brand";
+
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -8,7 +11,7 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Teru POS",
+  title: { template: `%s · ${PLATFORM_NAME}`, default: PLATFORM_NAME },
   description: "Sistema de gestión multiempresa",
 };
 

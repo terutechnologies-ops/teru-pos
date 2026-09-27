@@ -4,7 +4,21 @@ import {
   companySlugSchema,
   passwordResetSchema,
   staffLoginSchema,
+  toCompanySlug,
 } from "@/server/validations/auth";
+
+describe("toCompanySlug", () => {
+  it.each([
+    ["Su Arepa", "su-arepa"],
+    ["  su-arepa ", "su-arepa"],
+    ["/su-arepa/login", "su-arepa"],
+    ["http://localhost:3000/su-arepa/login", "su-arepa"],
+    ["Café Ñandú & Cía.", "cafe-nandu-cia"],
+    ["--", ""],
+  ])("%j → %j", (input, slug) => {
+    expect(toCompanySlug(input)).toBe(slug);
+  });
+});
 
 describe("companySlugSchema", () => {
   it("normaliza a minúsculas y acepta guiones", () => {

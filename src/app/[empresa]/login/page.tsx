@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { CircleCheck } from "lucide-react";
 
 import { AuthShell } from "@/components/shared/auth-shell";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getCurrentStaffSession } from "@/server/http/staff-session";
-import { getActiveCompanyBySlug } from "@/server/services/companies";
+import { getRequestCompany } from "@/server/http/company";
 
+import { ActiveSession } from "./active-session";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = { title: "Iniciar sesión" };
@@ -17,10 +18,10 @@ export default async function LoginPage({
 }: PageProps<"/[empresa]/login">) {
   const { empresa } = await params;
   const { restablecida, cuenta } = await searchParams;
-  const company = await getActiveCompanyBySlug(empresa);
+  const company = await getRequestCompany(empresa);
   if (!company) notFound();
 
-  if (await getCurrentStaffSession(company.slug)) redirect(`/${company.slug}`);
+  const session = await getCurrentStaffSession(company.slug);
 
   const notice =
     restablecida === "1"
@@ -33,8 +34,12 @@ export default async function LoginPage({
     <AuthShell
       companyName={company.name}
       eyebrow="Panel de gestión"
-      title="¡Bienvenido de vuelta!"
-      description={`Ingresa con tu cuenta de ${company.name} para continuar.`}
+      title={session ? "Ya iniciaste sesión" : "¡Bienvenido de vuelta!"}
+      description={
+        session
+          ? "Continúa con esta cuenta o cierra la sesión para entrar con otra."
+          : `Ingresa con tu cuenta de ${company.name} para continuar.`
+      }
     >
       {notice && (
         <Alert className="mb-5">
@@ -42,7 +47,11 @@ export default async function LoginPage({
           <AlertDescription>{notice}</AlertDescription>
         </Alert>
       )}
-      <LoginForm companySlug={company.slug} />
+      {session ? (
+        <ActiveSession companySlug={company.slug} user={session.user} />
+      ) : (
+        <LoginForm companySlug={company.slug} />
+      )}
     </AuthShell>
   );
 }

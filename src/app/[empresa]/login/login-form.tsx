@@ -79,7 +79,7 @@ export function LoginForm({ companySlug }: { companySlug: string }) {
       <Button
         type="submit"
         disabled={pending}
-        className="h-12 w-full gap-2 text-[15px] font-bold shadow-md hover:shadow-lg"
+        className="h-12 w-full gap-2 rounded-xl text-[15px] font-bold shadow-lg shadow-primary/30 hover:shadow-xl hover:shadow-primary/40"
       >
         {pending ? (
           <>

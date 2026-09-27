@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 // Campos con ícono usados en las pantallas de acceso (login y recuperación).
 
 const fieldClass =
-  "h-12 rounded-lg border-transparent bg-muted pl-11 text-sm focus-visible:bg-card";
+  "h-12 rounded-xl border-2 border-input bg-card pl-11 text-sm shadow-none focus-visible:border-ring focus-visible:ring-4 focus-visible:ring-ring/20";
 const iconClass =
   "pointer-events-none absolute left-4 size-5 text-muted-foreground";
 
