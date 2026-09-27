@@ -621,10 +621,52 @@ guardarlo en la BD), para reutilizarlo con las fotos de productos.
 - Verificado en el componente 4: typecheck, lint, build y suite 97/97; este
   componente solo cambia documentación.
 
+## Sesión 2026-09-27 — Fase 4: catálogo de venta
+
+Sin diseño nuevo; referencia: pasos de insumos y producto/receta de
+`../Diseño_configuracion_empresa.txt` (solo intención). Orden acordado por
+capas: catálogo (fase 4) → inventario (insumos, unidades, bodegas,
+movimientos) → recetas y costos → ventas/POS.
+
+Decisiones del usuario (2026-09-27):
+- **Alcance:** catálogo de venta (categorías y productos con precio y
+  foto). Sin insumos, recetas, costos, stock, impuestos, precios por
+  sucursal ni combos.
+- **Un precio por producto** (precio final al público); listas de precios
+  cuando haya un caso real.
+- **Opciones/adiciones** (tamaño, extras) se diseñan con el POS.
+- **`catalog.manage`:** OWNER y ADMIN.
+
+Componentes aprobados: 1) modelo de datos y permiso; 2) categorías;
+3) productos; 4) foto del producto; 5) cierre (ADR 0004, README). Menú:
+grupo "Catálogo" con Productos y Categorías.
+
+### Componente 1 — Modelo de datos del catálogo (aprobado 2026-09-27)
+
+- Migración `20260927200000_add_catalog` (**aplicada en test y dev**):
+  `product_categories` (nombre, `position`, `isActive`) y `products`
+  (categoría obligatoria, nombre, descripción, `price Decimal(12,2)`,
+  `imagePath`, `isArchived`, `isAvailable` = agotado). Solo en SQL: índices
+  únicos por empresa sobre `lower(name)` en ambas tablas y
+  `CHECK (price >= 0)`. RLS habilitado. El diff de Prisma queda vacío (no
+  toca índices de expresión).
+- Aislamiento en la BD: FK compuesta `products(companyId, categoryId)` →
+  `product_categories(companyId, id)` (`@@unique([companyId, id])`).
+  `onDelete: Restrict`: una categoría con productos (aun archivados) no se
+  borra.
+- `catalog.manage` para OWNER y ADMIN.
+- `src/server/data/catalog.ts`: categorías (listar con conteo, crear al
+  final, renombrar, activar, mover arriba/abajo renumerando, borrar solo si
+  nunca tuvo productos) y productos (listar por orden de categoría y nombre
+  con búsqueda/filtro/archivados, buscar, crear, editar, archivar, agotado).
+  Escrituras devuelven `OK | NOT_FOUND | NAME_TAKEN | CATEGORY_NOT_FOUND`
+  (P2002/P2003). El precio entra como texto decimal ya validado (la
+  validación por decimales de la moneda va en el servicio, componente 3).
+- `tests/helpers.ts` limpia productos y categorías.
+- Pruebas: `tests/integration/catalog-data.test.ts` (6) + permiso.
+  Verificado: typecheck, lint, build, suite 104/104.
+
 ### Próximo paso recomendado
 
-Fase 3 cerrada y subida. Siguiente fase por definir con el usuario
-(Analizar primero). Candidatos: módulo de productos y menú (primer
-módulo de negocio; reutiliza el almacenamiento de archivos para fotos),
-o conectar el proveedor de correo real. Pendiente antes de producción:
-proveedor de correo, clave de Storage y bucket por entorno.
+Fase 4: aprobación del componente 1; luego diseño del componente 2
+(categorías: servicio, pantalla y menú "Catálogo").

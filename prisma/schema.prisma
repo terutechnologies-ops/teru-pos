@@ -45,11 +45,13 @@ model Company {
   // pública depende del proveedor configurado). null = sin logo.
   logoPath         String?
 
-  users            User[]
-  userSessions     UserSession[]
-  customers        Customer[]
-  branches         Branch[]
-  staffInvitations StaffInvitation[]
+  users             User[]
+  userSessions      UserSession[]
+  customers         Customer[]
+  branches          Branch[]
+  staffInvitations  StaffInvitation[]
+  productCategories ProductCategory[]
+  products          Product[]
 
   @@map("companies")
 }
@@ -70,6 +72,55 @@ model Branch {
   @@unique([companyId, name])
   @@index([companyId])
   @@map("branches")
+}
+
+// --- Catálogo de venta ---------------------------------------------------
+
+// Categoría del catálogo. `position` es el orden en que se muestran (POS).
+// La migración agrega un índice único por empresa sobre lower(name), que
+// Prisma no puede declarar: "Bebidas" y "bebidas" son la misma.
+// Solo se borra si nunca tuvo productos (la FK de products lo impide).
+model ProductCategory {
+  id        String    @id @default(cuid())
+  companyId String
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  name      String
+  position  Int
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  products  Product[]
+
+  // Destino de la FK compuesta de products (aislamiento entre empresas).
+  @@unique([companyId, id])
+  @@index([companyId, position])
+  @@map("product_categories")
+}
+
+// Producto de venta. No se borra (lo referenciarán las ventas): se archiva.
+// La categoría se enlaza por (companyId, categoryId), así la BD impide
+// usar una categoría de otra empresa. Nombre único por empresa sobre
+// lower(name), en la migración.
+model Product {
+  id          String          @id @default(cuid())
+  companyId   String
+  company     Company         @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  categoryId  String
+  category    ProductCategory @relation(fields: [companyId, categoryId], references: [companyId, id], onDelete: Restrict)
+  name        String
+  description String?
+  // Precio final al público, en la moneda de la empresa.
+  price       Decimal         @db.Decimal(12, 2)
+  // Ruta de la foto en el almacenamiento de archivos (null = sin foto).
+  imagePath   String?
+  isArchived  Boolean         @default(false)
+  // false = agotado: sigue en el catálogo pero no se puede vender.
+  isAvailable Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([companyId, categoryId])
+  @@map("products")
 }
 
 // --- Personal interno (login "panel operativo") -----------------------
