@@ -1,6 +1,7 @@
 "use server";
 
 import { refresh } from "next/cache";
+import { redirect } from "next/navigation";
 
 import { requirePermission } from "@/server/http/staff-session";
 import { saveCompanyProfile } from "@/server/services/companies";
@@ -56,5 +57,5 @@ export async function saveCompanyProfileAction(
 
   // El nombre de la empresa aparece en el encabezado del asistente.
   refresh();
-  return { status: "saved", message: null, fieldErrors: {}, values };
+  redirect(`/${session.company.slug}/configuracion/equipo`);
 }

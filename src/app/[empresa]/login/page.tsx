@@ -16,11 +16,18 @@ export default async function LoginPage({
   searchParams,
 }: PageProps<"/[empresa]/login">) {
   const { empresa } = await params;
-  const { restablecida } = await searchParams;
+  const { restablecida, cuenta } = await searchParams;
   const company = await getActiveCompanyBySlug(empresa);
   if (!company) notFound();
 
   if (await getCurrentStaffSession(company.slug)) redirect(`/${company.slug}`);
+
+  const notice =
+    restablecida === "1"
+      ? "Tu contraseña se actualizó. Ya puedes iniciar sesión."
+      : cuenta === "creada"
+        ? "Tu cuenta quedó creada. Ya puedes iniciar sesión."
+        : null;
 
   return (
     <AuthShell
@@ -29,12 +36,10 @@ export default async function LoginPage({
       title="¡Bienvenido de vuelta!"
       description={`Ingresa con tu cuenta de ${company.name} para continuar.`}
     >
-      {restablecida === "1" && (
+      {notice && (
         <Alert className="mb-5">
           <CircleCheck className="text-success" />
-          <AlertDescription>
-            Tu contraseña se actualizó. Ya puedes iniciar sesión.
-          </AlertDescription>
+          <AlertDescription>{notice}</AlertDescription>
         </Alert>
       )}
       <LoginForm companySlug={company.slug} />

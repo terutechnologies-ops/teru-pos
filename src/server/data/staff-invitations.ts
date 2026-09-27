@@ -55,6 +55,17 @@ export async function findValidStaffInvitation(
   });
 }
 
+// Pendiente aunque esté vencida: sirve para reenviarla con un enlace nuevo.
+export async function findPendingStaffInvitation(
+  invitationId: string,
+  companyId: string,
+) {
+  return db.staffInvitation.findFirst({
+    where: { id: invitationId, companyId, ...pending },
+    select: { id: true, email: true, name: true, role: true },
+  });
+}
+
 export async function listPendingStaffInvitations(companyId: string) {
   return db.staffInvitation.findMany({
     where: { companyId, ...pending },

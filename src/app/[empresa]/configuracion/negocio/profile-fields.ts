@@ -9,7 +9,7 @@ export const OTHER_CURRENCY = "OTRA";
 export type ProfileFormValues = Record<CompanyProfileField, string>;
 
 export type ProfileFormState = {
-  status: "idle" | "saved" | "error";
+  status: "idle" | "error";
   message: string | null;
   fieldErrors: Partial<Record<CompanyProfileField, string>>;
   values: ProfileFormValues;

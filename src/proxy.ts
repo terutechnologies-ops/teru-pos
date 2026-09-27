@@ -13,7 +13,12 @@ const STAFF_SESSION_COOKIE = "staff_session";
 const NON_COMPANY_PREFIXES = new Set(["dev"]);
 
 // Subrutas de empresa accesibles sin sesión.
-const PUBLIC_COMPANY_PATHS = new Set(["login", "recuperar", "restablecer"]);
+const PUBLIC_COMPANY_PATHS = new Set([
+  "login",
+  "recuperar",
+  "restablecer",
+  "invitacion",
+]);
 
 export function proxy(request: NextRequest) {
   const [companySlug, section] = request.nextUrl.pathname

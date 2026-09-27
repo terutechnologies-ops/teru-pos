@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, type ReactNode } from "react";
 import { Check, Loader2, TriangleAlert } from "lucide-react";
 
 import { PasswordField } from "@/components/shared/auth-fields";
@@ -8,30 +8,47 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 
-import { resetPasswordAction, type ResetFormState } from "./actions";
-import { InvalidLink } from "./invalid-link";
+// Formulario de contraseña nueva con el token de un enlace (restablecer
+// contraseña y aceptar invitación).
 
-const initialState: ResetFormState = {
+export type NewPasswordFormState = {
+  formError: string | null;
+  tokenInvalid: boolean;
+  fieldErrors: { password?: string; confirmPassword?: string };
+};
+
+const initialState: NewPasswordFormState = {
   formError: null,
   tokenInvalid: false,
   fieldErrors: {},
 };
 
-export function ResetForm({
+export function NewPasswordForm({
+  action,
   companySlug,
   token,
   minLength,
+  passwordLabel,
+  submitLabel,
+  pendingLabel,
+  invalidLink,
 }: {
+  action: (
+    prev: NewPasswordFormState,
+    formData: FormData,
+  ) => Promise<NewPasswordFormState>;
   companySlug: string;
   token: string;
   minLength: number;
+  passwordLabel: string;
+  submitLabel: string;
+  pendingLabel: string;
+  // Se muestra si al enviar el enlace resulta inválido.
+  invalidLink: ReactNode;
 }) {
-  const [state, formAction, pending] = useActionState(
-    resetPasswordAction,
-    initialState,
-  );
+  const [state, formAction, pending] = useActionState(action, initialState);
 
-  if (state.tokenInvalid) return <InvalidLink companySlug={companySlug} />;
+  if (state.tokenInvalid) return invalidLink;
 
   return (
     <form action={formAction} className="space-y-5">
@@ -46,7 +63,7 @@ export function ResetForm({
 
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="password" className="text-[13px] font-semibold">
-          Nueva contraseña
+          {passwordLabel}
         </Label>
         <PasswordField
           id="password"
@@ -92,11 +109,11 @@ export function ResetForm({
         {pending ? (
           <>
             <Loader2 className="animate-spin" aria-hidden />
-            Guardando…
+            {pendingLabel}
           </>
         ) : (
           <>
-            Guardar contraseña
+            {submitLabel}
             <Check aria-hidden />
           </>
         )}

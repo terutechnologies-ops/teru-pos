@@ -9,7 +9,6 @@ import {
 import {
   ArrowRight,
   BadgeCheck,
-  CircleCheck,
   Loader2,
   MapPin,
   Mail,
@@ -93,15 +92,6 @@ export function ProfileForm({
         <Alert variant="destructive" aria-live="polite">
           <TriangleAlert />
           <AlertDescription>{state.message}</AlertDescription>
-        </Alert>
-      )}
-      {state.status === "saved" && (
-        <Alert aria-live="polite">
-          <CircleCheck className="text-success" />
-          <AlertDescription>
-            Datos guardados. El siguiente paso (Equipo) estará disponible
-            pronto.
-          </AlertDescription>
         </Alert>
       )}
 

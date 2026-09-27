@@ -3,12 +3,13 @@ import { notFound } from "next/navigation";
 import { LockKeyhole } from "lucide-react";
 
 import { AuthShell } from "@/components/shared/auth-shell";
+import { NewPasswordForm } from "@/components/shared/new-password-form";
 import { isStaffResetTokenValid } from "@/server/services/auth/password-reset";
 import { getActiveCompanyBySlug } from "@/server/services/companies";
 import { PASSWORD_MIN_LENGTH } from "@/server/validations/auth";
 
 import { InvalidLink } from "./invalid-link";
-import { ResetForm } from "./reset-form";
+import { resetPasswordAction } from "./actions";
 
 export const metadata: Metadata = {
   title: "Restablecer contraseña",
@@ -41,10 +42,15 @@ export default async function ResetPage({
       }
     >
       {valid ? (
-        <ResetForm
+        <NewPasswordForm
+          action={resetPasswordAction}
           companySlug={company.slug}
           token={tokenValue}
           minLength={PASSWORD_MIN_LENGTH}
+          passwordLabel="Nueva contraseña"
+          submitLabel="Guardar contraseña"
+          pendingLabel="Guardando…"
+          invalidLink={<InvalidLink companySlug={company.slug} />}
         />
       ) : (
         <InvalidLink companySlug={company.slug} />

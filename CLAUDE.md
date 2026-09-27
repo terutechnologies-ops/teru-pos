@@ -120,8 +120,7 @@ Componentes:
 1. Modelo de datos — **aprobado** (2026-09-24, ver abajo).
 2. Autorización — **aprobado** (2026-09-24, ver abajo).
 3. Asistente paso 1 "Negocio" — **aprobado** (2026-09-24, ver abajo).
-4. Paso Equipo: invitar/listar/reenviar/revocar, desactivar miembros, página
-   `/[empresa]/invitacion?token=` para crear contraseña.
+4. Paso Equipo — **aprobado** (2026-09-26, ver abajo).
 5. Confirmación y cierre: resumen, marcar configuración completa, pruebas,
    revisión, ADR 0002 y README.
 
@@ -191,8 +190,8 @@ Componentes:
 - Formulario: moneda con 4 tarjetas + "Otra" (radio `OTRA` + selector con la
   lista completa; funciona sin JS), fecha en tarjetas, vista previa en vivo.
   Sin botón de borrador: cada guardado queda en BD y se retoma al volver.
-  Guardar llama a `refresh()` (el nombre sale en el encabezado). Hasta el
-  componente 4 muestra "Datos guardados" en la misma página.
+  Guardar llama a `refresh()` (el nombre sale en el encabezado) y, desde el
+  componente 4, redirige a `/configuracion/equipo`.
 - Pruebas: `tests/unit/company-profile.test.ts`,
   `tests/integration/company-profile.test.ts`. Verificado: typecheck, lint,
   build, suite 58/58. Probado por HTTP contra dev (sin navegador): cadena de
@@ -223,13 +222,65 @@ Morado oscuro `#24104F`. Esquema híbrido aprobado por el usuario:
 - Verificado: lint y build; revisada y aprobada por el usuario frente a las
   otras dos paletas (crema/naranja del diseño y TERU v1 Oro/Papiro).
 
+### Componente 4 — Paso "Equipo" (aprobado)
+
+Diseño aprobado por el usuario el 2026-09-26 con estas decisiones: se
+invitan ADMIN ("Administrador") y STAFF ("Personal"), el OWNER no; se
+incluye reactivar; tras aceptar la invitación se va al login (sin inicio
+de sesión automático); la gestión del equipo vive solo en el asistente
+hasta que exista la navegación del panel.
+
+- `src/lib/staff-roles.ts`: etiquetas de roles, `INVITABLE_ROLES` y sus
+  descripciones (cliente y servidor).
+- Datos: `users.ts` + `userExistsWithEmail`, `listCompanyMembers` y
+  `setMemberActive` (nunca OWNER; al desactivar revoca sesiones en la misma
+  transacción). `staff-invitations.ts` + `findPendingStaffInvitation`
+  (incluye vencidas, para reenviar).
+- Servicio `src/server/services/team.ts` (todo con `team.manage`): `getTeam`,
+  `inviteStaffMember` (rechaza correos con cuenta, así se evita
+  `EMAIL_TAKEN`), `resendStaffInvitation` (token nuevo; el anterior deja de
+  servir), `revokeInvitation`, `setStaffMemberActive` (ni a uno mismo ni al
+  OWNER). Pública: `getInvitationPreview` y `acceptInvitation`, que reutiliza
+  `passwordResetSchema`. Auditoría: `STAFF_EVENTS` + `INVITATION_RESENT`,
+  `MEMBER_DEACTIVATED` y `MEMBER_REACTIVATED`. Validación en
+  `validations/team.ts`.
+- UI `/[empresa]/configuracion/equipo`: formulario de invitación (rol en
+  tarjetas con `has-[:checked]`, sin estado en el cliente) y lista de
+  miembros e invitaciones (enviada/vencida y tiempo restante). Un formulario
+  por botón de fila (`row-action.tsx`, `useActionState`), por lo que funciona
+  sin JS. Pie con "Atrás" y "Continuar" (este último lleva a `/confirmar`,
+  que llega en el componente 5 y hasta entonces da 404).
+- `/[empresa]/invitacion?token=` (pública; se agregó a `PUBLIC_COMPANY_PATHS`
+  del proxy): muestra nombre, correo y rol, y al aceptar redirige a
+  `login?cuenta=creada`, que muestra un aviso.
+- Refactor: `components/shared/new-password-form.tsx` (`NewPasswordForm`)
+  reemplaza a `restablecer/reset-form.tsx` y se usa en restablecer y en la
+  invitación.
+- Error hallado por las pruebas y corregido: al reenviar se propagaba el
+  `id` de la invitación anterior al crear la nueva (violaba la clave única).
+  Ahora `sendInvitation` pasa los campos explícitos.
+- Pruebas: `tests/integration/team.test.ts` (9). Verificado: suite 67/67, typecheck,
+  lint y build. Prueba manual por HTTP contra dev con `next dev` y
+  formularios enviados sin JS: invitar (con errores y sin ellos), outbox,
+  invitación válida y falsa, contraseña corta, cuenta creada, login del
+  invitado, invitado sin acceso al asistente, desactivar (cierra su sesión)
+  y Negocio → Equipo. Los datos de esa prueba se borraron de dev.
+- Para enviar formularios de Server Actions sin navegador hay que usar
+  `multipart/form-data` con los campos ocultos `$ACTION_*` del HTML; con
+  urlencoded Next responde 200 y no ejecuta la acción.
+
 ### Errores y riesgos conocidos (fase 2)
 
-- El enlace de `company:create` apunta a `/[empresa]/invitacion`, que aún no
-  existe (componente 4): hasta entonces da 404.
-- Aceptar una invitación con correo ya registrado devuelve `EMAIL_TAKEN`
-  sin consumirla; el servicio del componente 4 debe evitar invitar correos
-  con cuenta activa.
+- "Continuar" del paso Equipo da 404 hasta que exista `/confirmar`
+  (componente 5).
+- Desactivar no se confirma con un diálogo; se puede revertir con
+  Reactivar.
+- ADMIN aún no tiene ningún permiso: invitarlo solo le da acceso al panel.
+- Navegador compartido: si al aceptar una invitación ya hay otra sesión de
+  la empresa abierta (p. ej. la del propietario), el login redirige con esa
+  sesión y el invitado no entra con su cuenta. En incógnito funciona bien
+  (probado por el usuario el 2026-09-26). **Decisión del usuario: se deja
+  así**, porque el invitado abre el enlace desde su propio equipo.
 
 ### Sesión 2026-09-24 — resumen
 
@@ -241,12 +292,13 @@ Morado oscuro `#24104F`. Esquema híbrido aprobado por el usuario:
 - Paleta TERU híbrida aprobada (ver arriba). Referencia: `../Paleta@1x.png`.
 - Local y remoto sincronizados, sin cambios pendientes.
 
+### Sesión 2026-09-26 — resumen
+
+- Componente 4 (paso Equipo) implementado, verificado y **aprobado** por el
+  usuario (probado en el navegador, en incógnito para el invitado).
+
 ### Próximo paso recomendado
 
-Analizar/Diseñar el componente 4 (paso Equipo): invitar, listar, reenviar y
-revocar invitaciones, desactivar miembros, página `/[empresa]/invitacion`
-para crear la contraseña (hoy da 404 el enlace de `company:create`), y hacer
-que "Guardar y continuar" del paso Negocio redirija a `/equipo`. Tener en
-cuenta: no invitar correos con cuenta activa (`EMAIL_TAKEN`), aplicar la
-paleta híbrida y el patrón de formularios del paso Negocio (slug en campo
-oculto, `useActionState`, funciona sin JS). Después, componente 5.
+Analizar/Diseñar el componente 5: la página `/configuracion/confirmar` con
+el resumen, marcar `setupCompletedAt` (`markCompanySetupCompleted` ya
+existe), pruebas, revisión de la fase, ADR 0002 y README.

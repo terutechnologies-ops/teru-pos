@@ -21,6 +21,54 @@ export async function findUserCredentialsByEmail(
   });
 }
 
+export async function userExistsWithEmail(companyId: string, email: string) {
+  const user = await db.user.findUnique({
+    where: { companyId_email: { companyId, email } },
+    select: { id: true },
+  });
+  return user !== null;
+}
+
+export async function listCompanyMembers(companyId: string) {
+  return db.user.findMany({
+    where: { companyId },
+    orderBy: [{ isActive: "desc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+      isActive: true,
+      lastLoginAt: true,
+    },
+  });
+}
+
+// Activa o desactiva a un miembro que no sea OWNER. Al desactivar se
+// revocan sus sesiones en la misma transacción. true si hubo cambio.
+export async function setMemberActive(params: {
+  userId: string;
+  companyId: string;
+  isActive: boolean;
+  now?: Date;
+}) {
+  const { userId, companyId, isActive, now = new Date() } = params;
+  return db.$transaction(async (tx) => {
+    const result = await tx.user.updateMany({
+      where: { id: userId, companyId, role: { not: "OWNER" }, isActive: !isActive },
+      data: { isActive },
+    });
+    if (result.count !== 1) return false;
+    if (!isActive) {
+      await tx.userSession.updateMany({
+        where: { userId, companyId, revokedAt: null },
+        data: { revokedAt: now },
+      });
+    }
+    return true;
+  });
+}
+
 export async function markUserLoggedIn(
   userId: string,
   companyId: string,
