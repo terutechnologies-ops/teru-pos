@@ -1,15 +1,15 @@
 import type { ReactNode } from "react";
-import { Store } from "lucide-react";
-
+import { CompanyMark } from "@/components/shared/company-mark";
 import { PlatformMark } from "@/components/shared/platform-mark";
 
 // Marco común de las pantallas de acceso (login, recuperación, invitación).
 // Misma estructura que la raíz de la plataforma: marco translúcido sobre el
 // fondo de marca, tarjeta clara con la identidad de la empresa y tarjeta
-// interna con el contenido. Dentro de una empresa se usa el ícono de tienda,
-// no el logo de Teru POS.
+// interna con el contenido. Dentro de una empresa va el logo de la empresa
+// (o el ícono de tienda), no el logo de Teru POS.
 export function AuthShell({
   companyName,
+  logoUrl = null,
   icon,
   eyebrow,
   title,
@@ -17,6 +17,7 @@ export function AuthShell({
   children,
 }: {
   companyName: string;
+  logoUrl?: string | null;
   icon?: ReactNode;
   eyebrow?: string;
   title: string;
@@ -32,9 +33,7 @@ export function AuthShell({
         <div className="w-full max-w-[480px] rounded-[28px] border border-white/20 bg-white/10 p-2.5 shadow-2xl backdrop-blur-md sm:p-3">
           <div className="flex flex-col items-center gap-6 rounded-[20px] bg-background px-5 py-8 sm:px-8 sm:py-10">
             <div className="flex flex-col items-center gap-3 text-center">
-              <span className="flex size-16 items-center justify-center rounded-2xl bg-brand text-highlight shadow-md">
-                <Store className="size-8" aria-hidden />
-              </span>
+              <CompanyMark logoUrl={logoUrl} companyName={companyName} size="lg" />
               <div>
                 <p className="text-3xl font-extrabold tracking-tight">
                   {companyName}

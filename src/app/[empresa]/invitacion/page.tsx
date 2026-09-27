@@ -6,6 +6,7 @@ import { AuthShell } from "@/components/shared/auth-shell";
 import { NewPasswordForm } from "@/components/shared/new-password-form";
 import { STAFF_ROLE_LABELS } from "@/lib/staff-roles";
 import { getRequestCompany } from "@/server/http/company";
+import { companyLogoUrl } from "@/server/services/companies";
 import { getInvitationPreview } from "@/server/services/team";
 import { PASSWORD_MIN_LENGTH } from "@/server/validations/auth";
 
@@ -34,6 +35,7 @@ export default async function InvitationPage({
   return (
     <AuthShell
       companyName={company.name}
+      logoUrl={companyLogoUrl(company.logoPath)}
       icon={<UserPlus className="size-8" />}
       eyebrow="Invitación al equipo"
       title={invitation ? `¡Hola, ${invitation.name}!` : "Invitación no válida"}

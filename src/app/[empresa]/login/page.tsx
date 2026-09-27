@@ -6,6 +6,7 @@ import { AuthShell } from "@/components/shared/auth-shell";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { getCurrentStaffSession } from "@/server/http/staff-session";
 import { getRequestCompany } from "@/server/http/company";
+import { companyLogoUrl } from "@/server/services/companies";
 
 import { ActiveSession } from "./active-session";
 import { LoginForm } from "./login-form";
@@ -33,6 +34,7 @@ export default async function LoginPage({
   return (
     <AuthShell
       companyName={company.name}
+      logoUrl={companyLogoUrl(company.logoPath)}
       eyebrow="Panel de gestión"
       title={session ? "Ya iniciaste sesión" : "¡Bienvenido de vuelta!"}
       description={

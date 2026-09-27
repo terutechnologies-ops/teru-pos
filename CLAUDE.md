@@ -564,8 +564,53 @@ tablero con cifras, rol CASHIER.
   quedaron en auditoría.
 - No probado en el navegador.
 
+### Componente 4 — Logo de la empresa (aprobado 2026-09-27)
+
+Decisión del usuario: **opción A, Supabase Storage** con adaptador (sobre
+guardarlo en la BD), para reutilizarlo con las fotos de productos.
+
+- Migración `20260927150000_add_company_logo`: `Company.logoPath` (ruta en
+  el almacenamiento, no URL). **Aplicada en `su-arepa-test` y
+  `su-arepa-dev`.** `logoPath` viaja en `findActiveCompanyBySlug`, así llega
+  a la sesión (`StaffSessionDto.company.logoPath`) y a `getRequestCompany`.
+- `services/storage/`: interfaz `FileStorage` (`upload`, `remove`,
+  `publicUrl`), `createSupabaseStorage` (REST sin SDK; clave secreta en el
+  encabezado `apikey`), `createMemoryStorage` (pruebas) y `getFileStorage()`
+  (null sin configuración) + `setFileStorageForTesting`.
+  `env.ts`: `getStorageConfig()` con `SUPABASE_URL` y `SUPABASE_SECRET_KEY`
+  (opcionales), bucket `company-assets` (público).
+- `lib/company-logo.ts`: 1 MB, PNG/JPEG/WebP (sin SVG), `detectLogoType` por
+  los primeros bytes.
+- Servicio (`company.manage`): `updateCompanyLogo` (valida, sube con ruta
+  única `companies/{id}/logo-{uuid}.{ext}`, cambia la ruta en BD, borra el
+  anterior sin hacer fallar la operación, audita `COMPANY_LOGO_UPDATED`),
+  `removeCompanyLogo` (`COMPANY_LOGO_REMOVED` solo si había logo) y
+  `companyLogoUrl(path)`.
+- UI: `components/shared/company-mark.tsx` (logo sobre fondo blanco o ícono
+  de tienda; `next/image` con `unoptimized`) en `AuthShell` (prop `logoUrl`
+  en login, recuperar, restablecer e invitación), menú lateral y encabezado
+  del asistente. `components/company/company-logo-card.tsx` +
+  `logo-actions.ts` (subir/cambiar y quitar; sin JS) en ambas páginas de
+  Negocio. `next.config.ts`: `serverActions.bodySizeLimit` 2 MB.
+- `scripts/setup-storage.ts` (`npm run storage:setup`): crea el bucket con
+  límite de 1 MB y tipos permitidos; idempotente.
+- `.env.example` y `.env`: `SUPABASE_URL` (dev) y `SUPABASE_SECRET_KEY`
+  vacía — **la debe pegar el usuario** en `.env` (no en el chat).
+- Pruebas: unitarias de `detectLogoType` (2) e integración del servicio con
+  almacenamiento en memoria (4). Verificado: typecheck, lint, build, suite
+  97/97. Clave de dev puesta por el usuario en `.env`; bucket creado con
+  `npm run storage:setup`. Prueba por HTTP contra Supabase Storage real
+  (empresa temporal, ya borrada): subir JPEG (se sirve público con caché de
+  1 año), logo en login sin sesión y en el menú, cambiar a PNG (el anterior
+  se borra del bucket, verificado en `storage.objects`), SVG disfrazado de
+  PNG rechazado, quitar (bucket vacío), auditoría 2 subidas + 1 quitado.
+- Conocido: tras borrar un archivo, el CDN de Supabase puede seguir
+  sirviendo la copia en caché hasta que venza. Sin impacto: la ruta es única
+  y ya no se usa. `su-arepa-test` no tiene clave: las pruebas usan memoria.
+
 ### Próximo paso recomendado
 
-Fase 3: que el usuario pruebe el componente 3 y lo apruebe; luego diseñar
-el componente 4 (logo de la empresa, Supabase Storage). Pendiente antes de
-producción: proveedor de correo real.
+Fase 3: que el usuario pruebe el logo en el navegador y lo apruebe; luego
+el componente 5 (cierre de
+la fase: revisión, ADR 0003, README). Pendiente antes de producción:
+proveedor de correo real y clave de Storage por entorno.

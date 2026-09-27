@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { CompanyLogoCard } from "@/components/company/company-logo-card";
 import { CompanyProfileForm } from "@/components/company/company-profile-form";
 import { toProfileFormValues } from "@/components/company/company-profile-fields";
 import { requirePermission } from "@/server/http/staff-session";
-import { getCompanyProfile } from "@/server/services/companies";
+import { companyLogoUrl, getCompanyProfile } from "@/server/services/companies";
 
 import { saveSetupProfileAction } from "./actions";
 
@@ -32,6 +33,11 @@ export default async function SetupBusinessPage({
           para precios y costos.
         </p>
       </div>
+      <CompanyLogoCard
+        companySlug={profile.slug}
+        companyName={profile.name}
+        logoUrl={companyLogoUrl(profile.logoPath)}
+      />
       <CompanyProfileForm
         mode="setup"
         action={saveSetupProfileAction}

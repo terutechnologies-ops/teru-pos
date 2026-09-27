@@ -9,6 +9,7 @@ export type StaffSessionDto = {
     name: string;
     slug: string;
     setupCompletedAt: Date | null;
+    logoPath: string | null;
   };
 };
 

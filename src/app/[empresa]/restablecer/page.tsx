@@ -6,6 +6,7 @@ import { AuthShell } from "@/components/shared/auth-shell";
 import { NewPasswordForm } from "@/components/shared/new-password-form";
 import { isStaffResetTokenValid } from "@/server/services/auth/password-reset";
 import { getRequestCompany } from "@/server/http/company";
+import { companyLogoUrl } from "@/server/services/companies";
 import { PASSWORD_MIN_LENGTH } from "@/server/validations/auth";
 
 import { InvalidLink } from "./invalid-link";
@@ -32,6 +33,7 @@ export default async function ResetPage({
   return (
     <AuthShell
       companyName={company.name}
+      logoUrl={companyLogoUrl(company.logoPath)}
       icon={<LockKeyhole className="size-8" />}
       eyebrow="Acceso seguro"
       title={valid ? "Crea una nueva contraseña" : "Enlace no válido"}

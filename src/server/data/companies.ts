@@ -7,7 +7,7 @@ export const MAIN_BRANCH_NAME = "Sede principal";
 export async function findActiveCompanyBySlug(slug: string) {
   return db.company.findFirst({
     where: { slug, isActive: true },
-    select: { id: true, name: true, slug: true, setupCompletedAt: true },
+    select: { id: true, name: true, slug: true, setupCompletedAt: true, logoPath: true },
   });
 }
 
@@ -35,6 +35,7 @@ export async function findCompanySettings(companyId: string) {
       currency: true,
       dateFormat: true,
       setupCompletedAt: true,
+      logoPath: true,
     },
   });
 }
@@ -44,6 +45,21 @@ export async function updateCompanySettings(
   data: CompanySettingsData,
 ) {
   await db.company.update({ where: { id: companyId }, data });
+}
+
+// Cambia la ruta del logo y devuelve la anterior (para borrar su archivo).
+export async function replaceCompanyLogoPath(
+  companyId: string,
+  logoPath: string | null,
+) {
+  return db.$transaction(async (tx) => {
+    const current = await tx.company.findUniqueOrThrow({
+      where: { id: companyId },
+      select: { logoPath: true },
+    });
+    await tx.company.update({ where: { id: companyId }, data: { logoPath } });
+    return current.logoPath;
+  });
 }
 
 // Solo la primera vez: repetirlo no cambia la fecha original.

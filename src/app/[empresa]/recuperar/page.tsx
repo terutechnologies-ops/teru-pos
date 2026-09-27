@@ -4,6 +4,7 @@ import { KeyRound } from "lucide-react";
 
 import { AuthShell } from "@/components/shared/auth-shell";
 import { getRequestCompany } from "@/server/http/company";
+import { companyLogoUrl } from "@/server/services/companies";
 
 import { RecoverForm } from "./recover-form";
 
@@ -19,6 +20,7 @@ export default async function RecoverPage({
   return (
     <AuthShell
       companyName={company.name}
+      logoUrl={companyLogoUrl(company.logoPath)}
       icon={<KeyRound className="size-8" />}
       eyebrow="Acceso seguro"
       title="¿Problemas para ingresar?"

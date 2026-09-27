@@ -41,6 +41,9 @@ model Company {
   address          String?
   // null = el propietario aún no completa el asistente de configuración.
   setupCompletedAt DateTime?
+  // Ruta del logo en el almacenamiento de archivos (no la URL: la URL
+  // pública depende del proveedor configurado). null = sin logo.
+  logoPath         String?
 
   users            User[]
   userSessions     UserSession[]

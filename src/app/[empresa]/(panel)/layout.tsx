@@ -5,6 +5,7 @@ import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/s
 import { STAFF_ROLE_LABELS } from "@/lib/staff-roles";
 import { requireStaffSession } from "@/server/http/staff-session";
 import { hasPermission } from "@/server/services/auth/permissions";
+import { companyLogoUrl } from "@/server/services/companies";
 
 import { AppSidebar } from "./app-sidebar";
 import { navigationFor } from "./navigation";
@@ -34,6 +35,7 @@ export default async function PanelLayout({
       <AppSidebar
         companySlug={company.slug}
         companyName={company.name}
+        logoUrl={companyLogoUrl(company.logoPath)}
         userName={user.name}
         roleLabel={STAFF_ROLE_LABELS[user.role]}
         itemIds={navigationFor(user.role).map((item) => item.id)}

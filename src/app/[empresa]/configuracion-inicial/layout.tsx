@@ -1,8 +1,10 @@
 import { redirect } from "next/navigation";
-import { LogOut, Store } from "lucide-react";
+import { LogOut } from "lucide-react";
 
+import { CompanyMark } from "@/components/shared/company-mark";
 import { Button } from "@/components/ui/button";
 import { requirePermission } from "@/server/http/staff-session";
+import { companyLogoUrl } from "@/server/services/companies";
 
 import { logoutAction } from "../(panel)/actions";
 import { SetupStepper } from "./setup-stepper";
@@ -23,9 +25,11 @@ export default async function SetupLayout({
       <header className="bg-brand px-4 py-4 text-brand-foreground md:px-12">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <span className="flex size-9 items-center justify-center rounded-full bg-highlight text-highlight-foreground">
-              <Store className="size-5" aria-hidden />
-            </span>
+            <CompanyMark
+              logoUrl={companyLogoUrl(company.logoPath)}
+              companyName={company.name}
+              size="sm"
+            />
             <span className="text-lg leading-6 font-bold tracking-tight">
               {company.name}
             </span>

@@ -46,7 +46,7 @@ function sessionFor(company: Company, userId: string, role: StaffRole): StaffSes
     sessionId: "s",
     expiresAt: new Date(),
     user: { id: userId, name: "Dueña Prueba", email: `u@${tag}.co`, role },
-    company: { ...company, setupCompletedAt: null },
+    company: { ...company, setupCompletedAt: null, logoPath: null },
   };
 }
 

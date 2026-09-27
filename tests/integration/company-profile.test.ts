@@ -31,7 +31,7 @@ function sessionFor(
     sessionId: "s",
     expiresAt: new Date(),
     user: { id: "u", name: "Prueba", email: `u@${tag}.co`, role },
-    company: { ...company, setupCompletedAt: null },
+    company: { ...company, setupCompletedAt: null, logoPath: null },
   };
 }
 

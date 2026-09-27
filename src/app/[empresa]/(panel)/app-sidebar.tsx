@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut, Store } from "lucide-react";
+import { LogOut } from "lucide-react";
 
+import { CompanyMark } from "@/components/shared/company-mark";
 import {
   Sidebar,
   SidebarContent,
@@ -31,12 +32,14 @@ import {
 export function AppSidebar({
   companySlug,
   companyName,
+  logoUrl,
   userName,
   roleLabel,
   itemIds,
 }: {
   companySlug: string;
   companyName: string;
+  logoUrl: string | null;
   userName: string;
   roleLabel: string;
   itemIds: readonly string[];
@@ -49,9 +52,7 @@ export function AppSidebar({
     <Sidebar>
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-highlight text-highlight-foreground">
-            <Store className="size-5" aria-hidden />
-          </span>
+          <CompanyMark logoUrl={logoUrl} companyName={companyName} size="sm" />
           <span className="truncate text-base leading-6 font-bold tracking-tight">
             {companyName}
           </span>

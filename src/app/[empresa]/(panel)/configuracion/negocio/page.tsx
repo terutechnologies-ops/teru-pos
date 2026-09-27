@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { CompanyLogoCard } from "@/components/company/company-logo-card";
 import { CompanyProfileForm } from "@/components/company/company-profile-form";
 import { toProfileFormValues } from "@/components/company/company-profile-fields";
 import { PageHeader } from "@/components/shared/page-header";
 import { requirePermission } from "@/server/http/staff-session";
-import { getCompanyProfile } from "@/server/services/companies";
+import { companyLogoUrl, getCompanyProfile } from "@/server/services/companies";
 
 import { saveCompanySettingsAction } from "./actions";
 
@@ -25,6 +26,11 @@ export default async function BusinessSettingsPage({
         eyebrow="Configuración"
         title="Datos del negocio"
         description="Identidad comercial, moneda y formatos que aparecen en tickets y reportes."
+      />
+      <CompanyLogoCard
+        companySlug={profile.slug}
+        companyName={profile.name}
+        logoUrl={companyLogoUrl(profile.logoPath)}
       />
       <CompanyProfileForm
         mode="settings"
