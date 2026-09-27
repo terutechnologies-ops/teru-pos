@@ -80,7 +80,7 @@ describe("saveCompanyProfile", () => {
     expect(other.name).toBe(b.name);
   });
 
-  it("rechaza a quien no tiene company.setup", async () => {
+  it("rechaza a quien no tiene company.manage", async () => {
     for (const role of ["ADMIN", "STAFF"] as const) {
       await expect(saveCompanyProfile(sessionFor(b, role), input)).rejects.toThrow(
         ForbiddenError,

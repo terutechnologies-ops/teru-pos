@@ -10,9 +10,9 @@ export const metadata: Metadata = { title: "Configuración · Negocio" };
 
 export default async function SetupBusinessPage({
   params,
-}: PageProps<"/[empresa]/configuracion/negocio">) {
+}: PageProps<"/[empresa]/configuracion-inicial/negocio">) {
   const { empresa } = await params;
-  const session = await requirePermission(empresa, "company.setup");
+  const session = await requirePermission(empresa, "company.manage");
   const profile = await getCompanyProfile(session);
   if (!profile) notFound();
 

@@ -12,9 +12,9 @@ import { SetupStepper } from "./setup-stepper";
 export default async function SetupLayout({
   children,
   params,
-}: LayoutProps<"/[empresa]/configuracion">) {
+}: LayoutProps<"/[empresa]/configuracion-inicial">) {
   const { empresa } = await params;
-  const { company } = await requirePermission(empresa, "company.setup");
+  const { company } = await requirePermission(empresa, "company.manage");
 
   if (company.setupCompletedAt) redirect(`/${company.slug}`);
 

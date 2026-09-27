@@ -17,7 +17,7 @@ export async function finishSetupAction(
   // requirePermission valida la sesión en la empresa enviada y el permiso.
   const session = await requirePermission(
     String(formData.get("company") ?? ""),
-    "company.setup",
+    "company.manage",
   );
 
   try {

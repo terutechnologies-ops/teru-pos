@@ -15,7 +15,7 @@ export async function saveCompanyProfileAction(
   const field = (name: string) => String(formData.get(name) ?? "");
   // Viene del cliente como cualquier otro campo: requirePermission valida la
   // sesión en esa empresa y el permiso.
-  const session = await requirePermission(field("company"), "company.setup");
+  const session = await requirePermission(field("company"), "company.manage");
 
   const values: ProfileFormValues = {
     name: field("name"),
@@ -51,5 +51,5 @@ export async function saveCompanyProfileAction(
 
   // El nombre de la empresa aparece en el encabezado del asistente.
   refresh();
-  redirect(`/${session.company.slug}/configuracion/equipo`);
+  redirect(`/${session.company.slug}/configuracion-inicial/equipo`);
 }

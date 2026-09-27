@@ -6,8 +6,8 @@ import { requirePermission } from "@/server/http/staff-session";
 // primero; al sumar pasos, aquí se elige el primero sin completar.
 export default async function SetupIndexPage({
   params,
-}: PageProps<"/[empresa]/configuracion">) {
+}: PageProps<"/[empresa]/configuracion-inicial">) {
   const { empresa } = await params;
-  const { company } = await requirePermission(empresa, "company.setup");
-  redirect(`/${company.slug}/configuracion/negocio`);
+  const { company } = await requirePermission(empresa, "company.manage");
+  redirect(`/${company.slug}/configuracion-inicial/negocio`);
 }

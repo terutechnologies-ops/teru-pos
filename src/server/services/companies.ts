@@ -67,7 +67,7 @@ export async function createCompany(input: CreateCompanyInput) {
 }
 
 export async function getCompanyProfile(session: StaffSessionDto) {
-  assertPermission(session, "company.setup");
+  assertPermission(session, "company.manage");
   return findCompanySettings(session.company.id);
 }
 
@@ -83,7 +83,7 @@ export async function saveCompanyProfile(
   session: StaffSessionDto,
   input: CompanyProfileInput,
 ): Promise<SaveCompanyProfileResult> {
-  assertPermission(session, "company.setup");
+  assertPermission(session, "company.manage");
   const parsed = companyProfileSchema.safeParse(input);
   if (!parsed.success) {
     const { fieldErrors } = z.flattenError(parsed.error);
@@ -101,7 +101,7 @@ export async function saveCompanyProfile(
 // Paso "Confirmar" del asistente: lo guardado en los pasos anteriores.
 // null si la empresa ya no existe.
 export async function getSetupSummary(session: StaffSessionDto, now = new Date()) {
-  assertPermission(session, "company.setup");
+  assertPermission(session, "company.manage");
   const companyId = session.company.id;
   const [profile, mainBranch, members, invitations] = await Promise.all([
     findCompanySettings(companyId),
@@ -129,7 +129,7 @@ export async function completeCompanySetup(
   session: StaffSessionDto,
   ctx: RequestContext,
 ) {
-  assertPermission(session, "company.setup");
+  assertPermission(session, "company.manage");
   const marked = await markCompanySetupCompleted(session.company.id);
   if (marked) {
     await recordAuthEvent({

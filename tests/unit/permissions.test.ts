@@ -8,7 +8,7 @@ import {
 
 describe("hasPermission", () => {
   it("solo OWNER configura la empresa y gestiona el equipo", () => {
-    for (const permission of ["company.setup", "team.manage"] as const) {
+    for (const permission of ["company.manage", "team.manage"] as const) {
       expect(hasPermission("OWNER", permission)).toBe(true);
       expect(hasPermission("ADMIN", permission)).toBe(false);
       expect(hasPermission("STAFF", permission)).toBe(false);

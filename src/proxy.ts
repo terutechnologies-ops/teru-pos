@@ -43,5 +43,7 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   // Excluye internos de Next, API y archivos estáticos (con extensión).
-  matcher: ["/((?!_next/|api/|.*\..*).*)"],
+  // "\\." en el string: con "\." JavaScript deja solo "." (cualquier
+  // carácter) y el patrón excluía casi todas las rutas.
+  matcher: ["/((?!_next/|api/|.*\\..*).*)"],
 };

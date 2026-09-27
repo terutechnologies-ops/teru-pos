@@ -84,7 +84,7 @@ describe("getSetupSummary", () => {
     ]);
   });
 
-  it("solo con company.setup", async () => {
+  it("solo con company.manage", async () => {
     for (const role of ["ADMIN", "STAFF"] as const) {
       await expect(getSetupSummary(sessionFor(a, role))).rejects.toBeInstanceOf(
         ForbiddenError,
@@ -99,7 +99,7 @@ describe("completeCompanySetup", () => {
       where: { companyId: a.id, action: COMPANY_EVENTS.SETUP_COMPLETED },
     });
 
-  it("rechaza a quien no tiene company.setup sin cambiar nada", async () => {
+  it("rechaza a quien no tiene company.manage sin cambiar nada", async () => {
     await expect(
       completeCompanySetup(sessionFor(a, "ADMIN"), ctx(tag)),
     ).rejects.toBeInstanceOf(ForbiddenError);

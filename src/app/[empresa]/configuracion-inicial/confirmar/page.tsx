@@ -34,9 +34,9 @@ const SAMPLE_PRICE = 16500;
 
 export default async function SetupConfirmPage({
   params,
-}: PageProps<"/[empresa]/configuracion/confirmar">) {
+}: PageProps<"/[empresa]/configuracion-inicial/confirmar">) {
   const { empresa } = await params;
-  const session = await requirePermission(empresa, "company.setup");
+  const session = await requirePermission(empresa, "company.manage");
   const summary = await getSetupSummary(session);
   if (!summary) notFound();
   const slug = session.company.slug;
@@ -57,10 +57,10 @@ export default async function SetupConfirmPage({
       </div>
 
       <div className="grid items-start gap-6 lg:grid-cols-2">
-        <BusinessCard summary={summary} editHref={`/${slug}/configuracion/negocio`} />
+        <BusinessCard summary={summary} editHref={`/${slug}/configuracion-inicial/negocio`} />
         <div className="flex min-w-0 flex-col gap-6">
-          <BranchCard summary={summary} editHref={`/${slug}/configuracion/negocio`} />
-          <TeamCard summary={summary} editHref={`/${slug}/configuracion/equipo`} />
+          <BranchCard summary={summary} editHref={`/${slug}/configuracion-inicial/negocio`} />
+          <TeamCard summary={summary} editHref={`/${slug}/configuracion-inicial/equipo`} />
         </div>
       </div>
 
@@ -80,7 +80,7 @@ export default async function SetupConfirmPage({
 
       <div className="sticky bottom-0 -mx-4 mt-auto flex items-center justify-between gap-3 border-t border-border bg-background/90 px-4 py-4 backdrop-blur md:-mx-12 md:px-12">
         <Button asChild variant="outline" className="h-11 gap-2 px-4">
-          <Link href={`/${slug}/configuracion/equipo`}>
+          <Link href={`/${slug}/configuracion-inicial/equipo`}>
             <ArrowLeft aria-hidden />
             Atrás
           </Link>

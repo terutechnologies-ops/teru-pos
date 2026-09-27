@@ -442,9 +442,70 @@ Commit previo con los ajustes de eslogan y monedas: `9668329`.
 - Verificado: typecheck, lint y build. Suite completa 78/78 antes de la
   corrección menor (solo de interfaz).
 
+## Sesión 2026-09-27 — Fase 3: panel y configuración
+
+Decisiones del usuario (2026-09-27):
+- **Áreas y permisos:** habrá un área operativa (POS: menú, pedidos, cobro,
+  su turno de caja) y una administrativa (ventas, compras, inventario, menú,
+  cierres, configuración, equipo). **Opción 1: roles fijos con permisos por
+  acción definidos en código**, sin permisos por persona ni roles
+  personalizados (se podrían agregar después sin rehacer módulos).
+- El menú muestra **solo los módulos que existen** (sin "Próximamente").
+- **ADMIN gestiona el equipo** (`team.manage`); los datos del negocio, solo
+  el OWNER.
+- El **logo** es el componente 4 de esta fase.
+
+Análisis aprobado. Componentes:
+1. Estructura del panel: menú lateral por permisos (shadcn Sidebar), inicio
+   según rol, asistente movido a `/configuracion-inicial`,
+   `company.setup` → `company.manage`.
+2. Configuración > Negocio (reutiliza el formulario del asistente).
+3. Configuración > Equipo (reutiliza la gestión; ADMIN recibe `team.manage`).
+4. Logo de la empresa (Supabase Storage, bucket público).
+5. Cierre: pruebas, revisión, ADR 0003, README.
+Fuera de alcance: módulos de negocio, perfil/contraseña propia, sucursales,
+tablero con cifras, rol CASHIER.
+
+### Componente 1 — Estructura del panel (aprobado 2026-09-27)
+
+- Asistente movido a `src/app/[empresa]/configuracion-inicial/` (rutas,
+  enlaces y redirecciones). `/configuracion` queda libre para la
+  configuración del panel (componentes 2 y 3).
+- Permiso `company.setup` → `company.manage` (código y pruebas). El ADR 0002
+  aún dice `company.setup`: se actualiza en el cierre de la fase.
+- shadcn Sidebar instalado (sheet, sidebar, skeleton, tooltip,
+  `hooks/use-mobile.ts`), **sin sobrescribir** button/input/separator
+  (tienen ajustes propios: usar `yes n | npx shadcn add ...`).
+  `use-mobile.ts` reescrito con `useSyncExternalStore` (el original falla
+  la regla `react-hooks/set-state-in-effect`).
+- `(panel)/navigation.ts`: `NAV_ITEMS` (id, etiqueta, descripción, ruta,
+  ícono, grupo, permiso) + `navigationFor(role)` + `navHref`. El layout
+  filtra en el servidor y pasa solo los ids al menú (`app-sidebar.tsx`,
+  cliente: lo dibuja y marca el activo con `usePathname`). Por ahora solo
+  "Inicio".
+- `(panel)/layout.tsx`: `SidebarProvider` (estado inicial desde la cookie
+  `sidebar_state`), menú oscuro (cabecera con ícono lima y empresa; pie con
+  persona, rol y "Cerrar sesión"), barra superior con `SidebarTrigger`.
+  Sección activa en lima con texto negro.
+- `(panel)/page.tsx` (Inicio): saludo, aviso de configuración pendiente y
+  tarjetas de acceso a las secciones del rol; sin secciones, estado vacío
+  "Tus herramientas aparecerán aquí".
+- **Error de la fase inicial corregido:** el `matcher` de `src/proxy.ts`
+  tenía `\.` dentro de un string JS (queda `.`, no `\\.`) y excluía
+  casi todas las rutas: el proxy nunca corría en rutas de empresa. Sin
+  riesgo de seguridad (el servidor siempre valida), pero la redirección
+  optimista no funcionaba. Ahora sí; rutas privadas inexistentes sin sesión
+  también van al login.
+- Pruebas: `tests/unit/navigation.test.ts` (4) y permisos actualizados.
+  Verificado: typecheck, lint, build, suite 82/82. Por HTTP contra dev
+  (empresa temporal `t-panel-http`, ya borrada): OWNER con configuración
+  pendiente → asistente nuevo; STAFF → panel con aviso, estado vacío y sin
+  acceso al asistente; OWNER de `su-arepa` (ya configurada) → panel con
+  menú; asistente completo → panel; `/configuracion` → 404 por ahora.
+- No probado en el navegador (aspecto visual, menú en tablet/celular).
+
 ### Próximo paso recomendado
 
-Fase 2 cerrada y subida a GitHub. Siguiente, fase 3 (empezar por Analizar):
-esqueleto del panel (navegación) con su sección de configuración para
-editar negocio y equipo; después, el logo de la empresa (decisión del
-usuario). Pendiente antes de producción: proveedor de correo real.
+Fase 3: que el usuario pruebe el componente 1 en el navegador y lo apruebe;
+luego diseñar el componente 2 (Configuración > Negocio). Pendiente antes de
+producción: proveedor de correo real.
