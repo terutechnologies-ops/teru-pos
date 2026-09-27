@@ -1,4 +1,4 @@
-import { House, Store, Users, type LucideIcon } from "lucide-react";
+import { FolderTree, House, Store, Users, type LucideIcon } from "lucide-react";
 
 import type { StaffRole } from "@/generated/prisma/enums";
 import {
@@ -7,10 +7,11 @@ import {
 } from "@/server/services/auth/permissions";
 
 // Secciones del panel. Solo se listan módulos que existen; cada uno agrega
-// aquí su entrada con el permiso que exige su página. Ocultar un enlace no
+// aquí su entrada con el permiso que exige su página. Los grupos aparecen
+// en el orden de su primera sección. Ocultar un enlace no
 // autoriza nada: cada página vuelve a verificar su permiso.
 
-export type NavGroup = "general" | "settings";
+export type NavGroup = "general" | "catalog" | "settings";
 
 export type NavItem = {
   id: string;
@@ -26,6 +27,7 @@ export type NavItem = {
 
 export const NAV_GROUP_LABELS: Record<NavGroup, string> = {
   general: "General",
+  catalog: "Catálogo",
   settings: "Configuración",
 };
 
@@ -38,6 +40,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: House,
     group: "general",
     permission: null,
+  },
+  {
+    id: "catalog-categories",
+    label: "Categorías",
+    description: "Secciones del menú y su orden.",
+    path: "catalogo/categorias",
+    icon: FolderTree,
+    group: "catalog",
+    permission: "catalog.manage",
   },
   {
     id: "settings-business",

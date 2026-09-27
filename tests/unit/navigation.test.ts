@@ -40,6 +40,14 @@ describe("navigationFor", () => {
     expect(ids("STAFF")).not.toContain("settings-team");
   });
 
+  it("propietario y administrador ven el catálogo; el personal no", () => {
+    const ids = (role: "OWNER" | "ADMIN" | "STAFF") =>
+      navigationFor(role).map((item) => item.id);
+    expect(ids("OWNER")).toContain("catalog-categories");
+    expect(ids("ADMIN")).toContain("catalog-categories");
+    expect(ids("STAFF")).not.toContain("catalog-categories");
+  });
+
   it("los ids de las secciones no se repiten", () => {
     const ids = NAV_ITEMS.map((item) => item.id);
     expect(new Set(ids).size).toBe(ids.length);

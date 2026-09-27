@@ -666,7 +666,33 @@ grupo "Catálogo" con Productos y Categorías.
 - Pruebas: `tests/integration/catalog-data.test.ts` (6) + permiso.
   Verificado: typecheck, lint, build, suite 104/104.
 
+### Componente 2 — Categorías (aprobado 2026-09-27)
+
+- `/[empresa]/catalogo/categorias` (`catalog.manage`). Menú: grupo
+  "Catálogo" (entre General y Configuración; los grupos siguen el orden de
+  su primera sección en `NAV_ITEMS`) con "Categorías"; tarjeta en Inicio.
+- `validations/catalog.ts`: `categoryNameSchema` (recorta, une espacios,
+  2–60). `services/catalog.ts`: `getCategories` (con `productCount` y
+  `canDelete`), `createCategory`, `renameCategory`, `setCategoryActive`,
+  `moveCategory`, `deleteCategory`; resultado `{ ok } | { ok: false, error }`.
+  Sin auditoría (decisión aprobada).
+- UI en `components/catalog/`: `category-fields.ts` (tipos e intents; un
+  archivo "use server" solo puede exportar funciones async),
+  `category-actions.ts`, `new-category-form`, `rename-category-form` (dentro
+  de un `<details>` con `key` = nombre para que se cierre tras renombrar),
+  `category-row-button` (↑ ↓, activar/desactivar, eliminar; un formulario
+  por botón) y `category-list` (estado vacío). Todo sin JS.
+- Pruebas: unitarias (`catalog.test.ts`, menú) e integración
+  (`catalog-categories.test.ts`: ADMIN gestiona, duplicados, otra empresa,
+  borrar solo vacías, STAFF rechazado). Por HTTP contra dev (empresa
+  temporal, ya borrada): crear, duplicado, subir, renombrar, desactivar,
+  eliminar, menú y permisos por rol. Verificado: typecheck, lint, build y
+  suite 114/114.
+- Cliente HTTP de prueba del scratchpad: `submit_form(op, path, predicate,
+  overrides)` para elegir el formulario exacto de una fila.
+
 ### Próximo paso recomendado
 
-Fase 4: aprobación del componente 1; luego diseño del componente 2
-(categorías: servicio, pantalla y menú "Catálogo").
+Fase 4: aprobación del componente 2; luego diseño del componente 3
+(productos: servicio con precio según decimales de la moneda, auditoría de
+productos, lista con búsqueda y filtro, crear/editar, archivar, agotado).
