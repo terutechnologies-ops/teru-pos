@@ -1117,3 +1117,53 @@ motivo de ajuste en texto libre obligatorio (3–200), conteo físico fuera.
 **Próximo paso recomendado:** revisión del componente 4 en el navegador
 → corregir si hace falta → commit y push → componente 5 (cierre de la
 fase 5).
+
+## Sesión 2026-09-29 — Despliegue en Vercel (en pausa)
+
+- Componente 4 de la fase 5 aprobado en el navegador; commit `c8f0335`
+  subido a `origin/master`.
+- El usuario quiere desplegar en Vercel (el repositorio ya está en GitHub,
+  `terutechnologies-ops/teru-pos`). **Se pausa hasta que el proyecto esté
+  listo**; no se tocó código ni configuración para el despliegue.
+
+### Análisis hecho (sin cambios aplicados)
+
+1. **Prisma**: `src/generated/prisma` está en `.gitignore` y ningún
+   script corre `prisma generate`, así que el build en Vercel fallaría.
+   Arreglo: `"postinstall": "prisma generate"` en `package.json`.
+2. **Región**: Vercel usa `iad1` (Washington) por defecto y la base está
+   en `sa-east-1` (São Paulo); cada consulta cruzaría el continente.
+   Arreglo: funciones en `gru1` (`vercel.json` con `"regions": ["gru1"]`
+   o desde Project Settings → Functions).
+3. **Correo**: `getMessageSender()` lanza error fuera de `development`;
+   en Vercel `NODE_ENV=production`, así que **recuperar contraseña** e
+   **invitar miembros** darían error 500. Lo demás funciona.
+- Ya compatible: argon2 (Next lo trata como paquete externo; trae binarios
+  para Linux), pooler de Supabase en el puerto 6543 con `pgbouncer=true`
+  (adecuado para serverless; evaluar `connection_limit=1`),
+  `output: "standalone"` (Vercel lo acepta; lo usa el Dockerfile).
+- Variables de entorno a cargar en Vercel: `DATABASE_URL`, `DIRECT_URL`,
+  `APP_URL` (la URL pública de Vercel, p. ej. `https://<proyecto>.vercel.app`),
+  `SUPABASE_URL`, `SUPABASE_SECRET_KEY`. `NODE_ENV` no (Vercel la fija).
+- Migraciones: aplicarlas a mano con `npm run db:migrate:deploy`, no
+  dentro del build.
+- Conexión sugerida: importar el repositorio desde el panel de Vercel
+  (despliegue automático en cada push a `master`).
+
+### Preguntas pendientes para el usuario (retomar antes de desplegar)
+
+1. **¿Qué base usa el despliegue?**
+   - Base dev actual `teru-pos-dev` (recomendado para un ambiente de
+     pruebas en línea; ya tiene migraciones y datos de Su Arepa), o
+   - base nueva de producción (proyecto Supabase aparte en São Paulo,
+     migraciones y seed; para cuando haya clientes reales).
+2. **¿Qué hacer con el correo?**
+   - Desplegar ya y dejar el correo para después (recomendado; esas dos
+     acciones fallan hasta integrar un proveedor), o
+   - integrar antes un proveedor (p. ej. Resend) como componente propio,
+     con el flujo analizar → diseñar → aprobar.
+
+**Próximo paso recomendado:** cuando el usuario retome, responder las dos
+preguntas, aplicar los arreglos 1 y 2, cargar las variables y desplegar.
+Mientras tanto, el siguiente trabajo del plan sigue siendo el componente 5
+de la fase 5 (cierre).
