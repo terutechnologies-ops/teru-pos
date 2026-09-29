@@ -955,6 +955,12 @@ disponible para cuando haya equipo o CI).
   Supabase). La nota de riesgo de la fase inicial sobre la suite de ~4 min
   ya no aplica a las pruebas (sí a la app en dev).
 - `tests/setup.ts` (comentario) y README actualizados.
-- Pendiente del usuario: borrar `su-arepa-test` en Supabase y luego
-  `.env.test.supabase`; renombrar `su-arepa-dev` → `teru-pos-dev` en el
-  panel (el ref y las URLs no cambian).
+- `su-arepa-test` **borrado** en Supabase por el usuario, y también
+  `.env.test.supabase`.
+- Renombrado a Teru POS lo que es de la plataforma: paquete `teru-pos`
+  (`package.json` y lock), valores por defecto de `docker-compose.yml`
+  (`teru_pos` / `teru_pos_dev`), comentarios de `.env.example` y `.env`,
+  encabezado de `schema.prisma`. Se conserva lo que es de Su Arepa como
+  empresa cliente (seed, slugs de ejemplo, ADR históricos). El proyecto
+  Supabase `su-arepa-dev` se renombra a `teru-pos-dev` desde su panel
+  (Project Settings → General); el ref y las URLs no cambian.

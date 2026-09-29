@@ -1,4 +1,4 @@
-// Prisma schema — Su Arepa (sistema multiempresa)
+// Prisma schema — Teru POS (plataforma multiempresa)
 //
 // Estrategia de aislamiento multi-tenant: shared schema + companyId.
 // Toda tabla que pertenece a una empresa lleva companyId; el filtrado por
