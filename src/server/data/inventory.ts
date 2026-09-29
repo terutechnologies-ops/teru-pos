@@ -255,9 +255,10 @@ export type StockMovementResult =
         | "SUPPLY_ARCHIVED"
         | "WAREHOUSE_NOT_FOUND"
         | "WAREHOUSE_INACTIVE"
-        | "ALREADY_INITIALIZED"
-        | "INSUFFICIENT_STOCK";
-    };
+        | "ALREADY_INITIALIZED";
+    }
+  // available: saldo de la bodega, en la unidad del insumo.
+  | { status: "INSUFFICIENT_STOCK"; available: Prisma.Decimal; unit: StockUnit };
 
 // Registra el movimiento y actualiza el saldo en la misma transacción. Con
 // el insumo bloqueado, leer el saldo y escribirlo después es seguro. El
@@ -290,8 +291,11 @@ export async function recordStockMovement(
       where: { warehouseId_supplyId: key },
       select: { quantity: true },
     });
-    const balance = (level?.quantity ?? new Prisma.Decimal(0)).plus(quantity);
-    if (balance.isNegative()) return { status: "INSUFFICIENT_STOCK" };
+    const available = level?.quantity ?? new Prisma.Decimal(0);
+    const balance = available.plus(quantity);
+    if (balance.isNegative()) {
+      return { status: "INSUFFICIENT_STOCK", available, unit: supply.unit };
+    }
 
     await tx.stockLevel.upsert({
       where: { warehouseId_supplyId: key },

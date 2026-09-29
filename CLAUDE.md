@@ -1017,3 +1017,103 @@ nuevos para el código nuevo.
 
 **Próximo paso recomendado:** componente 4 de la fase 5 (movimientos y
 kardex), empezando por el análisis y el diseño de la pantalla del insumo.
+
+## Sesión 2026-09-28 (noche) — Fase 5, componente 4
+
+Al retomar: carpetas ya renombradas (`02. TERU POS/teru-post`; la memoria
+vive en `...-02--TERU-POS`). Hecho: `.next` borrado, `prisma generate`,
+memorias actualizadas. `Paleta@1x.png` ya no está en la carpeta del
+proyecto.
+
+### Componente 4 — Movimientos y kardex (aprobado 2026-09-29)
+
+Diseño aprobado con: hora en `America/Bogota` fija por ahora (constante
+`BUSINESS_TIME_ZONE` en `lib/company-formats.ts`; la zona por empresa
+llega con caja/ventas, que cortan por día; en BD todo sigue en UTC),
+motivo de ajuste en texto libre obligatorio (3–200), conteo físico fuera.
+
+- Rutas: `/inventario/insumos/[id]` es ahora la **ficha** del insumo; la
+  edición pasó a `/[id]/editar` (Cancelar vuelve a la ficha). En la lista,
+  el nombre abre la ficha y "Editar" va a `/editar`.
+- Ficha: encabezado (unidad, Archivado/Bajo mínimo, Editar), existencia
+  total y mínimo, **existencias por bodega activa** (agrupadas por
+  sucursal si hay más de una) con formulario desplegable por fila
+  (`<details>`, sin JS): "Carga inicial" si la bodega no tiene saldo,
+  "Ajustar" (Entrada/Salida + cantidad + motivo) si ya lo tiene. Kardex:
+  últimos 100 (`KARDEX_LIMIT`), filtro GET `?bodega=`, columnas fecha y
+  hora, bodega, tipo, cantidad con signo, saldo en bodega, motivo,
+  usuario. Archivado: solo lectura con aviso.
+- "Carga inicial pendiente" = no existe `stock_levels` para esa bodega (el
+  saldo nace con el primer movimiento). La capa de datos sigue siendo la
+  garantía (`ALREADY_INITIALIZED`).
+- Datos: `recordStockMovement` devuelve en `INSUFFICIENT_STOCK` el saldo
+  disponible y la unidad (mensaje "hay 10,5 kg").
+- Validación: `stockMovementSchema` (`kind` INITIAL/IN/OUT, cantidad > 0,
+  motivo). Servicio: `getSupplyDetail`, `registerStockMovement` (usuario
+  de la sesión; OUT = cantidad negativa), `groupByBranch` compartido con
+  `getWarehouses`. `formatDateTime` en `lib/company-formats.ts`.
+- UI `components/inventory/`: `movement-fields`, `movement-actions`
+  (redirige a la ficha con `?aviso=movimiento`, conserva el filtro),
+  `movement-form`, `supply-stock`, `supply-kardex`. El formulario de cada
+  fila lleva `key` = saldo: tras guardar vuelve a montarse cerrado.
+- Pruebas: unitarias (validación, `formatDateTime`), integración
+  `inventory-movements.test.ts` (6). Suite 181/181, typecheck, lint y
+  build. Por HTTP sin JS contra dev (empresa temporal `t-http-inv`, ya
+  borrada; script `t_movimientos.py` del scratchpad): 34/34.
+- Limitación conocida: sin JS y desde una pestaña vieja (formulario que ya
+  no existe en la página, p. ej. segunda carga inicial o insumo recién
+  archivado), el servidor rechaza el movimiento pero el mensaje no se ve.
+  Con JS sí se ve.
+- No probado en el navegador.
+- Aprobado por el usuario en el navegador el 2026-09-29.
+
+### Cierre de la sesión 2026-09-28 (noche)
+
+**Implementado hoy (sin commit, en el árbol de trabajo):**
+- Fase 5, componente 4 — movimientos y kardex (detalle arriba): ficha del
+  insumo, carga inicial y ajustes por bodega, kardex con filtro, edición
+  movida a `/[id]/editar`.
+- Pasos posteriores al renombrado de carpetas (`.next`, `prisma
+  generate`, memorias).
+
+**Pendiente:**
+- **Mañana (usuario):** revisar el componente 4 en el navegador. Si lo
+  aprueba: commit (p. ej. "Agrega los movimientos y el kardex del
+  inventario") y push a `origin/master`. Si hay ajustes, corregir antes.
+  Puntos a mirar en el navegador (nunca probados con JS): desplegables
+  por fila, radios Entrada/Salida (`has-checked:`), que tras guardar el
+  formulario se cierre, error visible en el formulario con JS, tabla del
+  kardex en tablet (se desplaza solo la tabla), hora mostrada.
+- Fase 5, componente 5 — cierre: revisión, ADR 0005 (incluir la zona
+  horaria fija `America/Bogota` y la ficha del insumo), README, y migrar a
+  los compartidos (`RowActionButton`, `RenameForm`, `EmptyState`,
+  `StatusTabs`, `FormField`) las copias locales de categorías, productos
+  y equipo (propuesto, sin respuesta explícita todavía).
+- Usuario: renombrar el proyecto Supabase `su-arepa-dev` → `teru-pos-dev`.
+- Antes de producción (sin cambios): proveedor de correo, clave de Storage
+  y bucket por entorno.
+- Futuro (caja/ventas): zona horaria por empresa en lugar de la constante.
+
+**Decisiones técnicas de hoy:**
+- Fechas guardadas en UTC; se muestran en `BUSINESS_TIME_ZONE`
+  (`America/Bogota`), igual para todas las empresas por ahora. Cambiar a
+  zona por empresa solo toca el formateo, no los datos.
+- Motivo de ajuste: texto libre obligatorio (3–200); carga inicial con
+  nota opcional. Sin lista de motivos ni conteo físico por ahora.
+- "Sin carga inicial" = la bodega no tiene fila en `stock_levels`.
+- La acción de movimiento redirige a la ficha (`?aviso=movimiento`,
+  conserva `?bodega=`); el formulario de cada fila usa `key` = saldo.
+
+**Errores conocidos:**
+- Sin JS, desde una pestaña vieja, el rechazo de un movimiento no muestra
+  mensaje (el servidor sí lo rechaza).
+- En Windows, detener `next dev` en segundo plano deja node en el puerto
+  3000: `taskkill /PID <pid> /T /F`.
+- Cliente HTTP de prueba en Python: correr con `PYTHONIOENCODING=utf-8`
+  (la consola cp1252 falla con "−" y tildes). Scripts en el scratchpad de
+  la sesión: `http_client.py`, `_fixture.ts` (copiar a `scripts/` para
+  usarlo y borrarlo después), `t_movimientos.py`.
+
+**Próximo paso recomendado:** revisión del componente 4 en el navegador
+→ corregir si hace falta → commit y push → componente 5 (cierre de la
+fase 5).

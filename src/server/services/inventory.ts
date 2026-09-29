@@ -4,13 +4,18 @@ import { z } from "zod";
 
 import { Prisma } from "@/generated/prisma/client";
 import type { StaffSessionDto } from "@/server/dto/auth";
+import { isDateFormat, type DateFormat } from "@/lib/company-formats";
+import { formatQuantity } from "@/lib/units";
 import { listActiveBranches } from "@/server/data/branches";
+import { findCompanySettings } from "@/server/data/companies";
 import {
   createSupply,
   createWarehouse,
   findSupply,
+  listStockMovements,
   listSupplies,
   listWarehouses,
+  recordStockMovement,
   renameWarehouse,
   setSupplyArchived,
   setWarehouseActive,
@@ -19,8 +24,11 @@ import {
 } from "@/server/data/inventory";
 import { assertPermission } from "@/server/services/auth/permissions";
 import {
+  stockMovementSchema,
   supplySchema,
   warehouseNameSchema,
+  type MovementKind,
+  type StockMovementFormInput,
   type SupplyInput,
 } from "@/server/validations/inventory";
 
@@ -61,27 +69,30 @@ export async function getWarehouses(session: StaffSessionDto) {
     listActiveBranches(session.company.id),
   ]);
 
-  const groups = new Map<string, { branch: { id: string; name: string }; warehouses: WarehouseRow[] }>();
-  for (const { _count, branch, ...warehouse } of warehouses) {
-    const group = groups.get(branch.id) ?? { branch: { id: branch.id, name: branch.name }, warehouses: [] };
-    group.warehouses.push({
-      ...warehouse,
-      stockedSupplies: _count.stockLevels,
-      canDeactivate: warehouse.isActive && !warehouse.isMain && _count.stockLevels === 0,
-    });
-    groups.set(branch.id, group);
-  }
-  return { groups: [...groups.values()], branches };
+  const groups = groupByBranch(warehouses, ({ id, name, isMain, isActive, _count }) => ({
+    id,
+    name,
+    isMain,
+    isActive,
+    stockedSupplies: _count.stockLevels,
+    canDeactivate: isActive && !isMain && _count.stockLevels === 0,
+  }));
+  return { groups, branches };
 }
 
-type WarehouseRow = {
-  id: string;
-  name: string;
-  isMain: boolean;
-  isActive: boolean;
-  stockedSupplies: number;
-  canDeactivate: boolean;
-};
+type WarehouseListRow = Awaited<ReturnType<typeof listWarehouses>>[number];
+
+// Conserva el orden de listWarehouses (sucursal principal primero).
+function groupByBranch<T>(warehouses: WarehouseListRow[], toRow: (warehouse: WarehouseListRow) => T) {
+  const groups = new Map<string, { branch: { id: string; name: string }; warehouses: T[] }>();
+  for (const warehouse of warehouses) {
+    const { branch } = warehouse;
+    const group = groups.get(branch.id) ?? { branch: { id: branch.id, name: branch.name }, warehouses: [] };
+    group.warehouses.push(toRow(warehouse));
+    groups.set(branch.id, group);
+  }
+  return [...groups.values()];
+}
 
 export type WarehouseOverview = Awaited<ReturnType<typeof getWarehouses>>;
 
@@ -253,4 +264,139 @@ export async function setInventorySupplyArchived(
         ? "Este insumo tiene existencias: ajústalas a cero antes de archivarlo."
         : SUPPLY_GONE,
   };
+}
+
+// --- Existencias y movimientos --------------------------------------------
+
+// Movimientos que muestra el kardex (los más recientes).
+export const KARDEX_LIMIT = 100;
+
+// Ficha del insumo: existencias por bodega activa (agrupadas por sucursal),
+// kardex y las bodegas por las que se puede filtrar.
+export async function getSupplyDetail(
+  session: StaffSessionDto,
+  supplyId: string,
+  filters: { warehouseId?: string } = {},
+) {
+  assertPermission(session, "inventory.manage");
+  const companyId = session.company.id;
+  const supply = await findSupply(companyId, supplyId);
+  if (!supply) return null;
+
+  const [warehouses, movements, company] = await Promise.all([
+    listWarehouses(companyId),
+    listStockMovements(companyId, supplyId, {
+      warehouseId: filters.warehouseId || undefined,
+      take: KARDEX_LIMIT,
+    }),
+    findCompanySettings(companyId),
+  ]);
+
+  // El saldo de una bodega nace con su primer movimiento: sin saldo, lo
+  // que corresponde es la carga inicial.
+  const levels = new Map(supply.stockLevels.map((level) => [level.warehouseId, level.quantity]));
+  const stock = groupByBranch(
+    warehouses.filter((warehouse) => warehouse.isActive),
+    (warehouse) => ({
+      id: warehouse.id,
+      name: warehouse.name,
+      isMain: warehouse.isMain,
+      quantity: levels.get(warehouse.id)?.toString() ?? "0",
+      initialized: levels.has(warehouse.id),
+    }),
+  );
+
+  const dateFormat: DateFormat =
+    company && isDateFormat(company.dateFormat) ? company.dateFormat : "DD/MM/YYYY";
+
+  return {
+    supply: { ...toSupplyDto(supply), unitLocked: supply._count.stockMovements > 0 },
+    stock,
+    warehouseOptions: warehouses.map((warehouse) => ({
+      id: warehouse.id,
+      name: warehouse.name,
+      branchName: warehouse.branch.name,
+      isActive: warehouse.isActive,
+    })),
+    movements: movements.map((movement) => ({
+      id: movement.id,
+      kind: movementKind(movement.type, movement.quantity),
+      // Sin signo: el tipo dice si entró o salió.
+      quantity: movement.quantity.abs().toString(),
+      balanceAfter: movement.balanceAfter.toString(),
+      reason: movement.reason,
+      createdAt: movement.createdAt,
+      warehouseName: movement.warehouse.name,
+      userName: movement.user.name,
+    })),
+    dateFormat,
+  };
+}
+
+export type SupplyDetail = NonNullable<Awaited<ReturnType<typeof getSupplyDetail>>>;
+
+function movementKind(type: "INITIAL" | "ADJUSTMENT", quantity: Prisma.Decimal): MovementKind {
+  if (type === "INITIAL") return "INITIAL";
+  return quantity.isNegative() ? "OUT" : "IN";
+}
+
+export type StockMovementField = keyof StockMovementFormInput;
+
+export type RegisterMovementResult =
+  | { ok: true }
+  | { ok: false; fieldErrors: Partial<Record<StockMovementField, string>>; error?: string };
+
+const MOVEMENT_ERRORS = {
+  SUPPLY_NOT_FOUND: SUPPLY_GONE,
+  SUPPLY_ARCHIVED: "El insumo está archivado: restáuralo para registrar movimientos.",
+  WAREHOUSE_NOT_FOUND: WAREHOUSE_GONE,
+  WAREHOUSE_INACTIVE: "La bodega está inactiva: actívala para registrar movimientos.",
+  ALREADY_INITIALIZED:
+    "Esta bodega ya tiene su carga inicial. Actualiza la página para registrar un ajuste.",
+} as const;
+
+// Carga inicial o ajuste de un insumo en una bodega, a nombre de quien
+// tiene la sesión. La salida se registra con cantidad negativa.
+export async function registerStockMovement(
+  session: StaffSessionDto,
+  target: { supplyId: string; warehouseId: string },
+  input: StockMovementFormInput,
+): Promise<RegisterMovementResult> {
+  assertPermission(session, "inventory.manage");
+  const parsed = stockMovementSchema.safeParse(input);
+  if (!parsed.success) {
+    const { fieldErrors } = z.flattenError(parsed.error);
+    return {
+      ok: false,
+      fieldErrors: Object.fromEntries(
+        Object.entries(fieldErrors).map(([field, errors]) => [field, errors?.[0]]),
+      ) as Partial<Record<StockMovementField, string>>,
+    };
+  }
+
+  const { kind, quantity, reason } = parsed.data;
+  const result = await recordStockMovement(session.company.id, {
+    ...target,
+    type: kind === "INITIAL" ? "INITIAL" : "ADJUSTMENT",
+    quantity: kind === "OUT" ? `-${quantity}` : quantity,
+    reason,
+    userId: session.user.id,
+  });
+
+  switch (result.status) {
+    case "OK":
+      return { ok: true };
+    case "INSUFFICIENT_STOCK":
+      return {
+        ok: false,
+        fieldErrors: {
+          quantity: `La salida supera la existencia de la bodega (hay ${formatQuantity(
+            result.available.toString(),
+            result.unit,
+          )}).`,
+        },
+      };
+    default:
+      return { ok: false, fieldErrors: {}, error: MOVEMENT_ERRORS[result.status] };
+  }
 }

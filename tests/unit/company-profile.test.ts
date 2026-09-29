@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   formatDate,
+  formatDateTime,
   formatMoney,
   isSupportedCurrency,
 } from "@/lib/company-formats";
@@ -71,5 +72,15 @@ describe("formatos", () => {
     expect(formatDate(date, "DD/MM/YYYY")).toBe("24/03/2026");
     expect(formatDate(date, "MM/DD/YYYY")).toBe("03/24/2026");
     expect(formatDate(date, "YYYY-MM-DD")).toBe("2026-03-24");
+  });
+
+  it("muestra fecha y hora en la zona del negocio, no en UTC", () => {
+    // 01:05 UTC del 29 = 8:05 p. m. del 28 en Bogotá (UTC−5).
+    const date = new Date(Date.UTC(2026, 8, 29, 1, 5));
+    expect(formatDateTime(date, "DD/MM/YYYY")).toMatch(/^28\/09\/2026 8:05\sp\.\sm\.$/);
+    expect(formatDateTime(date, "YYYY-MM-DD")).toMatch(/^2026-09-28 8:05/);
+    expect(formatDateTime(new Date(Date.UTC(2026, 8, 28, 15, 0)), "MM/DD/YYYY")).toMatch(
+      /^09\/28\/2026 10:00\sa\.\sm\.$/,
+    );
   });
 });

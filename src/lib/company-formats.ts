@@ -50,3 +50,29 @@ export function formatDate(date: Date, format: DateFormat) {
   const yyyy = String(date.getUTCFullYear());
   return format.replace("DD", dd).replace("MM", mm).replace("YYYY", yyyy);
 }
+
+// Zona horaria con la que se muestran las fechas y horas registradas (que
+// se guardan en UTC). Es la misma para todas las empresas hasta que cada
+// una tenga la suya: llegará con caja y ventas, que cortan por día.
+export const BUSINESS_TIME_ZONE = "America/Bogota";
+
+const calendarDay = new Intl.DateTimeFormat("en-CA", {
+  timeZone: BUSINESS_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+const clockTime = new Intl.DateTimeFormat("es-CO", {
+  timeZone: BUSINESS_TIME_ZONE,
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+// Fecha y hora de un registro en la zona del negocio: "28/09/2026 8:05 p. m.".
+export function formatDateTime(date: Date, format: DateFormat) {
+  // en-CA da "AAAA-MM-DD": el día del calendario local, que formatDate
+  // (con componentes UTC) escribe en el formato de la empresa.
+  const day = new Date(`${calendarDay.format(date)}T00:00:00Z`);
+  return `${formatDate(day, format)} ${clockTime.format(date)}`;
+}

@@ -25,6 +25,7 @@ export function SupplyForm({
   unitLocked = false,
   initialValues,
   submitLabel,
+  cancelHref,
 }: {
   action: SaveSupplyAction;
   companySlug: string;
@@ -32,6 +33,8 @@ export function SupplyForm({
   unitLocked?: boolean;
   initialValues: SupplyFormValues;
   submitLabel: string;
+  // Por defecto, la lista de insumos.
+  cancelHref?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, {
     status: "idle",
@@ -136,7 +139,7 @@ export function SupplyForm({
 
       <div className="sticky bottom-0 -mx-4 -mb-6 flex items-center justify-end gap-3 border-t border-border bg-background/90 px-4 py-4 backdrop-blur md:-mx-8 md:px-8">
         <Button asChild variant="outline" className="h-11 px-4">
-          <Link href={`/${companySlug}/inventario/insumos`}>Cancelar</Link>
+          <Link href={cancelHref ?? `/${companySlug}/inventario/insumos`}>Cancelar</Link>
         </Button>
         <Button type="submit" disabled={pending} className="h-11 gap-2 px-5">
           {pending ? <Loader2 className="animate-spin" aria-hidden /> : <Save aria-hidden />}

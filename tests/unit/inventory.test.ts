@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { formatQuantity } from "@/lib/units";
-import { quantitySchema, supplySchema } from "@/server/validations/inventory";
+import {
+  quantitySchema,
+  stockMovementSchema,
+  supplySchema,
+} from "@/server/validations/inventory";
 
 const error = (result: { success: boolean; error?: { issues: { message: string }[] } }) =>
   result.success ? null : result.error!.issues[0].message;
@@ -58,5 +62,40 @@ describe("formatQuantity", () => {
     expect(formatQuantity("1500", "G")).toBe("1.500 g");
     expect(formatQuantity("0.125", "L")).toBe("0,125 l");
     expect(formatQuantity("24", "UNIT")).toBe("24 und");
+  });
+});
+
+describe("stockMovementSchema", () => {
+  const issues = (input: { kind: string; quantity: string; reason: string }) => {
+    const result = stockMovementSchema.safeParse(input);
+    return result.success
+      ? null
+      : Object.fromEntries(result.error.issues.map((issue) => [issue.path[0], issue.message]));
+  };
+
+  it("la carga inicial no exige motivo; el ajuste sí", () => {
+    expect(stockMovementSchema.parse({ kind: "INITIAL", quantity: "12.50", reason: " " })).toEqual({
+      kind: "INITIAL",
+      quantity: "12.5",
+      reason: null,
+    });
+    expect(
+      stockMovementSchema.parse({ kind: "OUT", quantity: "2", reason: " Conteo   físico " }),
+    ).toEqual({ kind: "OUT", quantity: "2", reason: "Conteo físico" });
+    expect(issues({ kind: "IN", quantity: "2", reason: "ok" })).toEqual({
+      reason: "Escribe el motivo del ajuste (mínimo 3 caracteres).",
+    });
+  });
+
+  it("rechaza tipo inválido, cantidad cero o negativa y motivos largos", () => {
+    expect(issues({ kind: "", quantity: "0.000", reason: "x".repeat(201) })).toEqual({
+      kind: "Elige si es una entrada o una salida.",
+      quantity: "La cantidad debe ser mayor que cero.",
+      reason: "El motivo no puede superar 200 caracteres.",
+    });
+    expect(issues({ kind: "ADJUSTMENT", quantity: "-1", reason: "Conteo" })).toEqual({
+      kind: "Elige si es una entrada o una salida.",
+      quantity: "Escribe una cantidad válida (solo números, sin signos).",
+    });
   });
 });

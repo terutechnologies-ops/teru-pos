@@ -26,7 +26,12 @@ export function SupplyList({
         >
           <div className={cn("flex min-w-0 flex-1 flex-col gap-0.5", supply.isArchived && "opacity-70")}>
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="truncate font-bold">{supply.name}</span>
+              <Link
+                href={`/${companySlug}/inventario/insumos/${supply.id}`}
+                className="truncate font-bold hover:underline"
+              >
+                {supply.name}
+              </Link>
               <span className="text-xs text-muted-foreground">
                 · {UNIT_INFO[supply.unit].label.toLowerCase()}
               </span>
@@ -49,7 +54,7 @@ export function SupplyList({
           <div className="flex shrink-0 flex-wrap items-start justify-end gap-2">
             <Button asChild variant="outline" size="sm">
               <Link
-                href={`/${companySlug}/inventario/insumos/${supply.id}`}
+                href={`/${companySlug}/inventario/insumos/${supply.id}/editar`}
                 aria-label={`Editar ${supply.name}`}
               >
                 <Pencil aria-hidden />
