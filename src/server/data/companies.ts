@@ -1,6 +1,7 @@
 import "server-only";
 
 import { db } from "@/lib/db";
+import { createMainWarehouse } from "@/server/data/inventory";
 
 export const MAIN_BRANCH_NAME = "Sede principal";
 
@@ -75,8 +76,8 @@ export async function markCompanySetupCompleted(
   return result.count === 1;
 }
 
-// Alta de una empresa (script de soporte): empresa, sucursal principal e
-// invitación para su propietario, todo o nada.
+// Alta de una empresa (script de soporte): empresa, sucursal principal con
+// su bodega e invitación para su propietario, todo o nada.
 export async function createCompanyWithOwnerInvitation(params: {
   name: string;
   slug: string;
@@ -89,9 +90,11 @@ export async function createCompanyWithOwnerInvitation(params: {
       data: { name: params.name, slug: params.slug },
       select: { id: true },
     });
-    await tx.branch.create({
+    const branch = await tx.branch.create({
       data: { companyId: company.id, name: MAIN_BRANCH_NAME, isMain: true },
+      select: { id: true },
     });
+    await createMainWarehouse(tx, company.id, branch.id);
     const invitation = await tx.staffInvitation.create({
       data: {
         companyId: company.id,

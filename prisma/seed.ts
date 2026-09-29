@@ -1,5 +1,5 @@
-// Datos iniciales: la empresa Su Arepa, su sucursal principal y su usuario
-// propietario.
+// Datos iniciales: la empresa Su Arepa, su sucursal principal con su bodega
+// y su usuario propietario.
 // Idempotente: si ya existen, no los modifica (nunca pisa una contraseña).
 //
 // Uso: SEED_OWNER_EMAIL, SEED_OWNER_NAME y SEED_OWNER_PASSWORD en .env,
@@ -8,6 +8,7 @@ import "dotenv/config";
 
 import { db } from "@/lib/db";
 import { MAIN_BRANCH_NAME } from "@/server/data/companies";
+import { MAIN_WAREHOUSE_NAME } from "@/server/data/inventory";
 import { hashPassword } from "@/server/services/auth/passwords";
 import {
   companySlugSchema,
@@ -38,11 +39,25 @@ async function main() {
     update: {},
     create: { name: COMPANY.name, slug },
   });
-  await db.branch.upsert({
+  const branch = await db.branch.upsert({
     where: { companyId_name: { companyId: company.id, name: MAIN_BRANCH_NAME } },
     update: {},
     create: { companyId: company.id, name: MAIN_BRANCH_NAME, isMain: true },
   });
+  const mainWarehouse = await db.warehouse.findFirst({
+    where: { branchId: branch.id, isMain: true },
+    select: { id: true },
+  });
+  if (!mainWarehouse) {
+    await db.warehouse.create({
+      data: {
+        companyId: company.id,
+        branchId: branch.id,
+        name: MAIN_WAREHOUSE_NAME,
+        isMain: true,
+      },
+    });
+  }
 
   const existing = await db.user.findUnique({
     where: { companyId_email: { companyId: company.id, email } },

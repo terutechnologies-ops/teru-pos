@@ -52,6 +52,10 @@ model Company {
   staffInvitations  StaffInvitation[]
   productCategories ProductCategory[]
   products          Product[]
+  warehouses        Warehouse[]
+  supplies          Supply[]
+  stockLevels       StockLevel[]
+  stockMovements    StockMovement[]
 
   @@map("companies")
 }
@@ -69,7 +73,11 @@ model Branch {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  warehouses Warehouse[]
+
   @@unique([companyId, name])
+  // Destino de la FK compuesta de warehouses (aislamiento entre empresas).
+  @@unique([companyId, id])
   @@index([companyId])
   @@map("branches")
 }
@@ -123,6 +131,113 @@ model Product {
   @@map("products")
 }
 
+// --- Inventario ------------------------------------------------------------
+
+// Unidades fijas en código (ver src/lib/units.ts: familias y conversión).
+enum StockUnit {
+  G
+  KG
+  ML
+  L
+  UNIT
+}
+
+enum StockMovementType {
+  // Primera carga del saldo de un insumo en una bodega.
+  INITIAL
+  // Corrección manual (entrada o salida), con motivo.
+  ADJUSTMENT
+}
+
+// Bodega de una sucursal. La sucursal se enlaza por (companyId, branchId),
+// así la BD impide usar una de otra empresa. La migración agrega: una sola
+// principal por sucursal (índice parcial) y nombre único por empresa sobre
+// lower(name). No se borra (la referencian los movimientos): se desactiva.
+model Warehouse {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  branchId  String
+  branch    Branch   @relation(fields: [companyId, branchId], references: [companyId, id], onDelete: Restrict)
+  name      String
+  isMain    Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stockLevels    StockLevel[]
+  stockMovements StockMovement[]
+
+  @@unique([companyId, id])
+  @@index([companyId, branchId])
+  @@map("warehouses")
+}
+
+// Insumo: lo que se guarda en inventario (harina, queso, gaseosa). Las
+// cantidades se expresan en su unidad; la unidad solo cambia mientras no
+// tenga movimientos. No se borra: se archiva. Nombre único por empresa
+// sobre lower(name), en la migración.
+model Supply {
+  id         String    @id @default(cuid())
+  companyId  String
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  name       String
+  unit       StockUnit
+  // Stock mínimo deseado (en su unidad); null = sin mínimo.
+  minStock   Decimal?  @db.Decimal(14, 3)
+  isArchived Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  stockLevels    StockLevel[]
+  stockMovements StockMovement[]
+
+  @@unique([companyId, id])
+  @@index([companyId])
+  @@map("supplies")
+}
+
+// Saldo de un insumo en una bodega. Solo cambia junto con un movimiento, en
+// la misma transacción. La migración agrega CHECK (quantity >= 0).
+model StockLevel {
+  companyId   String
+  company     Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [companyId, warehouseId], references: [companyId, id], onDelete: Restrict)
+  supplyId    String
+  supply      Supply    @relation(fields: [companyId, supplyId], references: [companyId, id], onDelete: Restrict)
+  quantity    Decimal   @default(0) @db.Decimal(14, 3)
+  updatedAt   DateTime  @updatedAt
+
+  @@id([warehouseId, supplyId])
+  @@index([companyId, supplyId])
+  @@map("stock_levels")
+}
+
+// Movimiento de inventario (kardex). Inmutable: la capa de datos no expone
+// edición ni borrado; un error se corrige con otro movimiento. quantity va
+// con signo (+ entra, − sale) y balanceAfter es el saldo que dejó.
+model StockMovement {
+  id           String            @id @default(cuid())
+  companyId    String
+  company      Company           @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  warehouseId  String
+  warehouse    Warehouse         @relation(fields: [companyId, warehouseId], references: [companyId, id], onDelete: Restrict)
+  supplyId     String
+  supply       Supply            @relation(fields: [companyId, supplyId], references: [companyId, id], onDelete: Restrict)
+  type         StockMovementType
+  quantity     Decimal           @db.Decimal(14, 3)
+  balanceAfter Decimal           @db.Decimal(14, 3)
+  reason       String?
+  userId       String
+  user         User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  createdAt    DateTime          @default(now())
+
+  @@index([companyId, supplyId, createdAt])
+  @@index([warehouseId, supplyId, createdAt])
+  @@map("stock_movements")
+}
+
 // --- Personal interno (login "panel operativo") -----------------------
 
 enum StaffRole {
@@ -148,6 +263,7 @@ model User {
   sessions            UserSession[]
   sentInvitations     StaffInvitation[]        @relation("InvitationSender")
   acceptedInvitation  StaffInvitation?         @relation("InvitationAcceptedUser")
+  stockMovements      StockMovement[]
 
   @@unique([companyId, email])
   @@index([companyId])

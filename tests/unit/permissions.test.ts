@@ -20,6 +20,12 @@ describe("hasPermission", () => {
     expect(hasPermission("STAFF", "catalog.manage")).toBe(false);
   });
 
+  it("OWNER y ADMIN gestionan el inventario", () => {
+    expect(hasPermission("OWNER", "inventory.manage")).toBe(true);
+    expect(hasPermission("ADMIN", "inventory.manage")).toBe(true);
+    expect(hasPermission("STAFF", "inventory.manage")).toBe(false);
+  });
+
   it("OWNER y ADMIN gestionan el equipo", () => {
     expect(hasPermission("OWNER", "team.manage")).toBe(true);
     expect(hasPermission("ADMIN", "team.manage")).toBe(true);

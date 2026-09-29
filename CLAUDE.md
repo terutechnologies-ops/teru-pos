@@ -798,3 +798,53 @@ Fase 4 cerrada y subida. Siguiente fase por definir con el usuario
 (Analizar primero). Según el orden acordado: inventario (insumos,
 unidades de medida, bodegas y movimientos). Pendiente antes de producción:
 proveedor de correo, clave de Storage y bucket por entorno.
+
+## Sesión 2026-09-28 — Fase 5: inventario
+
+Alcance aprobado (2026-09-28), con las recomendaciones aceptadas:
+- **Unidades fijas en código** (g, kg, ml, l, und) con conversión exacta
+  dentro de la familia (`lib/units.ts`); sin unidades por empresa.
+- **Bodegas por sucursal**; una principal por sucursal, creada con ella.
+- **Insumos** (nombre, unidad, stock mínimo, archivado). El enlace
+  producto ↔ insumo (reventa, p. ej. gaseosa) va en la fase de recetas.
+- **Movimientos:** solo carga inicial y ajustes (con motivo); inmutables,
+  saldo por insumo y bodega en la misma transacción, kardex por insumo.
+- **Sin costos** en esta fase (fase de costos). **Stock negativo
+  bloqueado** en ajustes; para ventas se decide en su fase.
+- `inventory.manage`: OWNER y ADMIN.
+- Fuera de alcance: costos, recetas, compras, traslados, lotes,
+  vencimientos, alertas.
+
+Componentes: 1) modelo de datos y permiso; 2) bodegas; 3) insumos;
+4) movimientos y kardex; 5) cierre (ADR 0005, README).
+
+### Componente 1 — Modelo de datos del inventario (aprobado 2026-09-28)
+
+- Migración `20260928120000_add_inventory` (**aplicada en test y dev**):
+  enums `StockUnit` y `StockMovementType` (`INITIAL`, `ADJUSTMENT`);
+  tablas `warehouses`, `supplies`, `stock_levels` (PK bodega+insumo) y
+  `stock_movements` (cantidad con signo, `balanceAfter`, motivo, usuario;
+  sin `updatedAt`). FK compuestas `(companyId, …)` a sucursal, bodega e
+  insumo (`Branch` ganó `@@unique([companyId, id])`). Solo en SQL: nombres
+  únicos por empresa sobre `lower(name)` (bodegas e insumos), una bodega
+  principal por sucursal (índice parcial), CHECK de mínimo ≥ 0, saldo ≥ 0,
+  cantidad ≠ 0, inicial > 0, `balanceAfter` ≥ 0. RLS habilitado. Crea la
+  "Bodega principal" de las sucursales principales existentes (dev: la de
+  `su-arepa`). Diff de Prisma vacío.
+- El alta de empresa (`createCompanyWithOwnerInvitation`) y el seed crean
+  la bodega principal (`createMainWarehouse`, `MAIN_WAREHOUSE_NAME`).
+- `src/server/data/inventory.ts`: bodegas (listar agrupables por sucursal,
+  buscar, crear, renombrar, activar), insumos (listar con saldos, búsqueda,
+  archivados; buscar con conteo de movimientos; crear; editar — la unidad
+  solo cambia sin movimientos, `UNIT_LOCKED`; archivar) y
+  `recordStockMovement` (transacción: bloquea el insumo con
+  `SELECT … FOR UPDATE`, valida bodega activa e insumo no archivado, una
+  sola carga inicial por bodega, rechaza saldo negativo, actualiza saldo y
+  crea el movimiento) + `listStockMovements` (kardex). Transacciones con
+  `timeout` 20 s por la latencia a Supabase.
+- Inmutabilidad: la capa de datos no expone edición ni borrado de
+  movimientos (sin trigger en la BD: la limpieza de pruebas borra).
+- Pruebas: `tests/unit/units.test.ts` (3), permiso, e
+  `tests/integration/inventory-data.test.ts` (10, incluye dos salidas
+  simultáneas: solo una pasa). `tests/helpers.ts` limpia el inventario.
+  Verificado: typecheck, lint, build y suite 157/157 (~15 min).

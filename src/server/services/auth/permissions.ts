@@ -3,11 +3,15 @@ import type { StaffRole } from "@/generated/prisma/enums";
 // Roles fijos con permisos definidos en código (ver ADR 0002). Cada módulo
 // agrega aquí los permisos que necesita cuando se construye.
 
-export type Permission = "company.manage" | "team.manage" | "catalog.manage";
+export type Permission =
+  | "company.manage"
+  | "team.manage"
+  | "catalog.manage"
+  | "inventory.manage";
 
 const ROLE_PERMISSIONS = {
-  OWNER: ["company.manage", "team.manage", "catalog.manage"],
-  ADMIN: ["team.manage", "catalog.manage"],
+  OWNER: ["company.manage", "team.manage", "catalog.manage", "inventory.manage"],
+  ADMIN: ["team.manage", "catalog.manage", "inventory.manage"],
   STAFF: [],
 } satisfies Record<StaffRole, readonly Permission[]>;
 
