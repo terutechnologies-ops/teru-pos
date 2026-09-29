@@ -964,3 +964,56 @@ disponible para cuando haya equipo o CI).
   empresa cliente (seed, slugs de ejemplo, ADR históricos). El proyecto
   Supabase `su-arepa-dev` se renombra a `teru-pos-dev` desde su panel
   (Project Settings → General); el ref y las URLs no cambian.
+
+### Cierre de la sesión 2026-09-28
+
+**Implementado hoy (con commit y subido a GitHub):**
+- Fase 5, componentes 1–3 aprobados: modelo de datos del inventario
+  (`c4e0ae2`), bodegas (`a8f441b`) e insumos (`15f36e2`).
+- Pruebas de integración pasadas a PostgreSQL 17 local (`eeb4826`):
+  suite 172/172 en ~13 s. `su-arepa-test` borrado en Supabase.
+- Referencias de plataforma renombradas a Teru POS (`8b5bacc`).
+
+**Pendiente:**
+- Fase 5, componente 4 — **movimientos y kardex** (siguiente): en la
+  página del insumo, existencias por bodega, carga inicial y ajustes
+  (entrada/salida con motivo, cantidad en la unidad del insumo, sin
+  saldo negativo) usando `recordStockMovement`, y el historial con
+  `listStockMovements`. Analizar y diseñar antes de implementar.
+- Fase 5, componente 5 — cierre: revisión, ADR 0005, README, y migrar a
+  los compartidos (`RowActionButton`, `RenameForm`, `EmptyState`,
+  `StatusTabs`, `FormField`) las copias locales de categorías, productos
+  y equipo (propuesto al usuario, sin respuesta explícita todavía).
+- Usuario: renombrar el proyecto Supabase `su-arepa-dev` → `teru-pos-dev`
+  en su panel.
+- Antes de producción (sin cambios): proveedor de correo, clave de Storage
+  y bucket por entorno.
+
+**Renombrado de carpetas (lo hace el usuario al cerrar esta sesión):**
+- La carpeta interna `su-arepa-sistema` se puede renombrar (p. ej. a
+  `teru-pos`) sin afectar la memoria de Claude.
+- La carpeta padre `02. SU AREPA` define la ruta de la memoria y del
+  historial (`~/.claude/projects/C--Users-ASUS-Desktop-BRAND-PROYECTO-TERU-PROYECTOS-02--SU-AREPA`).
+  Si se renombra, hay que renombrar también esa carpeta siguiendo la
+  regla: todo lo que no es letra ni número pasa a `-`.
+- Al volver: borrar `.next`, correr `npx prisma generate`, y actualizar
+  las memorias que mencionan los nombres viejos de las carpetas
+  (`paleta-teru`, `plataforma-vs-empresa-cliente`).
+
+**Decisiones técnicas de hoy:** ver los componentes 1–3 de la fase 5 y
+el cambio de infraestructura de pruebas (arriba). Resumen: unidades fijas
+con conversión exacta, bodega principal por sucursal, saldo nunca
+negativo (CHECK + bloqueo `FOR UPDATE` del insumo), movimientos
+inmutables, no se desactiva una bodega ni se archiva un insumo con
+existencias, sin auditoría de bodegas e insumos, componentes compartidos
+nuevos para el código nuevo.
+
+**Errores conocidos:**
+- En Windows, detener una tarea en segundo plano con `next dev` deja vivo
+  el proceso de node en el puerto 3000: terminarlo con `taskkill /T /F`.
+- Los heredoc largos en la herramienta Bash a veces fallan con
+  "unexpected EOF"; para archivos largos usar la herramienta Write.
+- Nada probado en el navegador en esta fase (solo por HTTP sin JS).
+
+**Próximo paso recomendado:** componente 4 de la fase 5 (movimientos y
+kardex), empezando por el análisis y el diseño de la pantalla del insumo.
