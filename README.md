@@ -70,13 +70,16 @@ Los archivos `.env*` no se versionan (salvo `.env.example`).
 ## Pruebas
 
 - **Unitarias** (`tests/unit`): no requieren BD.
-- **Integración** (`tests/integration`): corren contra el proyecto Supabase
-  `su-arepa-test`, configurado en `.env.test` (mismas variables que `.env`).
-  El almacenamiento de archivos usa una versión en memoria: no necesitan
-  `SUPABASE_SECRET_KEY`.
+- **Integración** (`tests/integration`): corren contra un PostgreSQL 17
+  local (misma versión principal que Supabase), base `teru_pos_test`,
+  configurado en `.env.test` (`DATABASE_URL` y `DIRECT_URL` iguales). La
+  suite completa tarda unos segundos. El almacenamiento de archivos usa una
+  versión en memoria: no necesitan `SUPABASE_SECRET_KEY`.
   Se niegan a correr si `.env.test` apunta a la BD de desarrollo.
 
 ```bash
+# Una vez: crear la base (con el usuario postgres de la instalación local)
+psql -U postgres -c "CREATE DATABASE teru_pos_test"
 npm run test:db:migrate   # una vez, y tras cada migración nueva
 npm test
 ```

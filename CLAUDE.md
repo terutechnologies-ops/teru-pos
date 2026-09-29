@@ -936,3 +936,25 @@ Componentes: 1) modelo de datos y permiso; 2) bodegas; 3) insumos;
   crea nada.
 - Verificado: typecheck, lint, build y suite 172/172.
 - No probado en el navegador.
+
+### Cambio de infraestructura — pruebas en PostgreSQL local (2026-09-28)
+
+Pedido del usuario: liberar el proyecto Supabase `su-arepa-test` para
+otro proyecto. Se eligió PostgreSQL 17 nativo en Windows (más simple que
+Docker Desktop para un solo desarrollador; `docker-compose.yml` sigue
+disponible para cuando haya equipo o CI).
+
+- PostgreSQL 17.11 local (servicio `postgresql-x64-17`, puerto 5432,
+  misma versión principal que Supabase 17.6). Base `teru_pos_test` creada y
+  con las 9 migraciones aplicadas (las de RLS no dependen de roles de
+  Supabase).
+- `.env.test` apunta a `localhost:5432/teru_pos_test` (la contraseña la
+  puso el usuario). La configuración anterior quedó en
+  `.env.test.supabase` (ignorado por git) hasta borrar el proyecto.
+- **Suite completa: 172/172 en ~13 s** (antes ~15–18 min por la latencia a
+  Supabase). La nota de riesgo de la fase inicial sobre la suite de ~4 min
+  ya no aplica a las pruebas (sí a la app en dev).
+- `tests/setup.ts` (comentario) y README actualizados.
+- Pendiente del usuario: borrar `su-arepa-test` en Supabase y luego
+  `.env.test.supabase`; renombrar `su-arepa-dev` → `teru-pos-dev` en el
+  panel (el ref y las URLs no cambian).

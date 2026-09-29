@@ -1,6 +1,6 @@
 import { config } from "dotenv";
 
-// Las pruebas usan solo .env.test (proyecto Supabase su-arepa-test).
+// Las pruebas usan solo .env.test (PostgreSQL 17 local, base teru_pos_test).
 config({ path: ".env.test", override: true, quiet: true });
 
 const DEV_PROJECT_REF = "icecyozrwddieqshjaga";
