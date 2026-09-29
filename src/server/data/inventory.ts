@@ -54,6 +54,8 @@ const warehouseSelect = {
   isMain: true,
   isActive: true,
   branch: { select: { id: true, name: true, isMain: true } },
+  // Insumos con existencias en la bodega.
+  _count: { select: { stockLevels: { where: { quantity: { gt: 0 } } } } },
 } satisfies Prisma.WarehouseSelect;
 
 // Agrupables por sucursal: la principal primero y, dentro de cada una, su
@@ -95,16 +97,24 @@ export async function renameWarehouse(companyId: string, warehouseId: string, na
   });
 }
 
+// La principal no se desactiva (es la bodega por defecto de su sucursal),
+// ni una con existencias (quedarían sin poder moverse).
 export async function setWarehouseActive(
   companyId: string,
   warehouseId: string,
   isActive: boolean,
-) {
+): Promise<"OK" | "NOT_FOUND" | "IS_MAIN" | "HAS_STOCK"> {
+  if (!isActive) {
+    const warehouse = await findWarehouse(companyId, warehouseId);
+    if (!warehouse) return "NOT_FOUND";
+    if (warehouse.isMain) return "IS_MAIN";
+    if (warehouse._count.stockLevels > 0) return "HAS_STOCK";
+  }
   const { count } = await db.warehouse.updateMany({
-    where: { id: warehouseId, companyId },
+    where: { id: warehouseId, companyId, ...(!isActive && { isMain: false }) },
     data: { isActive },
   });
-  return count === 1;
+  return count === 1 ? "OK" : "NOT_FOUND";
 }
 
 // --- Insumos --------------------------------------------------------------

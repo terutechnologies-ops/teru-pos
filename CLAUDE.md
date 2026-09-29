@@ -848,3 +848,43 @@ Componentes: 1) modelo de datos y permiso; 2) bodegas; 3) insumos;
   `tests/integration/inventory-data.test.ts` (10, incluye dos salidas
   simultáneas: solo una pasa). `tests/helpers.ts` limpia el inventario.
   Verificado: typecheck, lint, build y suite 157/157 (~15 min).
+
+### Componente 2 — Bodegas (aprobado 2026-09-28)
+
+- `/[empresa]/inventario/bodegas` (`inventory.manage`). Menú: grupo
+  "Inventario" (entre Catálogo y Configuración) con "Bodegas"; tarjeta en
+  Inicio.
+- Reglas: la bodega principal no se desactiva, ni una con existencias
+  (`setWarehouseActive` devuelve `IS_MAIN` / `HAS_STOCK`); no se borran;
+  sin auditoría (como las categorías). Crear solo en sucursales activas
+  (`data/branches.ts` → `listActiveBranches`).
+- `validations/common.ts`: `displayNameSchema(max)`, ahora también usado
+  por categorías y productos (mismo comportamiento).
+  `validations/inventory.ts`: `warehouseNameSchema`.
+- `services/inventory.ts`: `getWarehouses` (grupos por sucursal con
+  `stockedSupplies` y `canDeactivate`, y sucursales activas),
+  `createInventoryWarehouse`, `renameInventoryWarehouse`,
+  `setInventoryWarehouseActive`.
+- Compartidos nuevos: `components/shared/rename-form.tsx` (`RenameForm`,
+  `<details>` sin JS; usarlo con `key` = nombre) y
+  `components/shared/row-action-button.tsx` (`RowActionButton`). Los usa
+  inventario; categorías, productos y equipo siguen con sus versiones
+  propias (se pueden migrar después).
+- UI `components/inventory/`: `warehouse-actions`, `new-warehouse-form`
+  (sin selector de sucursal si hay una sola), `warehouse-row-button`,
+  `warehouse-list` (agrupada por sucursal; el nombre de la sucursal solo
+  si hay más de una).
+- Pruebas: `tests/helpers.ts` → `createMainBranch`; integración
+  `inventory-warehouses.test.ts` (4) y menú. Por HTTP contra dev (empresa
+  temporal `t-http-inv` creada con el alta real, ya borrada): bodega
+  principal creada con la empresa, crear, duplicado conservando lo
+  escrito, renombrar, desactivar/activar, principal forzada rechazada,
+  sucursal inválida rechazada, tarjeta en Inicio, ADMIN entra, STAFF
+  redirigido y su acción forzada no crea nada, sin sesión → login.
+- Cliente HTTP de prueba (scratchpad de la sesión, no en repo):
+  `http_client.py` (`Client.login`, `Client.submit(path, predicate,
+  overrides)`; lee input, select y textarea) y `_fixture.ts`
+  (setup/state/teardown de la empresa temporal; copiar a `scripts/` para
+  correrlo).
+- Verificado: typecheck, lint, build y suite 162/162.
+- No probado en el navegador.

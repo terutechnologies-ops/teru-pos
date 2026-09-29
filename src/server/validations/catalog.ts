@@ -1,20 +1,11 @@
 import { z } from "zod";
 
 import { currencyDecimals } from "@/lib/company-formats";
+import { displayNameSchema } from "@/server/validations/common";
 
 // Catálogo de venta.
 
-export const categoryNameSchema = z
-  .string()
-  .trim()
-  // Espacios repetidos cuentan como uno: "Bebidas  frías" = "Bebidas frías".
-  .transform((value) => value.replace(/\s+/g, " "))
-  .pipe(
-    z
-      .string()
-      .min(2, { error: "Escribe el nombre (mínimo 2 caracteres)." })
-      .max(60, { error: "El nombre no puede superar 60 caracteres." }),
-  );
+export const categoryNameSchema = displayNameSchema(60);
 
 // Tope de Decimal(12, 2).
 const MAX_PRICE = 9_999_999_999.99;
@@ -54,16 +45,7 @@ const optionalText = (max: number, message: string) =>
 
 export function productSchema(currency: string) {
   return z.object({
-    name: z
-      .string()
-      .trim()
-      .transform((value) => value.replace(/\s+/g, " "))
-      .pipe(
-        z
-          .string()
-          .min(2, { error: "Escribe el nombre (mínimo 2 caracteres)." })
-          .max(80, { error: "El nombre no puede superar 80 caracteres." }),
-      ),
+    name: displayNameSchema(80),
     categoryId: z.string().trim().min(1, { error: "Elige una categoría." }),
     description: optionalText(200, "La descripción no puede superar 200 caracteres."),
     price: priceSchema(currency),

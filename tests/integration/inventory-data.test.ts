@@ -17,7 +17,13 @@ import {
   updateSupply,
 } from "@/server/data/inventory";
 
-import { cleanupCompanies, createCompany, createUser, uniqueTag } from "../helpers";
+import {
+  cleanupCompanies,
+  createCompany,
+  createMainBranch,
+  createUser,
+  uniqueTag,
+} from "../helpers";
 
 const tag = uniqueTag("inventory");
 let a: { id: string };
@@ -26,20 +32,12 @@ let user: { id: string };
 let mainA: string;
 let mainB: string;
 
-async function withMainBranch(companyId: string) {
-  const branch = await db.branch.create({
-    data: { companyId, name: "Sede principal", isMain: true },
-  });
-  const warehouse = await db.$transaction((tx) => createMainWarehouse(tx, companyId, branch.id));
-  return warehouse.id;
-}
-
 beforeAll(async () => {
   a = await createCompany(`${tag}-a`);
   b = await createCompany(`${tag}-b`);
   user = await createUser({ companyId: a.id, email: `${tag}@prueba.test`, role: "ADMIN" });
-  mainA = await withMainBranch(a.id);
-  mainB = await withMainBranch(b.id);
+  mainA = (await createMainBranch(a.id)).warehouseId;
+  mainB = (await createMainBranch(b.id)).warehouseId;
 });
 afterAll(() => cleanupCompanies(tag));
 
@@ -104,8 +102,9 @@ describe("bodegas", () => {
     expect(await renameWarehouse(b.id, congelador, "Otro")).toBe("NOT_FOUND");
     expect(await renameWarehouse(a.id, congelador, "bodega PRINCIPAL")).toBe("NAME_TAKEN");
     expect(await renameWarehouse(a.id, congelador, "Nevera")).toBe("OK");
-    expect(await setWarehouseActive(b.id, congelador, false)).toBe(false);
-    expect(await setWarehouseActive(a.id, congelador, false)).toBe(true);
+    expect(await setWarehouseActive(b.id, congelador, false)).toBe("NOT_FOUND");
+    expect(await setWarehouseActive(a.id, mainA, false)).toBe("IS_MAIN");
+    expect(await setWarehouseActive(a.id, congelador, false)).toBe("OK");
   });
 });
 

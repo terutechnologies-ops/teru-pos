@@ -1,4 +1,12 @@
-import { FolderTree, House, Package, Store, Users, type LucideIcon } from "lucide-react";
+import {
+  FolderTree,
+  House,
+  Package,
+  Store,
+  Users,
+  Warehouse,
+  type LucideIcon,
+} from "lucide-react";
 
 import type { StaffRole } from "@/generated/prisma/enums";
 import {
@@ -11,7 +19,7 @@ import {
 // en el orden de su primera sección. Ocultar un enlace no
 // autoriza nada: cada página vuelve a verificar su permiso.
 
-export type NavGroup = "general" | "catalog" | "settings";
+export type NavGroup = "general" | "catalog" | "inventory" | "settings";
 
 export type NavItem = {
   id: string;
@@ -28,6 +36,7 @@ export type NavItem = {
 export const NAV_GROUP_LABELS: Record<NavGroup, string> = {
   general: "General",
   catalog: "Catálogo",
+  inventory: "Inventario",
   settings: "Configuración",
 };
 
@@ -58,6 +67,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: FolderTree,
     group: "catalog",
     permission: "catalog.manage",
+  },
+  {
+    id: "inventory-warehouses",
+    label: "Bodegas",
+    description: "Dónde guardas tus insumos, por sucursal.",
+    path: "inventario/bodegas",
+    icon: Warehouse,
+    group: "inventory",
+    permission: "inventory.manage",
   },
   {
     id: "settings-business",

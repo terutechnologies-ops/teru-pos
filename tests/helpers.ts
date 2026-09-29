@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { createMainWarehouse } from "@/server/data/inventory";
 import { hashPassword } from "@/server/services/auth/passwords";
 import type { StaffRole } from "@/generated/prisma/enums";
 
@@ -14,6 +15,15 @@ export function ctx(tag: string, ip = "1") {
 
 export async function createCompany(slug: string, name = slug) {
   return db.company.create({ data: { name, slug } });
+}
+
+// Sucursal principal con su bodega, como las deja el alta de una empresa.
+export async function createMainBranch(companyId: string) {
+  const branch = await db.branch.create({
+    data: { companyId, name: "Sede principal", isMain: true },
+  });
+  const warehouse = await db.$transaction((tx) => createMainWarehouse(tx, companyId, branch.id));
+  return { branchId: branch.id, warehouseId: warehouse.id };
 }
 
 export async function createUser(params: {
