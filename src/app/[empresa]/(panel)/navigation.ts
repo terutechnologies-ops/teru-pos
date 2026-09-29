@@ -1,4 +1,5 @@
 import {
+  Boxes,
   FolderTree,
   House,
   Package,
@@ -67,6 +68,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: FolderTree,
     group: "catalog",
     permission: "catalog.manage",
+  },
+  {
+    id: "inventory-supplies",
+    label: "Insumos",
+    description: "Lo que guardas, con su existencia y mínimo.",
+    path: "inventario/insumos",
+    icon: Boxes,
+    group: "inventory",
+    permission: "inventory.manage",
   },
   {
     id: "inventory-warehouses",

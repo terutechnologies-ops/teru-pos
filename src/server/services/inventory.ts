@@ -1,16 +1,28 @@
 import "server-only";
 
+import { z } from "zod";
+
+import { Prisma } from "@/generated/prisma/client";
 import type { StaffSessionDto } from "@/server/dto/auth";
 import { listActiveBranches } from "@/server/data/branches";
 import {
+  createSupply,
   createWarehouse,
+  findSupply,
+  listSupplies,
   listWarehouses,
   renameWarehouse,
+  setSupplyArchived,
   setWarehouseActive,
+  updateSupply,
   type InventoryWriteStatus,
 } from "@/server/data/inventory";
 import { assertPermission } from "@/server/services/auth/permissions";
-import { warehouseNameSchema } from "@/server/validations/inventory";
+import {
+  supplySchema,
+  warehouseNameSchema,
+  type SupplyInput,
+} from "@/server/validations/inventory";
 
 // Inventario. Todo con inventory.manage y dentro de la empresa de la
 // sesión. Las bodegas no se auditan (como las categorías); los movimientos
@@ -117,4 +129,128 @@ export async function setInventoryWarehouseActive(
   assertPermission(session, "inventory.manage");
   const status = await setWarehouseActive(session.company.id, warehouseId, isActive);
   return status === "OK" ? { ok: true } : { ok: false, error: ACTIVE_ERRORS[status] };
+}
+
+// --- Insumos --------------------------------------------------------------
+
+type SupplyRow = NonNullable<Awaited<ReturnType<typeof findSupply>>>;
+
+// Cantidades como texto (Decimal serializado): la vista las formatea con
+// la unidad. total suma todas las bodegas.
+function toSupplyDto(supply: Omit<SupplyRow, "_count">) {
+  const total = supply.stockLevels.reduce(
+    (sum, level) => sum.plus(level.quantity),
+    new Prisma.Decimal(0),
+  );
+  return {
+    id: supply.id,
+    name: supply.name,
+    unit: supply.unit,
+    isArchived: supply.isArchived,
+    minStock: supply.minStock?.toString() ?? null,
+    totalStock: total.toString(),
+    belowMinimum: supply.minStock !== null && total.lessThan(supply.minStock),
+  };
+}
+
+export type SupplyDto = ReturnType<typeof toSupplyDto>;
+
+export async function getSupplyList(
+  session: StaffSessionDto,
+  filters: { search?: string; archived?: boolean },
+) {
+  assertPermission(session, "inventory.manage");
+  const supplies = await listSupplies(session.company.id, {
+    search: filters.search?.trim() || undefined,
+    archived: filters.archived,
+  });
+  return supplies.map(toSupplyDto);
+}
+
+// unitLocked: ya tiene movimientos, la unidad no se puede cambiar.
+export async function getSupply(session: StaffSessionDto, supplyId: string) {
+  assertPermission(session, "inventory.manage");
+  const supply = await findSupply(session.company.id, supplyId);
+  if (!supply) return null;
+  return { ...toSupplyDto(supply), unitLocked: supply._count.stockMovements > 0 };
+}
+
+export type SupplyField = keyof SupplyInput;
+
+export type SaveSupplyResult =
+  | { ok: true; supplyId: string }
+  | { ok: false; fieldErrors: Partial<Record<SupplyField, string>>; error?: string };
+
+const SUPPLY_GONE = "El insumo ya no existe. Actualiza la página.";
+const SUPPLY_NAME_TAKEN: SaveSupplyResult = {
+  ok: false,
+  fieldErrors: { name: "Ya existe un insumo con ese nombre." },
+};
+
+function parseSupply(input: SupplyInput) {
+  const parsed = supplySchema.safeParse(input);
+  if (parsed.success) return { ok: true as const, data: parsed.data };
+  const { fieldErrors } = z.flattenError(parsed.error);
+  return {
+    ok: false as const,
+    fieldErrors: Object.fromEntries(
+      Object.entries(fieldErrors).map(([field, errors]) => [field, errors?.[0]]),
+    ) as Partial<Record<SupplyField, string>>,
+  };
+}
+
+export async function createInventorySupply(
+  session: StaffSessionDto,
+  input: SupplyInput,
+): Promise<SaveSupplyResult> {
+  assertPermission(session, "inventory.manage");
+  const parsed = parseSupply(input);
+  if (!parsed.ok) return parsed;
+  const { status, id } = await createSupply(session.company.id, parsed.data);
+  if (status === "NAME_TAKEN") return SUPPLY_NAME_TAKEN;
+  if (status !== "OK" || !id) throw new Error(`createSupply: ${status}`);
+  return { ok: true, supplyId: id };
+}
+
+export async function updateInventorySupply(
+  session: StaffSessionDto,
+  supplyId: string,
+  input: SupplyInput,
+): Promise<SaveSupplyResult> {
+  assertPermission(session, "inventory.manage");
+  const parsed = parseSupply(input);
+  if (!parsed.ok) return parsed;
+  const status = await updateSupply(session.company.id, supplyId, parsed.data);
+  switch (status) {
+    case "OK":
+      return { ok: true, supplyId };
+    case "NAME_TAKEN":
+      return SUPPLY_NAME_TAKEN;
+    case "UNIT_LOCKED":
+      return {
+        ok: false,
+        fieldErrors: {
+          unit: "La unidad no se puede cambiar: el insumo ya tiene movimientos.",
+        },
+      };
+    default:
+      return { ok: false, fieldErrors: {}, error: SUPPLY_GONE };
+  }
+}
+
+export async function setInventorySupplyArchived(
+  session: StaffSessionDto,
+  supplyId: string,
+  isArchived: boolean,
+): Promise<InventoryResult> {
+  assertPermission(session, "inventory.manage");
+  const status = await setSupplyArchived(session.company.id, supplyId, isArchived);
+  if (status === "OK") return { ok: true };
+  return {
+    ok: false,
+    error:
+      status === "HAS_STOCK"
+        ? "Este insumo tiene existencias: ajústalas a cero antes de archivarlo."
+        : SUPPLY_GONE,
+  };
 }

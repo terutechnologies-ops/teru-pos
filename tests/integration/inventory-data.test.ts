@@ -170,7 +170,10 @@ describe("movimientos", () => {
     expect(balanceOf(await move(harinaB, "1"))).toBe("SUPPLY_NOT_FOUND");
 
     const queso = await supplyId(a.id, "Queso duro");
-    expect(await setSupplyArchived(a.id, queso, true)).toBe(true);
+    expect(await setSupplyArchived(b.id, queso, true)).toBe("NOT_FOUND");
+    expect(await setSupplyArchived(a.id, queso, true)).toBe("HAS_STOCK");
+    expect(balanceOf(await move(queso, "-3"))).toBe("0");
+    expect(await setSupplyArchived(a.id, queso, true)).toBe("OK");
     expect(balanceOf(await move(queso, "1"))).toBe("SUPPLY_ARCHIVED");
     expect(await listSupplies(a.id, { archived: true })).toHaveLength(1);
   });

@@ -55,6 +55,9 @@ describe("navigationFor", () => {
     const ids = (role: "OWNER" | "ADMIN" | "STAFF") =>
       navigationFor(role).map((item) => item.id);
     expect(ids("OWNER")).toContain("inventory-warehouses");
+    expect(ids("OWNER")).toContain("inventory-supplies");
+    expect(ids("ADMIN")).toContain("inventory-supplies");
+    expect(ids("STAFF")).not.toContain("inventory-supplies");
     expect(ids("ADMIN")).toContain("inventory-warehouses");
     expect(ids("STAFF")).not.toContain("inventory-warehouses");
   });

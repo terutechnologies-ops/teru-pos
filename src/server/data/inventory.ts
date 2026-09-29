@@ -215,16 +215,24 @@ export async function updateSupply(
   }
 }
 
+// No se archiva con existencias: quedarían ocultas y sin poder moverse.
+// Con el insumo bloqueado, ningún movimiento cambia el saldo en medio.
 export async function setSupplyArchived(
   companyId: string,
   supplyId: string,
   isArchived: boolean,
-) {
-  const { count } = await db.supply.updateMany({
-    where: { id: supplyId, companyId },
-    data: { isArchived },
-  });
-  return count === 1;
+): Promise<"OK" | "NOT_FOUND" | "HAS_STOCK"> {
+  return db.$transaction(async (tx) => {
+    if (!(await lockSupply(tx, companyId, supplyId))) return "NOT_FOUND";
+    if (isArchived) {
+      const stocked = await tx.stockLevel.count({
+        where: { companyId, supplyId, quantity: { gt: 0 } },
+      });
+      if (stocked > 0) return "HAS_STOCK";
+    }
+    await tx.supply.update({ where: { id: supplyId }, data: { isArchived } });
+    return "OK";
+  }, MOVEMENT_TX_OPTIONS);
 }
 
 // --- Saldos y movimientos -------------------------------------------------

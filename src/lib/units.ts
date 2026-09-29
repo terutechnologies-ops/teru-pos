@@ -33,6 +33,20 @@ export function sameUnitFamily(a: StockUnit, b: StockUnit) {
   return UNIT_INFO[a].family === UNIT_INFO[b].family;
 }
 
+export function unitLabel(unit: StockUnit) {
+  const { label, symbol } = UNIT_INFO[unit];
+  return `${label} (${symbol})`;
+}
+
+// Mismos separadores que el dinero (es-CO) hasta que exista un formato de
+// números por empresa. "10.5" → "10,5 kg".
+export function formatQuantity(value: string | number, unit: StockUnit) {
+  const number = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 3 }).format(
+    Number(value),
+  );
+  return `${number} ${UNIT_INFO[unit].symbol}`;
+}
+
 // Convierte una cantidad en texto decimal ("1.5") sin pasar por float:
 // 1.5 kg → "1500" g. Lanza si las unidades son de familias distintas.
 export function convertQuantity(value: string, from: StockUnit, to: StockUnit) {

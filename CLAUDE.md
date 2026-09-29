@@ -888,3 +888,51 @@ Componentes: 1) modelo de datos y permiso; 2) bodegas; 3) insumos;
   correrlo).
 - Verificado: typecheck, lint, build y suite 162/162.
 - No probado en el navegador.
+- Al cerrar una tarea en segundo plano con `next dev`, en Windows el
+  proceso de node sigue vivo en el puerto 3000: terminarlo con
+  `taskkill /PID <pid de "next dev"> /T /F`.
+
+### Componente 3 — Insumos (aprobado 2026-09-28)
+
+- Páginas `/[empresa]/inventario/insumos` (búsqueda GET `q`, pestañas
+  Activos/Archivados `archivados=1`, avisos `?aviso=creado|guardado`,
+  estados vacíos), `/nuevo` y `/[id]` (404 si no es de la empresa). Menú:
+  "Insumos" antes de "Bodegas"; tarjeta en Inicio.
+- Lista: existencia total (suma de todas las bodegas) y mínimo en la
+  unidad del insumo; "Bajo mínimo" si total < mínimo; Editar y
+  Archivar/Restaurar.
+- Formulario: nombre (2–80), unidad (select con `unitLabel`), stock mínimo
+  opcional (≥ 0, 3 decimales, etiqueta con el símbolo de la unidad). Con
+  movimientos, la unidad se muestra deshabilitada y viaja en un campo
+  oculto; el servicio igual rechaza el cambio (`UNIT_LOCKED`). Crear y
+  guardar vuelven a la lista con aviso.
+- **No se archiva un insumo con existencias** (como las bodegas):
+  `setSupplyArchived` bloquea el insumo (`FOR UPDATE`) y devuelve
+  `HAS_STOCK`. Sin auditoría (los movimientos serán su propio registro).
+- `validations/inventory.ts`: `quantitySchema` (texto normalizado sin
+  float, máx. 3 decimales, tope de Decimal(14,3)), `supplySchema`,
+  `SupplyInput` (todo texto). `lib/units.ts`: `unitLabel`,
+  `formatQuantity` (es-CO: "10,5 kg").
+- Servicio: `getSupplyList`, `getSupply` (`unitLocked`),
+  `createInventorySupply`, `updateInventorySupply`,
+  `setInventorySupplyArchived`. DTO con cantidades como texto.
+- Compartidos nuevos: `components/shared/empty-state.tsx`,
+  `status-tabs.tsx` y `form-field.tsx` (los usa inventario; productos
+  conserva sus copias locales `Empty`, `Tab` y `Field`, a migrar en el
+  cierre junto con los botones de fila y el renombrar).
+- UI `components/inventory/`: `supply-fields`, `supply-actions`,
+  `supply-form`, `supply-list`, `supply-row-button`.
+- Pruebas: unitarias `tests/unit/inventory.test.ts` (5), menú;
+  integración `inventory-supplies.test.ts` (5) y archivar en
+  `inventory-data.test.ts`. `_fixture.ts` del scratchpad ganó el modo
+  `stock <insumo> <cantidad> [INITIAL|ADJUSTMENT]`.
+- Por HTTP contra dev (empresa temporal `t-http-inv`, ya borrada): lista
+  vacía, crear con aviso y "Bajo mínimo", duplicado, errores de campo
+  conservando lo escrito, 3 decimales, búsqueda, editar (unidad libre sin
+  movimientos), unidad bloqueada con movimientos (también forzada),
+  existencia y mínimo formateados ("12,5 kg"), archivar con existencias
+  rechazado y en cero sí, archivados, restaurar, id inexistente 404,
+  tarjeta en Inicio, ADMIN entra, STAFF redirigido y su acción forzada no
+  crea nada.
+- Verificado: typecheck, lint, build y suite 172/172.
+- No probado en el navegador.
