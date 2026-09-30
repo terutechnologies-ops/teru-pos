@@ -46,6 +46,21 @@ export async function listRecipeItems(companyId: string, productId: string) {
   });
 }
 
+// Líneas de varios productos con lo necesario para costearlas (lista de
+// productos): una sola consulta.
+export async function listRecipeCostLines(companyId: string, productIds: string[]) {
+  if (productIds.length === 0) return [];
+  return db.productRecipeItem.findMany({
+    where: { companyId, productId: { in: productIds } },
+    select: {
+      productId: true,
+      quantity: true,
+      unit: true,
+      supply: { select: { unit: true, unitCost: true } },
+    },
+  });
+}
+
 // Para el servicio: a qué producto pertenece la línea (auditoría) y la
 // unidad del insumo (mensajes).
 export async function findRecipeItem(companyId: string, itemId: string) {

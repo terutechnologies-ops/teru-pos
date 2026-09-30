@@ -5,8 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/company-formats";
 import { cn } from "@/lib/utils";
-import type { ProductDto } from "@/server/services/catalog";
+import type { CatalogProduct } from "@/server/services/catalog";
 
+import { CostingLine } from "./product-costing";
 import { ProductRowButton } from "./product-row-button";
 import { ProductThumb } from "./product-thumb";
 
@@ -17,11 +18,11 @@ export function ProductList({
   currency,
   companySlug,
 }: {
-  products: ProductDto[];
+  products: CatalogProduct[];
   currency: string;
   companySlug: string;
 }) {
-  const groups: { category: ProductDto["category"]; items: ProductDto[] }[] = [];
+  const groups: { category: CatalogProduct["category"]; items: CatalogProduct[] }[] = [];
   for (const product of products) {
     const last = groups.at(-1);
     if (last?.category.id === product.category.id) last.items.push(product);
@@ -70,6 +71,7 @@ export function ProductList({
                     <p className="text-sm font-extrabold text-link">
                       {formatMoney(Number(product.price), currency)}
                     </p>
+                    <CostingLine costing={product.costing} currency={currency} />
                   </div>
                 </div>
                 <div className="flex shrink-0 flex-wrap items-start justify-end gap-2">

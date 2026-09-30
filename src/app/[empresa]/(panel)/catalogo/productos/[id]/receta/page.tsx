@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ChefHat, PackageOpen } from "lucide-react";
+import { Archive, ArrowLeft, ChefHat, PackageOpen } from "lucide-react";
 
 import { AddRecipeItemForm } from "@/components/catalog/add-recipe-item-form";
+import { CostingSummary } from "@/components/catalog/product-costing";
 import { ProductTabs } from "@/components/catalog/product-tabs";
 import { RecipeList } from "@/components/catalog/recipe-list";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { SectionTitle } from "@/components/shared/section-title";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { requirePermission } from "@/server/http/staff-session";
@@ -51,6 +53,17 @@ export default async function ProductRecipePage({
         }
       />
       <ProductTabs companySlug={slug} productId={product.id} active="receta" />
+
+      <CostingSummary costing={recipe.costing} price={product.price} currency={recipe.currency} />
+
+      {recipe.hasArchivedSupplies && (
+        <Alert>
+          <Archive />
+          <AlertDescription>
+            La receta usa insumos archivados: revisa si debes reemplazarlos o quitarlos.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <section className="flex flex-col gap-5 rounded-xl bg-card p-5 shadow-sm sm:p-6">
         <SectionTitle

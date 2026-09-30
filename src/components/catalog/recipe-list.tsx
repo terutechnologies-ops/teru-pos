@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/badge";
+import { formatUnitCost } from "@/lib/company-formats";
 import { formatQuantity } from "@/lib/units";
 import type { ProductRecipe } from "@/server/services/recipes";
 
@@ -36,8 +37,15 @@ export function RecipeList({
               )}
               {item.supply.isArchived && <Badge variant="secondary">Insumo archivado</Badge>}
             </div>
-            <p className="text-sm font-semibold tabular-nums">
-              {formatQuantity(item.quantity, item.unit)}
+            <p className="flex flex-wrap items-center gap-1.5 text-sm tabular-nums">
+              <span className="font-semibold">{formatQuantity(item.quantity, item.unit)}</span>
+              {item.cost === null ? (
+                <Badge variant="outline">Sin costo</Badge>
+              ) : (
+                <span className="text-muted-foreground">
+                  · {formatUnitCost(item.cost, recipe.currency)}
+                </span>
+              )}
             </p>
             <RecipeLineForm
               key={`${item.quantity}-${item.unit}`}

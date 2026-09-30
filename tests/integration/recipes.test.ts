@@ -6,6 +6,7 @@ import type { StaffSessionDto } from "@/server/dto/auth";
 import { createProduct, createProductCategory } from "@/server/data/catalog";
 import { createSupply, setSupplyArchived } from "@/server/data/inventory";
 import { ForbiddenError } from "@/server/services/auth/permissions";
+import { getProductCatalog } from "@/server/services/catalog";
 import {
   addProductRecipeItem,
   getProductRecipe,
@@ -67,6 +68,10 @@ beforeAll(async () => {
 afterAll(() => cleanupCompanies(tag));
 
 describe("receta del producto (servicio)", () => {
+  it("sin receta, el producto no tiene costo", async () => {
+    expect((await getProductRecipe(admin(), arepa))!.costing).toEqual({ status: "NO_RECIPE" });
+  });
+
   it("valida la línea y explica la unidad que corresponde", async () => {
     expect(await add({ supplyId: "", quantity: "0", unit: "" })).toEqual({
       ok: false,
@@ -145,5 +150,49 @@ describe("receta del producto (servicio)", () => {
     await expect(
       addProductRecipeItem(staff, arepa, { supplyId: queso, quantity: "1", unit: "G" }, ctxA),
     ).rejects.toThrow(ForbiddenError);
+  });
+
+  it("costea la receta con el costo de los insumos, también en la lista", async () => {
+    // Receta actual: 0.125 kg de harina. Precio 9000.
+    await db.supply.update({ where: { id: harina }, data: { unitCost: "3200" } });
+    expect(await add({ supplyId: queso, quantity: "50", unit: "G" })).toEqual({ ok: true });
+
+    let recipe = (await getProductRecipe(admin(), arepa))!;
+    expect(recipe.items.map((i) => [i.supply.name, i.cost])).toEqual([
+      ["Harina", "400"],
+      ["Queso", null],
+    ]);
+    expect(recipe.costing).toEqual({ status: "INCOMPLETE", cost: "400", missing: 1 });
+    expect(recipe).toMatchObject({ currency: "COP", product: { price: "9000" } });
+
+    await db.supply.update({ where: { id: queso }, data: { unitCost: "3.25" } });
+    recipe = (await getProductRecipe(admin(), arepa))!;
+    // 400 + 50 g × 3,25 = 562,5; margen 8437,5 (93,8 %).
+    expect(recipe.costing).toEqual({
+      status: "COMPLETE",
+      cost: "562.5",
+      margin: "8437.5",
+      marginPercent: "93.8",
+    });
+
+    const { products } = await getProductCatalog(admin(), {});
+    expect(products.map((p) => [p.name, p.costing.status])).toEqual([
+      ["Arepa de queso", "COMPLETE"],
+    ]);
+    expect((await getProductCatalog(sessionFor(b, "OWNER"), {})).products[0].costing).toEqual({
+      status: "NO_RECIPE",
+    });
+  });
+
+  it("avisa si la receta usa insumos archivados", async () => {
+    expect((await getProductRecipe(admin(), arepa))!.hasArchivedSupplies).toBe(false);
+    const [, quesoLine] = await lines();
+    await removeProductRecipeItem(admin(), quesoLine.id, ctxA);
+    await setSupplyArchived(a.id, queso, true);
+    expect(await add({ supplyId: queso, quantity: "1", unit: "G" })).toMatchObject({ ok: false });
+    await setSupplyArchived(a.id, queso, false);
+    await add({ supplyId: queso, quantity: "1", unit: "G" });
+    await setSupplyArchived(a.id, queso, true);
+    expect((await getProductRecipe(admin(), arepa))!.hasArchivedSupplies).toBe(true);
   });
 });

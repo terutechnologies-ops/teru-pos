@@ -6,6 +6,7 @@ import type { StockUnit } from "@/generated/prisma/enums";
 import { familyUnits, UNIT_INFO } from "@/lib/units";
 import type { RequestContext, StaffSessionDto } from "@/server/dto/auth";
 import { findProduct } from "@/server/data/catalog";
+import { findCompanyCurrency } from "@/server/data/companies";
 import { findSupply, listSupplies } from "@/server/data/inventory";
 import {
   addRecipeItem,
@@ -17,6 +18,7 @@ import {
 import { PRODUCT_EVENTS } from "@/server/services/auth/config";
 import { assertPermission, hasPermission } from "@/server/services/auth/permissions";
 import { auditProduct } from "@/server/services/catalog";
+import { lineCost, recipeCosting } from "@/server/services/costing";
 import {
   recipeItemSchema,
   recipeLineSchema,
@@ -66,15 +68,17 @@ function parse<T>(schema: z.ZodType<T>, input: unknown) {
   };
 }
 
-// Receta del producto, insumos que se pueden agregar (activos y que aún no
-// están) y si la empresa tiene insumos. Cantidades como texto.
+// Receta del producto con su costo, insumos que se pueden agregar (activos
+// y que aún no están) y si la empresa tiene insumos. Cantidades y montos
+// como texto.
 export async function getProductRecipe(session: StaffSessionDto, productId: string) {
   assertPermission(session, "catalog.manage");
   const companyId = session.company.id;
-  const [product, items, supplies] = await Promise.all([
+  const [product, items, supplies, currency] = await Promise.all([
     findProduct(companyId, productId),
     listRecipeItems(companyId, productId),
     listSupplies(companyId),
+    findCompanyCurrency(companyId),
   ]);
   if (!product) return null;
 
@@ -85,11 +89,17 @@ export async function getProductRecipe(session: StaffSessionDto, productId: stri
       name: product.name,
       isArchived: product.isArchived,
       isAvailable: product.isAvailable,
+      price: product.price.toString(),
     },
+    currency,
+    costing: recipeCosting(items, product.price),
+    hasArchivedSupplies: items.some((item) => item.supply.isArchived),
     items: items.map((item) => ({
       id: item.id,
       quantity: item.quantity.toString(),
       unit: item.unit,
+      // null = el insumo no tiene costo.
+      cost: lineCost(item)?.toString() ?? null,
       supply: {
         id: item.supply.id,
         name: item.supply.name,

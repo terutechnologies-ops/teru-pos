@@ -22,8 +22,10 @@ import {
   type CatalogWriteStatus,
 } from "@/server/data/catalog";
 import { findCompanyCurrency } from "@/server/data/companies";
+import { listRecipeCostLines } from "@/server/data/recipes";
 import { PRODUCT_EVENTS } from "@/server/services/auth/config";
 import { assertPermission } from "@/server/services/auth/permissions";
+import { recipeCosting, type CostLine } from "@/server/services/costing";
 import {
   publicFileUrl,
   removeFileQuietly,
@@ -176,12 +178,28 @@ export async function getProductCatalog(
       archived: filters.archived,
     }),
   ]);
+
+  // Costo y margen de cada producto según su receta.
+  const lines = await listRecipeCostLines(
+    companyId,
+    products.map((product) => product.id),
+  );
+  const byProduct = new Map<string, CostLine[]>();
+  for (const line of lines) {
+    byProduct.set(line.productId, [...(byProduct.get(line.productId) ?? []), line]);
+  }
+
   return {
     currency,
     categories: categories.map(({ id, name, isActive }) => ({ id, name, isActive })),
-    products: products.map(toProductDto),
+    products: products.map((product) => ({
+      ...toProductDto(product),
+      costing: recipeCosting(byProduct.get(product.id) ?? [], product.price),
+    })),
   };
 }
+
+export type CatalogProduct = Awaited<ReturnType<typeof getProductCatalog>>["products"][number];
 
 // Datos del formulario: categorías activas (más la actual del producto si
 // está inactiva, para no perderla al editar).

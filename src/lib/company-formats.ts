@@ -38,6 +38,14 @@ export function formatUnitCost(amount: string | number, currency: string) {
   }).format(Number(amount));
 }
 
+// Porcentaje con un decimal como máximo: "70,1 %".
+export function formatPercent(value: string | number) {
+  const number = new Intl.NumberFormat(MONEY_LOCALE, { maximumFractionDigits: 1 }).format(
+    Number(value),
+  );
+  return `${number} %`;
+}
+
 export function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat(MONEY_LOCALE, {
     style: "currency",

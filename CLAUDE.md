@@ -1362,7 +1362,41 @@ cantidades por unidad vendida, reventa = 1 und, auditoría de cada cambio.
   limitación conocida de la fase 5); el servidor sí rechaza.
 - No probado en el navegador.
 
+Commit `e1a17d2`. El usuario pidió la paleta TERU para otro proyecto
+(se le entregó desde `globals.css`, sin cambios en el código).
+
+### Componente 4 — Costo y margen (aprobado 2026-09-29)
+
+Decisiones de diseño (dentro del alcance aprobado): costo de la línea =
+cantidad convertida a la unidad del insumo × costo de referencia, en
+decimal exacto; margen = precio − costo, % sobre el precio (1 decimal;
+sin % si el precio es 0); **con insumos sin costo se muestra el costo
+parcial y no el margen**; margen negativo en rojo.
+
+- `services/costing.ts` (puro): `lineCost`, `recipeCosting` →
+  `NO_RECIPE | INCOMPLETE (cost, missing) | COMPLETE (cost, margin,
+  marginPercent)`, montos como texto. `data/recipes.ts` →
+  `listRecipeCostLines` (líneas de varios productos en una consulta).
+  `lib/company-formats.ts` → `formatPercent` ("70,1 %").
+- `getProductRecipe` suma `currency`, `product.price`, `costing`,
+  `hasArchivedSupplies` y `cost` por línea. `getProductCatalog` suma
+  `costing` por producto (tipo `CatalogProduct`).
+- UI: `components/catalog/product-costing.tsx` (`CostingLine` para la
+  lista: "Costo $ 547 · Margen 96,7 %", "Sin receta", "Costo incompleto
+  (1 insumo sin costo)"; `CostingSummary` para la receta: tarjetas
+  Precio de venta / Costo / Margen con textos de ayuda). Línea de receta
+  con su costo ("120 g · $ 384", con decimales si hacen falta) o "Sin
+  costo". Aviso si la receta usa insumos archivados.
+- Montos redondeados solo al mostrar (costo $ 546,5 → "$ 547" en COP).
+- Pruebas: `tests/unit/costing.test.ts` (conversión, parcial, completo,
+  negativo, precio 0, `formatPercent`) e integración en
+  `recipes.test.ts` (receta y lista). Suite 208/208, typecheck, lint y
+  build. Por HTTP sin JS contra dev (empresa temporal ya borrada;
+  `t_margen.py`): 15/15 (una comprobación falló por espacios del
+  extractor de texto; revisada a mano).
+- No probado en el navegador.
+
 ### Próximo paso recomendado
 
-Aprobación del componente 3 → commit → componente 4 (costo y margen en la
-receta y en la lista de productos).
+Aprobación del componente 4 → commit → componente 5 (cierre de la fase 6:
+revisión, ADR 0006, README).
