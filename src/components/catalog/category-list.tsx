@@ -1,11 +1,13 @@
-import { FolderOpen, Pencil } from "lucide-react";
+import { FolderOpen } from "lucide-react";
 
+import { EmptyState } from "@/components/shared/empty-state";
+import { RenameForm } from "@/components/shared/rename-form";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { CategoryOverview } from "@/server/services/catalog";
 
+import { renameCategoryAction } from "./category-actions";
 import { CategoryRowButton } from "./category-row-button";
-import { RenameCategoryForm } from "./rename-category-form";
 
 // Categorías en el orden en que se verán en el POS.
 export function CategoryList({
@@ -17,14 +19,11 @@ export function CategoryList({
 }) {
   if (categories.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-input px-6 py-10 text-center">
-        <FolderOpen className="size-8 text-muted-foreground" aria-hidden />
-        <p className="font-semibold">Aún no tienes categorías</p>
-        <p className="max-w-sm text-sm text-muted-foreground">
-          Crea las secciones de tu menú (por ejemplo Arepas, Bebidas y Postres)
-          para organizar tus productos.
-        </p>
-      </div>
+      <EmptyState
+        icon={FolderOpen}
+        title="Aún no tienes categorías"
+        text="Crea las secciones de tu menú (por ejemplo Arepas, Bebidas y Postres) para organizar tus productos."
+      />
     );
   }
 
@@ -62,20 +61,14 @@ export function CategoryList({
                   ? "1 producto"
                   : `${category.productCount} productos`}
               </p>
-              {/* key: tras renombrar, el bloque se vuelve a cerrar. */}
-              <details key={category.name} className="group">
-                <summary className="flex w-fit cursor-pointer list-none items-center gap-1 text-xs font-semibold text-link [&::-webkit-details-marker]:hidden">
-                  <Pencil className="size-3" aria-hidden />
-                  Renombrar
-                </summary>
-                <div className="mt-2 max-w-md">
-                  <RenameCategoryForm
-                    companySlug={companySlug}
-                    id={category.id}
-                    currentName={category.name}
-                  />
-                </div>
-              </details>
+              <RenameForm
+                key={category.name}
+                action={renameCategoryAction}
+                companySlug={companySlug}
+                id={category.id}
+                currentName={category.name}
+                maxLength={60}
+              />
             </div>
           </div>
 

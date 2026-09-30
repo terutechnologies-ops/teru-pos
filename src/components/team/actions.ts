@@ -2,6 +2,7 @@
 
 import { refresh } from "next/cache";
 
+import type { RowActionState } from "@/components/shared/row-action-button";
 import {
   getRequestContext,
   requirePermission,
@@ -19,7 +20,6 @@ import {
   TEAM_INTENTS,
   type InviteFormState,
   type InviteFormValues,
-  type TeamActionState,
   type TeamIntent,
 } from "./team-fields";
 
@@ -70,9 +70,9 @@ function isTeamIntent(value: string): value is TeamIntent {
 
 // Acciones de cada fila de la lista (invitaciones y miembros).
 export async function teamRowAction(
-  _prev: TeamActionState,
+  _prev: RowActionState,
   formData: FormData,
-): Promise<TeamActionState> {
+): Promise<RowActionState> {
   const field = (name: string) => String(formData.get(name) ?? "");
   const session = await requirePermission(field("company"), "team.manage");
   const intent = field("intent");

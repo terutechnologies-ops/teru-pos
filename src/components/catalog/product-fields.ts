@@ -34,8 +34,6 @@ export const PRODUCT_INTENTS = ["archive", "restore", "soldout", "available"] as
 
 export type ProductIntent = (typeof PRODUCT_INTENTS)[number];
 
-export type ProductRowState = { error: string | null };
-
 // Avisos por ?aviso=... En la lista: creado y guardado. En la página del
 // producto: sin-foto (se creó pero la foto no se pudo subir).
 export const PRODUCT_NOTICES = {

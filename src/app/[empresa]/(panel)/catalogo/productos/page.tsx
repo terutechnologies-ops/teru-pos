@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CircleCheck, PackageOpen, Plus, Search, TriangleAlert } from "lucide-react";
+import { CircleCheck, Plus, Search, TriangleAlert } from "lucide-react";
 
 import { PRODUCT_NOTICES } from "@/components/catalog/product-fields";
 import { ProductList } from "@/components/catalog/product-list";
+import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { StatusTabs } from "@/components/shared/status-tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -82,7 +84,7 @@ export default async function ProductsPage({
       )}
 
       {categories.length === 0 ? (
-        <Empty
+        <EmptyState
           title="Primero crea tus categorías"
           text="Cada producto pertenece a una categoría (por ejemplo Arepas o Bebidas)."
           action={
@@ -137,26 +139,25 @@ export default async function ProductsPage({
             </div>
           </form>
 
-          <nav aria-label="Estado" className="flex gap-2 text-sm font-semibold">
-            <Tab href={base} active={!archived}>
-              Activos
-            </Tab>
-            <Tab href={`${base}?archivados=1`} active={archived}>
-              Archivados
-            </Tab>
-          </nav>
+          <StatusTabs
+            label="Estado"
+            tabs={[
+              { href: base, label: "Activos", active: !archived },
+              { href: `${base}?archivados=1`, label: "Archivados", active: archived },
+            ]}
+          />
 
           {products.length > 0 ? (
             <ProductList products={products} currency={currency} companySlug={slug} />
           ) : filtered ? (
-            <Empty
+            <EmptyState
               title="Sin resultados"
               text="Ningún producto coincide con la búsqueda o el filtro."
             />
           ) : archived ? (
-            <Empty title="No hay productos archivados" text="Los productos que archives aparecerán aquí." />
+            <EmptyState title="No hay productos archivados" text="Los productos que archives aparecerán aquí." />
           ) : (
-            <Empty
+            <EmptyState
               title="Aún no tienes productos"
               text="Agrega lo que vendes con su precio. Luego podrás marcarlo como agotado o archivarlo."
               action={
@@ -173,49 +174,6 @@ export default async function ProductsPage({
           )}
         </>
       )}
-    </div>
-  );
-}
-
-function Tab({
-  href,
-  active,
-  children,
-}: {
-  href: string;
-  active: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      aria-current={active ? "page" : undefined}
-      className={
-        active
-          ? "rounded-full bg-primary px-4 py-1.5 text-primary-foreground"
-          : "rounded-full bg-muted px-4 py-1.5 text-muted-foreground hover:text-foreground"
-      }
-    >
-      {children}
-    </Link>
-  );
-}
-
-function Empty({
-  title,
-  text,
-  action,
-}: {
-  title: string;
-  text: string;
-  action?: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-input bg-card px-6 py-12 text-center">
-      <PackageOpen className="size-8 text-muted-foreground" aria-hidden />
-      <p className="font-semibold">{title}</p>
-      <p className="max-w-md text-sm text-muted-foreground">{text}</p>
-      {action && <div className="mt-2">{action}</div>}
     </div>
   );
 }

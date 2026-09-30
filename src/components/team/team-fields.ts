@@ -16,5 +16,3 @@ export type InviteFormState = {
 export const TEAM_INTENTS = ["resend", "revoke", "deactivate", "reactivate"] as const;
 
 export type TeamIntent = (typeof TEAM_INTENTS)[number];
-
-export type TeamActionState = { error: string | null };

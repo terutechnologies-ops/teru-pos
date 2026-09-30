@@ -2,6 +2,8 @@
 
 import { refresh } from "next/cache";
 
+import type { NameFormState } from "@/components/shared/rename-form";
+import type { RowActionState } from "@/components/shared/row-action-button";
 import { requirePermission } from "@/server/http/staff-session";
 import {
   createCategory,
@@ -12,12 +14,7 @@ import {
   type CatalogResult,
 } from "@/server/services/catalog";
 
-import {
-  CATEGORY_INTENTS,
-  type CategoryFormState,
-  type CategoryIntent,
-  type CategoryRowState,
-} from "./category-fields";
+import { CATEGORY_INTENTS, type CategoryIntent } from "./category-fields";
 
 const UNEXPECTED = "No pudimos completar la acción. Inténtalo de nuevo en un momento.";
 
@@ -40,9 +37,9 @@ async function attempt(label: string, run: () => Promise<CatalogResult>) {
 }
 
 export async function createCategoryAction(
-  _prev: CategoryFormState,
+  _prev: NameFormState,
   formData: FormData,
-): Promise<CategoryFormState> {
+): Promise<NameFormState> {
   const session = await sessionFrom(formData);
   const name = field(formData, "name");
   const result = await attempt("createCategoryAction", () => createCategory(session, name));
@@ -52,9 +49,9 @@ export async function createCategoryAction(
 }
 
 export async function renameCategoryAction(
-  _prev: CategoryFormState,
+  _prev: NameFormState,
   formData: FormData,
-): Promise<CategoryFormState> {
+): Promise<NameFormState> {
   const session = await sessionFrom(formData);
   const name = field(formData, "name");
   const result = await attempt("renameCategoryAction", () =>
@@ -71,9 +68,9 @@ function isIntent(value: string): value is CategoryIntent {
 
 // Botones de cada fila: mover, activar/desactivar y eliminar.
 export async function categoryRowAction(
-  _prev: CategoryRowState,
+  _prev: RowActionState,
   formData: FormData,
-): Promise<CategoryRowState> {
+): Promise<RowActionState> {
   const session = await sessionFrom(formData);
   const intent = field(formData, "intent");
   const id = field(formData, "id");

@@ -1167,3 +1167,69 @@ fase 5).
 preguntas, aplicar los arreglos 1 y 2, cargar las variables y desplegar.
 Mientras tanto, el siguiente trabajo del plan sigue siendo el componente 5
 de la fase 5 (cierre).
+
+## Sesión 2026-09-29 (tarde) — Fase 5, componente 5: cierre
+
+Al iniciar: `prisma generate`, typecheck, suite 181/181 y `next dev`
+levantado. Árbol limpio y sincronizado con `origin/master` (`52b11e5`).
+
+### Componente 5 — Cierre de la fase 5 (aprobado 2026-09-29)
+
+**Fase 5 aprobada** (2026-09-29).
+
+Decisión del usuario: **migrar todas las copias locales** a los
+compartidos, con variante `destructive` en `RowActionButton`.
+
+- **Migración a compartidos** (sin cambios visibles):
+  - `RowActionButton` + variante `destructive`. `CategoryRowButton`,
+    `ProductRowButton` y `team/RowAction` quedan como envoltorios con su
+    tabla de intents (patrón de `WarehouseRowButton`). Único cambio: el
+    `aria-label` de productos pasa de "Archivar: X" a "Archivar X".
+  - `RenameForm` reemplaza a `catalog/rename-category-form.tsx` (borrado).
+  - `EmptyState` y `StatusTabs` en la página de productos (se quitaron
+    `Empty` y `Tab`) y `EmptyState` en la lista vacía de categorías.
+  - `FormField` reemplaza a `Field` en `product-form.tsx`.
+  - Tipos de estado locales eliminados (`CategoryFormState`,
+    `CategoryRowState`, `ProductRowState`, `TeamActionState`): las
+    acciones usan `NameFormState` y `RowActionState`.
+- **Revisión de la fase** (datos, servicio, acciones, validaciones y
+  páginas de inventario). Hallazgo corregido: desactivar una bodega leía
+  sus existencias sin bloqueo; una carga simultánea podía dejarla
+  **inactiva con existencias**. Ahora `setWarehouseActive` (desactivar)
+  bloquea la bodega `FOR UPDATE` en una transacción y
+  `recordStockMovement` la toma `FOR SHARE` (`lockWarehouse`). Prueba de
+  concurrencia nueva en `inventory-data.test.ts`: con el código anterior
+  fallaba 3/3; con la corrección pasa 5/5. Dev revisado: ninguna bodega
+  inactiva con existencias. Sin otros hallazgos de seguridad ni de
+  aislamiento.
+- `docs/decisiones/0005-inventario.md` y README (estado, rutas, ficha del
+  insumo, estructura, ADR).
+- Verificado: typecheck, lint, build, suite 182/182. Por HTTP sin JS
+  contra dev (empresa temporal `t-http-inv`, ya borrada; script
+  `t_migracion.py` del scratchpad): 29/29 en categorías, productos y
+  equipo (estados vacíos, pestañas, renombrar, ↑↓, activar, errores de
+  campo, agotado/archivar/restaurar, variantes de botones del equipo,
+  reenviar/revocar/desactivar/reactivar, STAFF redirigido).
+- No probado en el navegador.
+
+### Pendiente
+
+- Siguiente fase por definir (Analizar primero). Según el orden acordado:
+  recetas y costos.
+- Despliegue en Vercel en pausa (ver sesión anterior: dos preguntas
+  abiertas y arreglos de `postinstall` y región).
+- Usuario: renombrar el proyecto Supabase `su-arepa-dev` → `teru-pos-dev`.
+- Antes de producción: proveedor de correo, clave de Storage y bucket por
+  entorno.
+
+### Errores conocidos
+
+- Los de la sesión anterior siguen (pestaña vieja sin JS, `next dev` en
+  Windows, consola cp1252 en los scripts de Python).
+- `_fixture.ts` del scratchpad ahora también limpia productos y
+  categorías.
+
+### Próximo paso recomendado
+
+Fase 5 cerrada y subida. Definir la fase 6 (recetas y costos) empezando
+por el análisis.

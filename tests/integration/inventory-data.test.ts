@@ -204,4 +204,26 @@ describe("movimientos", () => {
     expect(kardex[0]).toMatchObject({ warehouse: { id: mainA }, user: { id: user.id } });
     expect(await listStockMovements(b.id, harina)).toEqual([]);
   });
+
+  it("desactivar una bodega y cargarle saldo a la vez no la deja inactiva con existencias", async () => {
+    const branchA = (await db.branch.findFirstOrThrow({ where: { companyId: a.id } })).id;
+    await createSupply(a.id, { name: "Sal", unit: "KG", minStock: null });
+    const sal = await supplyId(a.id, "Sal");
+
+    for (const name of ["Despensa 1", "Despensa 2", "Despensa 3"]) {
+      expect(await createWarehouse(a.id, branchA, name)).toBe("OK");
+      const despensa = await warehouseId(a.id, name);
+      const [movement, deactivation] = await Promise.all([
+        move(sal, "1", { type: "INITIAL", warehouseId: despensa }),
+        setWarehouseActive(a.id, despensa, false),
+      ]);
+      // Gana uno de los dos, nunca ambos.
+      expect(
+        [
+          ["OK", "HAS_STOCK"],
+          ["WAREHOUSE_INACTIVE", "OK"],
+        ],
+      ).toContainEqual([movement.status, deactivation]);
+    }
+  });
 });

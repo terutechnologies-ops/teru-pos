@@ -1,15 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState, type ReactNode } from "react";
+import { useActionState, useState } from "react";
 import { ImagePlus, Loader2, Package, Save, TriangleAlert } from "lucide-react";
 
+import { FormField } from "@/components/shared/form-field";
 import { ImagePicker } from "@/components/shared/image-picker";
 import { SectionTitle } from "@/components/shared/section-title";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { currencyDecimals, currencyName, formatMoney } from "@/lib/company-formats";
 import { cn } from "@/lib/utils";
 
@@ -79,7 +79,7 @@ export function ProductForm({
           description="Así aparecerá al vender."
         />
 
-        <Field name="name" label="Nombre" required error={fieldErrors.name}>
+        <FormField name="name" label="Nombre" required error={fieldErrors.name}>
           <Input
             id="name"
             name="name"
@@ -92,10 +92,10 @@ export function ProductForm({
             aria-describedby={fieldErrors.name ? "name-error" : undefined}
             className={fieldClass}
           />
-        </Field>
+        </FormField>
 
         <div className="grid gap-5 sm:grid-cols-2">
-          <Field name="categoryId" label="Categoría" required error={fieldErrors.categoryId}>
+          <FormField name="categoryId" label="Categoría" required error={fieldErrors.categoryId}>
             <select
               id="categoryId"
               name="categoryId"
@@ -113,9 +113,9 @@ export function ProductForm({
                 </option>
               ))}
             </select>
-          </Field>
+          </FormField>
 
-          <Field name="price" label={`Precio (${currency})`} required error={fieldErrors.price}>
+          <FormField name="price" label={`Precio (${currency})`} required error={fieldErrors.price}>
             <Input
               id="price"
               name="price"
@@ -141,10 +141,10 @@ export function ProductForm({
               · {currencyName(currency)}
               {decimals === 0 && ", sin centavos"}
             </p>
-          </Field>
+          </FormField>
         </div>
 
-        <Field name="description" label="Descripción" error={fieldErrors.description}>
+        <FormField name="description" label="Descripción" error={fieldErrors.description}>
           <textarea
             id="description"
             name="description"
@@ -156,7 +156,7 @@ export function ProductForm({
             aria-describedby={fieldErrors.description ? "description-error" : undefined}
             className="min-h-20 w-full rounded-lg border border-transparent bg-muted px-3 py-2 text-sm outline-none focus-visible:border-ring focus-visible:bg-card focus-visible:ring-3 focus-visible:ring-ring/50"
           />
-        </Field>
+        </FormField>
       </section>
 
       {withImage && (
@@ -191,34 +191,5 @@ export function ProductForm({
         </Button>
       </div>
     </form>
-  );
-}
-
-function Field({
-  name,
-  label,
-  required,
-  error,
-  children,
-}: {
-  name: string;
-  label: string;
-  required?: boolean;
-  error?: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col gap-1.5">
-      <Label htmlFor={name} className="text-[13px] font-semibold">
-        {label}
-        {required && <span className="text-destructive">*</span>}
-      </Label>
-      {children}
-      {error && (
-        <p id={`${name}-error`} className="text-xs font-medium text-destructive">
-          {error}
-        </p>
-      )}
-    </div>
   );
 }

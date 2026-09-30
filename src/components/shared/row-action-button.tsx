@@ -36,7 +36,7 @@ export function RowActionButton({
   icon: LucideIcon;
   // Para el lector de pantalla: "Desactivar Congelador".
   subject: string;
-  variant?: "outline" | "ghost";
+  variant?: "outline" | "ghost" | "destructive";
   iconOnly?: boolean;
   destructive?: boolean;
   disabled?: boolean;

@@ -3,14 +3,14 @@
 import { useActionState } from "react";
 import { Loader2, Plus } from "lucide-react";
 
+import type { NameFormState } from "@/components/shared/rename-form";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 import { createCategoryAction } from "./category-actions";
-import type { CategoryFormState } from "./category-fields";
 
-const initialState: CategoryFormState = { status: "idle", error: null, name: "" };
+const initialState: NameFormState = { status: "idle", error: null, name: "" };
 
 export function NewCategoryForm({ companySlug }: { companySlug: string }) {
   const [state, formAction, pending] = useActionState(createCategoryAction, initialState);

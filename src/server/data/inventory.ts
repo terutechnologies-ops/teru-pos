@@ -97,24 +97,54 @@ export async function renameWarehouse(companyId: string, warehouseId: string, na
   });
 }
 
+// Bloquea la fila de la bodega hasta el fin de la transacción. Los
+// movimientos la toman compartida (FOR SHARE): corren en paralelo entre sí,
+// pero no mientras se desactiva (FOR UPDATE).
+async function lockWarehouse(
+  tx: Prisma.TransactionClient,
+  companyId: string,
+  warehouseId: string,
+  mode: "SHARE" | "UPDATE",
+) {
+  const rows =
+    mode === "SHARE"
+      ? await tx.$queryRaw<{ isMain: boolean; isActive: boolean }[]>`
+          SELECT "isMain", "isActive" FROM "warehouses"
+          WHERE "id" = ${warehouseId} AND "companyId" = ${companyId}
+          FOR SHARE`
+      : await tx.$queryRaw<{ isMain: boolean; isActive: boolean }[]>`
+          SELECT "isMain", "isActive" FROM "warehouses"
+          WHERE "id" = ${warehouseId} AND "companyId" = ${companyId}
+          FOR UPDATE`;
+  return rows[0] ?? null;
+}
+
 // La principal no se desactiva (es la bodega por defecto de su sucursal),
-// ni una con existencias (quedarían sin poder moverse).
+// ni una con existencias (quedarían sin poder moverse). Con la bodega
+// bloqueada, ningún movimiento le agrega saldo en medio.
 export async function setWarehouseActive(
   companyId: string,
   warehouseId: string,
   isActive: boolean,
 ): Promise<"OK" | "NOT_FOUND" | "IS_MAIN" | "HAS_STOCK"> {
-  if (!isActive) {
-    const warehouse = await findWarehouse(companyId, warehouseId);
+  if (isActive) {
+    const { count } = await db.warehouse.updateMany({
+      where: { id: warehouseId, companyId },
+      data: { isActive },
+    });
+    return count === 1 ? "OK" : "NOT_FOUND";
+  }
+  return db.$transaction(async (tx) => {
+    const warehouse = await lockWarehouse(tx, companyId, warehouseId, "UPDATE");
     if (!warehouse) return "NOT_FOUND";
     if (warehouse.isMain) return "IS_MAIN";
-    if (warehouse._count.stockLevels > 0) return "HAS_STOCK";
-  }
-  const { count } = await db.warehouse.updateMany({
-    where: { id: warehouseId, companyId, ...(!isActive && { isMain: false }) },
-    data: { isActive },
-  });
-  return count === 1 ? "OK" : "NOT_FOUND";
+    const stocked = await tx.stockLevel.count({
+      where: { companyId, warehouseId, quantity: { gt: 0 } },
+    });
+    if (stocked > 0) return "HAS_STOCK";
+    await tx.warehouse.update({ where: { id: warehouseId }, data: { isActive } });
+    return "OK";
+  }, MOVEMENT_TX_OPTIONS);
 }
 
 // --- Insumos --------------------------------------------------------------
@@ -274,10 +304,7 @@ export async function recordStockMovement(
     if (!supply) return { status: "SUPPLY_NOT_FOUND" };
     if (supply.isArchived) return { status: "SUPPLY_ARCHIVED" };
 
-    const warehouse = await tx.warehouse.findFirst({
-      where: { id: input.warehouseId, companyId },
-      select: { isActive: true },
-    });
+    const warehouse = await lockWarehouse(tx, companyId, input.warehouseId, "SHARE");
     if (!warehouse) return { status: "WAREHOUSE_NOT_FOUND" };
     if (!warehouse.isActive) return { status: "WAREHOUSE_INACTIVE" };
 

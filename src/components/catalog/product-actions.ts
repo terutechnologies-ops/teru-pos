@@ -3,6 +3,7 @@
 import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 
+import type { RowActionState } from "@/components/shared/row-action-button";
 import {
   getRequestContext,
   requirePermission,
@@ -21,7 +22,6 @@ import {
   readProductForm,
   type ProductFormState,
   type ProductIntent,
-  type ProductRowState,
 } from "./product-fields";
 
 const UNEXPECTED = "No pudimos completar la acción. Inténtalo de nuevo en un momento.";
@@ -100,9 +100,9 @@ function isIntent(value: string): value is ProductIntent {
 
 // Botones de cada fila: agotado/disponible y archivar/restaurar.
 export async function productRowAction(
-  _prev: ProductRowState,
+  _prev: RowActionState,
   formData: FormData,
-): Promise<ProductRowState> {
+): Promise<RowActionState> {
   const session = await sessionFrom(formData);
   const intent = field(formData, "intent");
   const id = field(formData, "id");
