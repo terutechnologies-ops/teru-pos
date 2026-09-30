@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { convertQuantity, isStockUnit, sameUnitFamily } from "@/lib/units";
+import { convertQuantity, familyUnits, isStockUnit, sameUnitFamily } from "@/lib/units";
 
 describe("unidades de medida", () => {
   it("convierte dentro de la familia sin perder precisión", () => {
@@ -24,5 +24,11 @@ describe("unidades de medida", () => {
   it("reconoce solo las unidades definidas", () => {
     expect(isStockUnit("KG")).toBe(true);
     expect(isStockUnit("LB")).toBe(false);
+  });
+
+  it("lista las unidades de la misma familia", () => {
+    expect(familyUnits("KG")).toEqual(["G", "KG"]);
+    expect(familyUnits("ML")).toEqual(["ML", "L"]);
+    expect(familyUnits("UNIT")).toEqual(["UNIT"]);
   });
 });

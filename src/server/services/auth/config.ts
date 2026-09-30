@@ -47,6 +47,8 @@ export const PRODUCT_EVENTS = {
   AVAILABILITY_CHANGED: "PRODUCT_AVAILABILITY_CHANGED",
   IMAGE_UPDATED: "PRODUCT_IMAGE_UPDATED",
   IMAGE_REMOVED: "PRODUCT_IMAGE_REMOVED",
+  // Agregar, cambiar o quitar un insumo de la receta (afecta el costo).
+  RECIPE_CHANGED: "PRODUCT_RECIPE_CHANGED",
 } as const;
 
 // Insumos: solo el costo se audita (bodegas e insumos no; los movimientos

@@ -134,7 +134,8 @@ export async function deleteCategory(
 
 // --- Productos --------------------------------------------------------------
 
-function auditProduct(
+// También lo usan las recetas (services/recipes.ts).
+export function auditProduct(
   session: StaffSessionDto,
   action: string,
   productId: string,

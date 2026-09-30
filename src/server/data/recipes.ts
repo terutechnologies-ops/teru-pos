@@ -46,6 +46,15 @@ export async function listRecipeItems(companyId: string, productId: string) {
   });
 }
 
+// Para el servicio: a qué producto pertenece la línea (auditoría) y la
+// unidad del insumo (mensajes).
+export async function findRecipeItem(companyId: string, itemId: string) {
+  return db.productRecipeItem.findFirst({
+    where: { id: itemId, companyId },
+    select: { productId: true, supply: { select: { unit: true } } },
+  });
+}
+
 // Con el insumo bloqueado, su unidad no cambia de familia mientras se
 // escribe la línea (updateSupply toma el mismo bloqueo).
 export async function addRecipeItem(

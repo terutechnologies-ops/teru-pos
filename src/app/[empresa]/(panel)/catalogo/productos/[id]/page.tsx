@@ -6,6 +6,7 @@ import { updateProductAction } from "@/components/catalog/product-actions";
 import { PRODUCT_NOTICES } from "@/components/catalog/product-fields";
 import { ProductImageCard } from "@/components/catalog/product-image-card";
 import { ProductForm } from "@/components/catalog/product-form";
+import { ProductTabs } from "@/components/catalog/product-tabs";
 import { PageHeader } from "@/components/shared/page-header";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,7 @@ export default async function EditProductPage({
           )
         }
       />
+      <ProductTabs companySlug={session.company.slug} productId={product.id} active="datos" />
       {imageFailed && (
         <Alert aria-live="polite">
           <TriangleAlert />

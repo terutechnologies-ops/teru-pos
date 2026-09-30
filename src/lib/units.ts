@@ -33,6 +33,11 @@ export function sameUnitFamily(a: StockUnit, b: StockUnit) {
   return UNIT_INFO[a].family === UNIT_INFO[b].family;
 }
 
+// Unidades a las que se puede convertir: las de su familia (kg → g, kg).
+export function familyUnits(unit: StockUnit) {
+  return STOCK_UNITS.filter((other) => sameUnitFamily(unit, other));
+}
+
 export function unitLabel(unit: StockUnit) {
   const { label, symbol } = UNIT_INFO[unit];
   return `${label} (${symbol})`;

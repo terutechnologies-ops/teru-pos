@@ -1324,7 +1324,45 @@ valores llega con Compras.
   pestaña abierta del navegador.
 - No probado en el navegador.
 
+Commit `55870f3`.
+
+### Componente 3 — Receta del producto (aprobado 2026-09-29)
+
+Decisiones del usuario: **página propia** `/catalogo/productos/[id]/receta`
+con pestañas "Datos" / "Receta" (en ambas páginas). Diseño aprobado:
+cantidades por unidad vendida, reventa = 1 und, auditoría de cada cambio.
+
+- Validación `validations/recipes.ts` (`recipeLineSchema`,
+  `recipeItemSchema`; cantidad > 0 con `quantitySchema`). `lib/units.ts` →
+  `familyUnits`. `data/recipes.ts` → `findRecipeItem` (producto de la línea
+  y unidad del insumo).
+- Servicio `services/recipes.ts` (`catalog.manage`): `getProductRecipe`
+  (líneas, insumos activos que aún no están, `hasSupplies`,
+  `canViewSupplies` = `inventory.manage` para enlazar la ficha),
+  `addProductRecipeItem`, `updateProductRecipeItem`,
+  `removeProductRecipeItem`. Mensajes: "El insumo se mide en kg: usa g o
+  kg.", repetido, archivado, producto o línea inexistente. Auditoría
+  `PRODUCT_EVENTS.RECIPE_CHANGED` con target `PRODUCT` (`auditProduct`
+  ahora exportado de `services/catalog.ts`).
+- UI `components/catalog/`: `product-tabs` (usa `StatusTabs`),
+  `recipe-fields`, `recipe-actions` (`refresh()`, sin redirección),
+  `add-recipe-item-form` (con JS preselecciona la unidad del insumo y
+  filtra por familia; sin JS muestra todas; `key` = líneas para volver a
+  montarse vacío), `recipe-line-form` ("Cambiar" en `<details>`, unidades
+  de la familia desde el servidor, `key` = cantidad-unidad),
+  `recipe-row-button` ("Quitar"), `recipe-list` (enlace a la ficha,
+  "Insumo archivado"). Estados: sin receta, sin insumos (enlace a nuevo
+  insumo), todos los insumos ya usados.
+- Pruebas: `tests/integration/recipes.test.ts` (5) y `familyUnits`. Suite
+  199/199, typecheck, lint y build. Por HTTP sin JS contra dev (empresa
+  temporal ya borrada; `t_receta.py`): 21/21.
+- `_fixture.ts` del scratchpad: borra las líneas de receta antes que los
+  insumos.
+- Sin JS y desde una pestaña vieja, el rechazo no muestra mensaje (misma
+  limitación conocida de la fase 5); el servidor sí rechaza.
+- No probado en el navegador.
+
 ### Próximo paso recomendado
 
-Aprobación del componente 2 → commit → componente 3 (receta del producto),
-empezando por el diseño de la sección en la página del producto.
+Aprobación del componente 3 → commit → componente 4 (costo y margen en la
+receta y en la lista de productos).
