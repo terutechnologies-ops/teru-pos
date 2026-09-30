@@ -4,10 +4,12 @@ Plataforma de gestión multiempresa de TERU (ventas, inventario, caja, etc.).
 Cada negocio es una empresa cliente con su propia URL; la arepería
 **Su Arepa** es la primera, no el modelo del sistema.
 
-**Estado:** fase 5 cerrada (autenticación del personal, configuración
+**Estado:** fase 6 cerrada (autenticación del personal, configuración
 inicial de la empresa, panel con menú por rol, configuración de negocio y
 equipo, logo, catálogo de venta con categorías y productos con precio y
-foto, e inventario: insumos, bodegas, carga inicial, ajustes y kardex).
+foto, inventario con insumos, bodegas, carga inicial, ajustes y kardex, y
+recetas con costo de referencia de los insumos, costo y margen de cada
+producto).
 
 ## Stack
 
@@ -39,7 +41,11 @@ npm run dev
   administrador), Configuración > Negocio (propietario) y Configuración >
   Equipo (propietario y administrador).
 - Inventario: cada insumo tiene su ficha (`/inventario/insumos/<id>`) con
-  existencias por bodega, carga inicial, ajustes con motivo y kardex.
+  existencias por bodega, carga inicial, ajustes con motivo, kardex y su
+  costo de referencia.
+- Recetas: cada producto tiene la pestaña Receta
+  (`/catalogo/productos/<id>/receta`) con los insumos que lleva una unidad
+  vendida, su costo y el margen sobre el precio.
 - En desarrollo, los correos (recuperación de contraseña e invitaciones) se
   ven en `http://localhost:3000/dev/outbox`.
 
@@ -112,14 +118,15 @@ src/
   app/                  Rutas (App Router)
     [empresa]/          Rutas por empresa: login, recuperar, restablecer,
                         invitacion, configuracion-inicial (asistente) y
-                        (panel): inicio, catalogo/{productos,categorias},
+                        (panel): inicio, catalogo/{productos (con
+                        [id]/receta),categorias},
                         inventario/{insumos,bodegas} y
                         configuracion/{negocio,equipo}
     dev/outbox/         Bandeja de correos (solo desarrollo)
   components/
     ui/                 Componentes shadcn/ui
     shared/             Componentes propios reutilizables
-    catalog/            Categorías, productos y fotos
+    catalog/            Categorías, productos, fotos, recetas y costos
     company/            Formularios de datos y logo de la empresa
     inventory/          Bodegas, insumos, movimientos y kardex
     team/               Invitaciones y lista del equipo
@@ -129,8 +136,8 @@ src/
   server/
     data/               Único acceso a Prisma; filtra siempre por empresa
     services/           Lógica de negocio (auth y permisos, empresas, equipo,
-                        catálogo, inventario, mensajería, imágenes y
-                        almacenamiento)
+                        catálogo, inventario, recetas y costos,
+                        mensajería, imágenes y almacenamiento)
     http/               Adaptador Next: cookies, cabeceras, sesión actual
     validations/        Esquemas Zod
     dto/                Tipos expuestos fuera de los servicios
@@ -147,3 +154,4 @@ docs/decisiones/        Decisiones de arquitectura (ADR)
 - [ADR 0003 — Panel, permisos por rol y almacenamiento de archivos](docs/decisiones/0003-panel-permisos-y-archivos.md)
 - [ADR 0004 — Catálogo de venta](docs/decisiones/0004-catalogo-de-venta.md)
 - [ADR 0005 — Inventario](docs/decisiones/0005-inventario.md)
+- [ADR 0006 — Recetas y costos](docs/decisiones/0006-recetas-y-costos.md)

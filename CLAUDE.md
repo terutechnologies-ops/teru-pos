@@ -1396,7 +1396,38 @@ parcial y no el margen**; margen negativo en rojo.
   extractor de texto; revisada a mano).
 - No probado en el navegador.
 
+Commit `898e58e`.
+
+### Componente 5 — Cierre de la fase 6 (aprobado 2026-09-29)
+
+**Fase 6 aprobada** (2026-09-29).
+
+- Revisión de la fase (33 archivos: modelo, datos y servicio de recetas,
+  costo de insumos, costeo, acciones y páginas): todas las páginas y
+  acciones nuevas validan permiso en el servidor y los servicios lo
+  vuelven a validar; escrituras filtradas por empresa y FK compuestas. Sin
+  errores de seguridad ni de aislamiento; sin correcciones de código.
+- Riesgo nuevo anotado en el ADR: cambiar la unidad de un insumo sin
+  movimientos dentro de su familia (kg → g) sin corregir su costo deja
+  mal el costo de las recetas (×/÷ 1000).
+- `docs/decisiones/0006-recetas-y-costos.md` y README (estado, rutas de
+  receta, estructura, ADR).
+- Solo documentación: la verificación del componente 4 sigue vigente
+  (typecheck, lint, build, suite 208/208).
+
+### Pendiente
+
+- Siguiente fase por definir (Analizar primero). Según el orden acordado:
+  **ventas/POS** (con caja, zona horaria por empresa, descuento de
+  inventario por receta, opciones/adiciones, decidir stock negativo y
+  bloquear el cambio de moneda con ventas).
+- Despliegue en Vercel en pausa (dos preguntas abiertas; arreglos de
+  `postinstall` y región).
+- Usuario: renombrar el proyecto Supabase `su-arepa-dev` → `teru-pos-dev`.
+- Antes de producción: proveedor de correo, clave de Storage y bucket por
+  entorno.
+
 ### Próximo paso recomendado
 
-Aprobación del componente 4 → commit → componente 5 (cierre de la fase 6:
-revisión, ADR 0006, README).
+Aprobación del cierre → commit → analizar la fase 7 (ventas/POS) con el
+usuario antes de diseñar nada.
