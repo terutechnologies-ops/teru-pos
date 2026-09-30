@@ -3,6 +3,7 @@ import "server-only";
 import { Prisma } from "@/generated/prisma/client";
 import type { StockMovementType, StockUnit } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
+import { sameUnitFamily } from "@/lib/units";
 
 // Inventario: bodegas, insumos, saldos y movimientos. Todo filtra por
 // empresa; las FK compuestas además impiden cruzar datos entre empresas.
@@ -212,8 +213,9 @@ export async function createSupply(companyId: string, data: SupplyData) {
 }
 
 // Bloquea la fila del insumo hasta el fin de la transacción. Serializa los
-// movimientos de un mismo insumo entre sí y con el cambio de su unidad.
-async function lockSupply(tx: Prisma.TransactionClient, companyId: string, supplyId: string) {
+// movimientos de un mismo insumo entre sí, con el cambio de su unidad y con
+// las líneas de receta que lo usan (data/recipes.ts).
+export async function lockSupply(tx: Prisma.TransactionClient, companyId: string, supplyId: string) {
   const rows = await tx.$queryRaw<{ unit: StockUnit; isArchived: boolean }[]>`
     SELECT "unit", "isArchived" FROM "supplies"
     WHERE "id" = ${supplyId} AND "companyId" = ${companyId}
@@ -222,12 +224,13 @@ async function lockSupply(tx: Prisma.TransactionClient, companyId: string, suppl
 }
 
 // La unidad solo cambia si el insumo no tiene movimientos: sus cantidades
-// quedarían expresadas en otra unidad.
+// quedarían expresadas en otra unidad. Si está en recetas, solo dentro de
+// su familia (las líneas llevan su propia unidad y se siguen convirtiendo).
 export async function updateSupply(
   companyId: string,
   supplyId: string,
   data: SupplyData,
-): Promise<InventoryWriteStatus | "UNIT_LOCKED"> {
+): Promise<InventoryWriteStatus | "UNIT_LOCKED" | "UNIT_IN_RECIPES"> {
   try {
     return await db.$transaction(async (tx) => {
       const current = await lockSupply(tx, companyId, supplyId);
@@ -235,6 +238,10 @@ export async function updateSupply(
       if (current.unit !== data.unit) {
         const movements = await tx.stockMovement.count({ where: { companyId, supplyId } });
         if (movements > 0) return "UNIT_LOCKED";
+        if (!sameUnitFamily(current.unit, data.unit)) {
+          const recipes = await tx.productRecipeItem.count({ where: { companyId, supplyId } });
+          if (recipes > 0) return "UNIT_IN_RECIPES";
+        }
       }
       await tx.supply.update({ where: { id: supplyId }, data: supplyRow(data) });
       return "OK";

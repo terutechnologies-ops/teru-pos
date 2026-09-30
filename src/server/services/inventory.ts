@@ -244,6 +244,13 @@ export async function updateInventorySupply(
           unit: "La unidad no se puede cambiar: el insumo ya tiene movimientos.",
         },
       };
+    case "UNIT_IN_RECIPES":
+      return {
+        ok: false,
+        fieldErrors: {
+          unit: "El insumo se usa en recetas: solo puedes cambiarla por otra del mismo tipo (por ejemplo, de kg a g).",
+        },
+      };
     default:
       return { ok: false, fieldErrors: {}, error: SUPPLY_GONE };
   }

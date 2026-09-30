@@ -1231,5 +1231,62 @@ compartidos, con variante `destructive` en `RowActionButton`.
 
 ### Próximo paso recomendado
 
-Fase 5 cerrada y subida. Definir la fase 6 (recetas y costos) empezando
-por el análisis.
+Fase 5 cerrada y subida (`5cfbb0f`). Fase 6 definida (ver abajo).
+
+## Sesión 2026-09-29 (noche) — Fase 6: recetas y costos
+
+Referencia visual (solo intención): pasos de insumos y "Producto y Receta"
+de `../Diseño_configuracion_empresa.txt` (costo unitario, BOM, costo y
+margen, sub-recetas, merma).
+
+Decisiones del usuario (2026-09-29):
+- **Costo de referencia** por insumo (`unitCost`, editable por OWNER/ADMIN,
+  historial en auditoría). El promedio ponderado llega con Compras.
+- **Receta simple:** producto → insumos con cantidad; costo del producto y
+  margen sobre el precio. Sin sub-recetas ni merma.
+- Fuera de alcance: promedio ponderado, sub-recetas, merma, descuento de
+  inventario al vender (fase de ventas) y costos por sucursal.
+- Sin permisos nuevos: receta con `catalog.manage`, costo del insumo con
+  `inventory.manage` (ambos OWNER y ADMIN). STAFF no ve costos.
+- Producto de reventa (gaseosa) = receta con 1 und de su insumo (resuelve
+  el enlace producto ↔ insumo pendiente de la fase 5).
+
+Componentes aprobados: 1) modelo de datos; 2) costo de insumos (campo,
+lista, ficha, auditoría con target); 3) receta del producto (en su
+página, sin JS); 4) costo y margen (página y lista de productos, avisos
+de costo incompleto e insumo archivado); 5) cierre (ADR 0006, README).
+Riesgo anotado: el costo de referencia puede quedar desactualizado.
+
+### Componente 1 — Modelo de datos (aprobado 2026-09-29)
+
+- Migración `20260929120000_add_recipes` (**aplicada en test y dev**; diff
+  de Prisma vacío): `supplies.unitCost Decimal(14,4)` nullable con
+  `CHECK >= 0` (4 decimales: un gramo en COP puede costar 3,25);
+  `products` gana `@@unique([companyId, id])`; tabla
+  `product_recipe_items` (producto, insumo, `quantity Decimal(14,3)` con
+  `CHECK > 0`, `unit StockUnit`), única por (producto, insumo), FK
+  compuestas `(companyId, …)` a producto e insumo (`Restrict`), índice
+  `(companyId, supplyId)`, RLS.
+- `src/server/data/recipes.ts`: `listRecipeItems` (con el insumo: nombre,
+  unidad, costo, archivado), `addRecipeItem` (`PRODUCT_NOT_FOUND`,
+  `SUPPLY_NOT_FOUND`, `SUPPLY_ARCHIVED`, `UNIT_MISMATCH`,
+  `ALREADY_IN_RECIPE`), `updateRecipeItem` (cantidad y unidad; permitido
+  con insumo archivado) y `removeRecipeItem` (borra: las líneas son
+  configuración, no documentos). Agregar y cambiar bloquean el insumo con
+  `lockSupply` (ahora exportado de `data/inventory.ts`).
+- La línea guarda su propia unidad, de la familia del insumo. `updateSupply`
+  devuelve `UNIT_IN_RECIPES` si se cambia a otra familia un insumo usado en
+  recetas (dentro de la familia sí, si no tiene movimientos); el servicio
+  lo muestra en el campo unidad.
+- Un insumo archivado no se agrega a recetas; archivarlo no toca las
+  recetas existentes (el aviso llega en el componente 4).
+- Pruebas: `tests/integration/recipes-data.test.ts` (7); `tests/helpers.ts`
+  limpia las líneas. Verificado: typecheck, lint, build, suite 189/189.
+- Nota: `npm run typecheck` con `next dev` corriendo puede corromper
+  `.next/dev/types/validator.ts` (lo escriben los dos); borrar ese archivo
+  y repetir.
+
+### Próximo paso recomendado
+
+Aprobación del componente 1 → commit → componente 2 (costo de insumos),
+analizando primero el formulario y la ficha del insumo.

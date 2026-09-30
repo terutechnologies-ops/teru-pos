@@ -56,6 +56,7 @@ model Company {
   supplies          Supply[]
   stockLevels       StockLevel[]
   stockMovements    StockMovement[]
+  recipeItems       ProductRecipeItem[]
 
   @@map("companies")
 }
@@ -127,6 +128,10 @@ model Product {
   createdAt   DateTime        @default(now())
   updatedAt   DateTime        @updatedAt
 
+  recipeItems ProductRecipeItem[]
+
+  // Destino de la FK compuesta de product_recipe_items.
+  @@unique([companyId, id])
   @@index([companyId, categoryId])
   @@map("products")
 }
@@ -185,12 +190,17 @@ model Supply {
   unit       StockUnit
   // Stock mínimo deseado (en su unidad); null = sin mínimo.
   minStock   Decimal?  @db.Decimal(14, 3)
+  // Costo de referencia por unidad (en su unidad), en la moneda de la
+  // empresa; null = sin costo. Lo escribe una persona hasta que exista el
+  // módulo de compras. La migración agrega CHECK (unitCost >= 0).
+  unitCost   Decimal?  @db.Decimal(14, 4)
   isArchived Boolean   @default(false)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
 
   stockLevels    StockLevel[]
   stockMovements StockMovement[]
+  recipeItems    ProductRecipeItem[]
 
   @@unique([companyId, id])
   @@index([companyId])
@@ -236,6 +246,30 @@ model StockMovement {
   @@index([companyId, supplyId, createdAt])
   @@index([warehouseId, supplyId, createdAt])
   @@map("stock_movements")
+}
+
+// --- Recetas ---------------------------------------------------------------
+
+// Línea de la receta de un producto: cuánto lleva de un insumo. La unidad
+// es de la misma familia que la del insumo (120 g de un insumo en kg); lo
+// valida la capa de datos con el insumo bloqueado. Un insumo aparece una
+// sola vez por receta. La migración agrega CHECK (quantity > 0).
+model ProductRecipeItem {
+  id        String    @id @default(cuid())
+  companyId String
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  productId String
+  product   Product   @relation(fields: [companyId, productId], references: [companyId, id], onDelete: Restrict)
+  supplyId  String
+  supply    Supply    @relation(fields: [companyId, supplyId], references: [companyId, id], onDelete: Restrict)
+  quantity  Decimal   @db.Decimal(14, 3)
+  unit      StockUnit
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@unique([productId, supplyId])
+  @@index([companyId, supplyId])
+  @@map("product_recipe_items")
 }
 
 // --- Personal interno (login "panel operativo") -----------------------
