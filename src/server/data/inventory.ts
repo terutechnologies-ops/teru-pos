@@ -155,6 +155,7 @@ const supplySelect = {
   name: true,
   unit: true,
   minStock: true,
+  unitCost: true,
   isArchived: true,
   stockLevels: { select: { warehouseId: true, quantity: true } },
 } satisfies Prisma.SupplySelect;
@@ -189,14 +190,19 @@ export async function findSupply(companyId: string, supplyId: string) {
 export type SupplyData = {
   name: string;
   unit: StockUnit;
-  // Texto decimal ya validado; null = sin mínimo.
+  // Textos decimales ya validados; null = sin mínimo / sin costo.
   minStock: string | null;
+  unitCost: string | null;
 };
+
+const decimalOrNull = (value: string | null) =>
+  value === null ? null : new Prisma.Decimal(value);
 
 function supplyRow(data: SupplyData) {
   return {
     ...data,
-    minStock: data.minStock === null ? null : new Prisma.Decimal(data.minStock),
+    minStock: decimalOrNull(data.minStock),
+    unitCost: decimalOrNull(data.unitCost),
   };
 }
 

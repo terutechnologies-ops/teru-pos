@@ -9,6 +9,7 @@ import { SectionTitle } from "@/components/shared/section-title";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { currencyName, formatUnitCost } from "@/lib/company-formats";
 import { isStockUnit, STOCK_UNITS, UNIT_INFO, unitLabel } from "@/lib/units";
 import { cn } from "@/lib/utils";
 
@@ -17,11 +18,13 @@ import type { SaveSupplyAction, SupplyFormState, SupplyFormValues } from "./supp
 const fieldClass = "h-11 rounded-lg border-transparent bg-muted text-sm focus-visible:bg-card";
 
 // Crear y editar insumos. Con movimientos, la unidad queda fija: el select
-// se deshabilita y la unidad actual viaja en un campo oculto.
+// se deshabilita y la unidad actual viaja en un campo oculto. El costo se
+// escribe como número (3200) y se muestra al lado como se verá.
 export function SupplyForm({
   action,
   companySlug,
   supplyId,
+  currency,
   unitLocked = false,
   initialValues,
   submitLabel,
@@ -30,6 +33,7 @@ export function SupplyForm({
   action: SaveSupplyAction;
   companySlug: string;
   supplyId?: string;
+  currency: string;
   unitLocked?: boolean;
   initialValues: SupplyFormValues;
   submitLabel: string;
@@ -45,6 +49,8 @@ export function SupplyForm({
   const { values, fieldErrors } = state;
   const [unit, setUnit] = useState(values.unit);
   const symbol = isStockUnit(unit) ? UNIT_INFO[unit].symbol : null;
+  const [cost, setCost] = useState(values.unitCost);
+  const costAmount = Number(cost);
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
@@ -132,6 +138,37 @@ export function SupplyForm({
             />
             <p id="minStock-help" className="text-xs text-muted-foreground">
               Por debajo de esta cantidad (sumando todas las bodegas) se marcará como bajo mínimo.
+            </p>
+          </FormField>
+
+          <FormField
+            name="unitCost"
+            label={symbol ? `Costo por ${symbol} (${currency})` : `Costo por unidad (${currency})`}
+            error={fieldErrors.unitCost}
+          >
+            <Input
+              id="unitCost"
+              name="unitCost"
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step={0.0001}
+              value={cost}
+              onChange={(event) => setCost(event.target.value)}
+              placeholder="Opcional"
+              aria-invalid={fieldErrors.unitCost ? true : undefined}
+              aria-describedby={cn("unitCost-help", fieldErrors.unitCost && "unitCost-error")}
+              className={fieldClass}
+            />
+            <p id="unitCost-help" className="text-xs text-muted-foreground">
+              Se verá como{" "}
+              <span className="font-bold text-link">
+                {cost !== "" && Number.isFinite(costAmount) && costAmount >= 0
+                  ? `${formatUnitCost(costAmount, currency)}${symbol ? ` por ${symbol}` : ""}`
+                  : "—"}
+              </span>{" "}
+              · {currencyName(currency)}. Costo de referencia para calcular el costo de las
+              recetas.
             </p>
           </FormField>
         </div>

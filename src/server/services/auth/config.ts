@@ -49,6 +49,12 @@ export const PRODUCT_EVENTS = {
   IMAGE_REMOVED: "PRODUCT_IMAGE_REMOVED",
 } as const;
 
+// Insumos: solo el costo se audita (bodegas e insumos no; los movimientos
+// son su propio registro). Sin valores: quién y cuándo, con el insumo.
+export const SUPPLY_EVENTS = {
+  COST_CHANGED: "SUPPLY_COST_CHANGED",
+} as const;
+
 export const COMPANY_EVENTS = {
   SETUP_COMPLETED: "COMPANY_SETUP_COMPLETED",
   PROFILE_UPDATED: "COMPANY_PROFILE_UPDATED",

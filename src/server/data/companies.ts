@@ -41,6 +41,16 @@ export async function findCompanySettings(companyId: string) {
   });
 }
 
+// Moneda de la empresa: precios del catálogo y costos del inventario.
+export async function findCompanyCurrency(companyId: string) {
+  const company = await db.company.findUnique({
+    where: { id: companyId },
+    select: { currency: true },
+  });
+  if (!company) throw new Error("Empresa no encontrada");
+  return company.currency;
+}
+
 export async function updateCompanySettings(
   companyId: string,
   data: CompanySettingsData,

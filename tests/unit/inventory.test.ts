@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import { formatUnitCost } from "@/lib/company-formats";
 import { formatQuantity } from "@/lib/units";
 import {
   quantitySchema,
   stockMovementSchema,
   supplySchema,
+  unitCostSchema,
 } from "@/server/validations/inventory";
 
 const error = (result: { success: boolean; error?: { issues: { message: string }[] } }) =>
@@ -35,22 +37,21 @@ describe("quantitySchema", () => {
 
 describe("supplySchema", () => {
   it("acepta un insumo con o sin mínimo", () => {
-    expect(supplySchema.parse({ name: " Harina  de maíz ", unit: "KG", minStock: "5.50" })).toEqual({
-      name: "Harina de maíz",
-      unit: "KG",
-      minStock: "5.5",
-    });
-    expect(supplySchema.parse({ name: "Queso", unit: "G", minStock: "  " }).minStock).toBeNull();
+    expect(
+      supplySchema.parse({ name: " Harina  de maíz ", unit: "KG", minStock: "5.50", unitCost: "3200" }),
+    ).toEqual({ name: "Harina de maíz", unit: "KG", minStock: "5.5", unitCost: "3200" });
+    const empty = supplySchema.parse({ name: "Queso", unit: "G", minStock: "  ", unitCost: "" });
+    expect([empty.minStock, empty.unitCost]).toEqual([null, null]);
   });
 
   it("exige una unidad válida y un mínimo no negativo", () => {
-    expect(error(supplySchema.safeParse({ name: "Queso", unit: "", minStock: "" }))).toBe(
+    expect(error(supplySchema.safeParse({ name: "Queso", unit: "", minStock: "", unitCost: "" }))).toBe(
       "Elige una unidad.",
     );
-    expect(error(supplySchema.safeParse({ name: "Queso", unit: "LB", minStock: "" }))).toBe(
+    expect(error(supplySchema.safeParse({ name: "Queso", unit: "LB", minStock: "", unitCost: "" }))).toBe(
       "Elige una unidad.",
     );
-    expect(error(supplySchema.safeParse({ name: "Queso", unit: "G", minStock: "-2" }))).toBe(
+    expect(error(supplySchema.safeParse({ name: "Queso", unit: "G", minStock: "-2", unitCost: "" }))).toBe(
       "Escribe una cantidad válida (solo números, sin signos).",
     );
   });
@@ -97,5 +98,27 @@ describe("stockMovementSchema", () => {
       kind: "Elige si es una entrada o una salida.",
       quantity: "Escribe una cantidad válida (solo números, sin signos).",
     });
+  });
+});
+
+describe("unitCostSchema", () => {
+  it("admite hasta 4 decimales y normaliza sin pasar por float", () => {
+    expect(unitCostSchema.parse("3.2500")).toBe("3.25");
+    expect(unitCostSchema.parse("0.0001")).toBe("0.0001");
+    expect(unitCostSchema.parse("0")).toBe("0");
+    expect(error(unitCostSchema.safeParse("1.23456"))).toBe("Usa máximo 4 decimales.");
+    expect(error(unitCostSchema.safeParse("3,25"))).toBe(
+      "Escribe un costo válido (solo números, sin signos).",
+    );
+    expect(error(unitCostSchema.safeParse("10000000000"))).toBe("El costo es demasiado alto.");
+  });
+});
+
+describe("formatUnitCost", () => {
+  it("usa los decimales de la moneda y hasta 4 si hacen falta", () => {
+    expect(formatUnitCost("3200", "COP")).toMatch(/^\$\s3\.200$/);
+    expect(formatUnitCost("3.25", "COP")).toMatch(/^\$\s3,25$/);
+    expect(formatUnitCost("0.0125", "USD")).toMatch(/0,0125$/);
+    expect(formatUnitCost("4", "USD")).toMatch(/4,00$/);
   });
 });

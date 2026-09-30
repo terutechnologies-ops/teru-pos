@@ -105,7 +105,7 @@ describe("bodegas (servicio)", () => {
     });
 
     const user = await createUser({ companyId: a.id, email: `${tag}@prueba.test` });
-    const { id: supplyId } = await createSupply(a.id, { name: "Harina", unit: "KG", minStock: null });
+    const { id: supplyId } = await createSupply(a.id, { name: "Harina", unit: "KG", minStock: null, unitCost: null });
     const moveDespensa = (quantity: string, type: "INITIAL" | "ADJUSTMENT") =>
       recordStockMovement(a.id, {
         warehouseId: despensa,

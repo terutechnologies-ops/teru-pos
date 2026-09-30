@@ -29,11 +29,13 @@ export default async function EditSupplyPage({
         action={updateSupplyAction}
         companySlug={session.company.slug}
         supplyId={supply.id}
+        currency={supply.currency}
         unitLocked={supply.unitLocked}
         initialValues={{
           name: supply.name,
           unit: supply.unit,
           minStock: supply.minStock ?? "",
+          unitCost: supply.unitCost ?? "",
         }}
         submitLabel="Guardar cambios"
         cancelHref={`/${session.company.slug}/inventario/insumos/${supply.id}`}

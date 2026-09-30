@@ -30,7 +30,7 @@ export default async function SuppliesPage({
   const notice = SUPPLY_NOTICES[param(query.aviso) as keyof typeof SUPPLY_NOTICES];
 
   const session = await requirePermission(empresa, "inventory.manage");
-  const supplies = await getSupplyList(session, { search, archived });
+  const { currency, supplies } = await getSupplyList(session, { search, archived });
   const base = `/${session.company.slug}/inventario/insumos`;
   const newButton = (
     <Button asChild className="h-11 gap-2 px-5">
@@ -99,7 +99,7 @@ export default async function SuppliesPage({
       />
 
       {supplies.length > 0 ? (
-        <SupplyList supplies={supplies} companySlug={session.company.slug} />
+        <SupplyList supplies={supplies} currency={currency} companySlug={session.company.slug} />
       ) : search ? (
         <EmptyState title="Sin resultados" text="Ningún insumo coincide con la búsqueda." />
       ) : archived ? (

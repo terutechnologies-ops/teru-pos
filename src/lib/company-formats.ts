@@ -27,6 +27,17 @@ export function currencyDecimals(currency: string) {
     .resolvedOptions().maximumFractionDigits ?? 2;
 }
 
+// Costos por unidad: con los decimales de la moneda y hasta 4 si hacen
+// falta ("$ 3,25" por gramo en COP). "3200.5" → "$ 3.200,5".
+export function formatUnitCost(amount: string | number, currency: string) {
+  return new Intl.NumberFormat(MONEY_LOCALE, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: currencyDecimals(currency),
+    maximumFractionDigits: 4,
+  }).format(Number(amount));
+}
+
 export function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat(MONEY_LOCALE, {
     style: "currency",

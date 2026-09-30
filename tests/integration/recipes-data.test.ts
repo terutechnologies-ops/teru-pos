@@ -46,7 +46,7 @@ async function newProduct(companyId: string, name: string) {
 }
 
 async function newSupply(companyId: string, name: string, unit: "KG" | "G" | "UNIT") {
-  const { id } = await createSupply(companyId, { name, unit, minStock: null });
+  const { id } = await createSupply(companyId, { name, unit, minStock: null, unitCost: null });
   return id!;
 }
 
@@ -142,7 +142,7 @@ describe("insumos en recetas", () => {
   });
 
   it("con recetas, la unidad del insumo solo cambia dentro de su familia", async () => {
-    const data = { name: "Queso", minStock: null } as const;
+    const data = { name: "Queso", minStock: null, unitCost: null } as const;
     expect(await updateSupply(a.id, queso, { ...data, unit: "UNIT" })).toBe("UNIT_IN_RECIPES");
     expect(await updateSupply(a.id, queso, { ...data, unit: "KG" })).toBe("OK");
     // Con movimientos sigue mandando la regla de la fase 5.

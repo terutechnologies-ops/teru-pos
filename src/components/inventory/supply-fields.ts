@@ -19,7 +19,12 @@ export type SaveSupplyAction = (
 
 export function readSupplyForm(formData: FormData): SupplyFormValues {
   const field = (name: string) => String(formData.get(name) ?? "");
-  return { name: field("name"), unit: field("unit"), minStock: field("minStock") };
+  return {
+    name: field("name"),
+    unit: field("unit"),
+    minStock: field("minStock"),
+    unitCost: field("unitCost"),
+  };
 }
 
 // Avisos de la lista por ?aviso=...

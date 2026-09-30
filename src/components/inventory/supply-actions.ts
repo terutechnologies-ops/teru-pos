@@ -4,7 +4,7 @@ import { refresh } from "next/cache";
 import { redirect } from "next/navigation";
 
 import type { RowActionState } from "@/components/shared/row-action-button";
-import { requirePermission } from "@/server/http/staff-session";
+import { getRequestContext, requirePermission } from "@/server/http/staff-session";
 import {
   createInventorySupply,
   setInventorySupplyArchived,
@@ -59,8 +59,8 @@ export async function createSupplyAction(
   _prev: SupplyFormState,
   formData: FormData,
 ): Promise<SupplyFormState> {
-  return saveSupply(formData, "createSupplyAction", "creado", (session, values) =>
-    createInventorySupply(session, values),
+  return saveSupply(formData, "createSupplyAction", "creado", async (session, values) =>
+    createInventorySupply(session, values, await getRequestContext()),
   );
 }
 
@@ -68,8 +68,8 @@ export async function updateSupplyAction(
   _prev: SupplyFormState,
   formData: FormData,
 ): Promise<SupplyFormState> {
-  return saveSupply(formData, "updateSupplyAction", "guardado", (session, values) =>
-    updateInventorySupply(session, field(formData, "id"), values),
+  return saveSupply(formData, "updateSupplyAction", "guardado", async (session, values) =>
+    updateInventorySupply(session, field(formData, "id"), values, await getRequestContext()),
   );
 }
 

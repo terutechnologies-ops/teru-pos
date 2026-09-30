@@ -3,6 +3,7 @@ import { Pencil } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatUnitCost } from "@/lib/company-formats";
 import { formatQuantity, UNIT_INFO } from "@/lib/units";
 import { cn } from "@/lib/utils";
 import type { SupplyDto } from "@/server/services/inventory";
@@ -12,9 +13,11 @@ import { SupplyRowButton } from "./supply-row-button";
 // Insumos en orden alfabético con su existencia total (todas las bodegas).
 export function SupplyList({
   supplies,
+  currency,
   companySlug,
 }: {
   supplies: SupplyDto[];
+  currency: string;
   companySlug: string;
 }) {
   return (
@@ -47,6 +50,10 @@ export function SupplyList({
                 en existencia
                 {supply.minStock !== null &&
                   ` · mínimo ${formatQuantity(supply.minStock, supply.unit)}`}
+                {" · "}
+                {supply.unitCost === null
+                  ? "sin costo"
+                  : `costo ${formatUnitCost(supply.unitCost, currency)}/${UNIT_INFO[supply.unit].symbol}`}
               </span>
             </p>
           </div>

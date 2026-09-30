@@ -1286,7 +1286,45 @@ Riesgo anotado: el costo de referencia puede quedar desactualizado.
   `.next/dev/types/validator.ts` (lo escriben los dos); borrar ese archivo
   y repetir.
 
+Commit `2623991`.
+
+### Componente 2 — Costo de insumos (aprobado 2026-09-29)
+
+Decisión del usuario: historial **solo en auditoría** (quién, cuándo y qué
+insumo, sin valores, como el precio de productos); el historial con
+valores llega con Compras.
+
+- Validación: `decimalTextSchema` (factoría compartida) genera
+  `quantitySchema` (mismos mensajes) y `unitCostSchema` (4 decimales en
+  cualquier moneda, tope de Decimal(14,4)). `supplySchema` + `unitCost`
+  opcional (vacío = null). `SupplyData` exige `unitCost`.
+- `lib/company-formats.ts` → `formatUnitCost` (decimales de la moneda y
+  hasta 4: "$ 3,25" por gramo en COP). `data/companies.ts` →
+  `findCompanyCurrency` (ahora también lo usa el catálogo en lugar de su
+  copia privada).
+- Servicio: DTO con `unitCost`; `getSupplyList` devuelve
+  `{ currency, supplies }`; `getSupply` y `getSupplyDetail` traen
+  `currency`; `getInventoryCurrency` (formulario de nuevo insumo).
+  `createInventorySupply` y `updateInventorySupply` reciben `ctx` y
+  registran `SUPPLY_EVENTS.COST_CHANGED` (target `SUPPLY`) al crear con
+  costo y cuando el costo cambia (incluye quitarlo); "3.2500" = "3.25" no
+  audita.
+- UI: campo "Costo por kg (COP)" con vista previa ("Se verá como $ 3.200
+  por kg"); lista "costo $ 3.200/kg" o "sin costo"; ficha con tercera
+  tarjeta "Costo por kg".
+- Pruebas: unitarias (`unitCostSchema`, `formatUnitCost`), integración de
+  insumos reescrita con ayudantes + costo (validación y auditoría). Suite
+  193/193, typecheck, lint y build. Por HTTP sin JS contra dev (empresa
+  temporal ya borrada; `t_costos.py`): 17/17.
+- Incidente: el `next dev` que venía corriendo desde antes del componente
+  1 devolvía 500 en `/insumos/nuevo` (`currencyName` con moneda inválida)
+  aunque los datos y el build estaban bien; reiniciado limpio (borrando
+  `.next/dev`) funcionó. El log también mostró un error de parseo viejo de
+  `supply-actions.ts` (estado intermedio ya corregido) enviado por una
+  pestaña abierta del navegador.
+- No probado en el navegador.
+
 ### Próximo paso recomendado
 
-Aprobación del componente 1 → commit → componente 2 (costo de insumos),
-analizando primero el formulario y la ficha del insumo.
+Aprobación del componente 2 → commit → componente 3 (receta del producto),
+empezando por el diseño de la sección en la página del producto.

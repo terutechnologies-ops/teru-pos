@@ -3,11 +3,12 @@ import "server-only";
 import { z } from "zod";
 
 import { Prisma } from "@/generated/prisma/client";
-import type { StaffSessionDto } from "@/server/dto/auth";
+import type { RequestContext, StaffSessionDto } from "@/server/dto/auth";
 import { isDateFormat, type DateFormat } from "@/lib/company-formats";
 import { formatQuantity } from "@/lib/units";
+import { recordAuthEvent } from "@/server/data/auth-audit";
 import { listActiveBranches } from "@/server/data/branches";
-import { findCompanySettings } from "@/server/data/companies";
+import { findCompanyCurrency, findCompanySettings } from "@/server/data/companies";
 import {
   createSupply,
   createWarehouse,
@@ -22,6 +23,7 @@ import {
   updateSupply,
   type InventoryWriteStatus,
 } from "@/server/data/inventory";
+import { SUPPLY_EVENTS } from "@/server/services/auth/config";
 import { assertPermission } from "@/server/services/auth/permissions";
 import {
   stockMovementSchema,
@@ -34,7 +36,8 @@ import {
 
 // Inventario. Todo con inventory.manage y dentro de la empresa de la
 // sesión. Las bodegas no se auditan (como las categorías); los movimientos
-// son su propio registro (usuario, fecha y motivo).
+// son su propio registro (usuario, fecha y motivo). De los insumos solo se
+// audita el cambio de costo.
 
 export type InventoryResult = { ok: true } | { ok: false; error: string };
 
@@ -159,6 +162,8 @@ function toSupplyDto(supply: Omit<SupplyRow, "_count">) {
     unit: supply.unit,
     isArchived: supply.isArchived,
     minStock: supply.minStock?.toString() ?? null,
+    // Costo de referencia por unidad, en la moneda de la empresa.
+    unitCost: supply.unitCost?.toString() ?? null,
     totalStock: total.toString(),
     belowMinimum: supply.minStock !== null && total.lessThan(supply.minStock),
   };
@@ -171,19 +176,44 @@ export async function getSupplyList(
   filters: { search?: string; archived?: boolean },
 ) {
   assertPermission(session, "inventory.manage");
-  const supplies = await listSupplies(session.company.id, {
-    search: filters.search?.trim() || undefined,
-    archived: filters.archived,
-  });
-  return supplies.map(toSupplyDto);
+  const [currency, supplies] = await Promise.all([
+    findCompanyCurrency(session.company.id),
+    listSupplies(session.company.id, {
+      search: filters.search?.trim() || undefined,
+      archived: filters.archived,
+    }),
+  ]);
+  return { currency, supplies: supplies.map(toSupplyDto) };
 }
 
 // unitLocked: ya tiene movimientos, la unidad no se puede cambiar.
 export async function getSupply(session: StaffSessionDto, supplyId: string) {
   assertPermission(session, "inventory.manage");
-  const supply = await findSupply(session.company.id, supplyId);
+  const [currency, supply] = await Promise.all([
+    findCompanyCurrency(session.company.id),
+    findSupply(session.company.id, supplyId),
+  ]);
   if (!supply) return null;
-  return { ...toSupplyDto(supply), unitLocked: supply._count.stockMovements > 0 };
+  return { ...toSupplyDto(supply), unitLocked: supply._count.stockMovements > 0, currency };
+}
+
+// El formulario del insumo necesita la moneda (etiqueta y vista previa del
+// costo) también al crear.
+export async function getInventoryCurrency(session: StaffSessionDto) {
+  assertPermission(session, "inventory.manage");
+  return findCompanyCurrency(session.company.id);
+}
+
+function auditSupplyCost(session: StaffSessionDto, supplyId: string, ctx: RequestContext) {
+  return recordAuthEvent({
+    companyId: session.company.id,
+    actorType: "STAFF",
+    actorId: session.user.id,
+    action: SUPPLY_EVENTS.COST_CHANGED,
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
+    target: { type: "SUPPLY", id: supplyId },
+  });
 }
 
 export type SupplyField = keyof SupplyInput;
@@ -210,9 +240,11 @@ function parseSupply(input: SupplyInput) {
   };
 }
 
+// Crear con costo cuenta como su primer cambio de costo.
 export async function createInventorySupply(
   session: StaffSessionDto,
   input: SupplyInput,
+  ctx: RequestContext,
 ): Promise<SaveSupplyResult> {
   assertPermission(session, "inventory.manage");
   const parsed = parseSupply(input);
@@ -220,6 +252,7 @@ export async function createInventorySupply(
   const { status, id } = await createSupply(session.company.id, parsed.data);
   if (status === "NAME_TAKEN") return SUPPLY_NAME_TAKEN;
   if (status !== "OK" || !id) throw new Error(`createSupply: ${status}`);
+  if (parsed.data.unitCost !== null) await auditSupplyCost(session, id, ctx);
   return { ok: true, supplyId: id };
 }
 
@@ -227,13 +260,19 @@ export async function updateInventorySupply(
   session: StaffSessionDto,
   supplyId: string,
   input: SupplyInput,
+  ctx: RequestContext,
 ): Promise<SaveSupplyResult> {
   assertPermission(session, "inventory.manage");
   const parsed = parseSupply(input);
   if (!parsed.ok) return parsed;
+  const current = await findSupply(session.company.id, supplyId);
+  if (!current) return { ok: false, fieldErrors: {}, error: SUPPLY_GONE };
+  const costChanged = !sameDecimal(current.unitCost, parsed.data.unitCost);
+
   const status = await updateSupply(session.company.id, supplyId, parsed.data);
   switch (status) {
     case "OK":
+      if (costChanged) await auditSupplyCost(session, supplyId, ctx);
       return { ok: true, supplyId };
     case "NAME_TAKEN":
       return SUPPLY_NAME_TAKEN;
@@ -254,6 +293,11 @@ export async function updateInventorySupply(
     default:
       return { ok: false, fieldErrors: {}, error: SUPPLY_GONE };
   }
+}
+
+function sameDecimal(current: Prisma.Decimal | null, next: string | null) {
+  if (current === null || next === null) return current === next;
+  return current.equals(next);
 }
 
 export async function setInventorySupplyArchived(
@@ -337,6 +381,7 @@ export async function getSupplyDetail(
       userName: movement.user.name,
     })),
     dateFormat,
+    currency: company?.currency ?? "COP",
   };
 }
 

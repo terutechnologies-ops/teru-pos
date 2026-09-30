@@ -21,7 +21,7 @@ import {
   updateProduct,
   type CatalogWriteStatus,
 } from "@/server/data/catalog";
-import { findCompanySettings } from "@/server/data/companies";
+import { findCompanyCurrency } from "@/server/data/companies";
 import { PRODUCT_EVENTS } from "@/server/services/auth/config";
 import { assertPermission } from "@/server/services/auth/permissions";
 import {
@@ -134,12 +134,6 @@ export async function deleteCategory(
 
 // --- Productos --------------------------------------------------------------
 
-async function companyCurrency(companyId: string) {
-  const company = await findCompanySettings(companyId);
-  if (!company) throw new Error("Empresa no encontrada");
-  return company.currency;
-}
-
 function auditProduct(
   session: StaffSessionDto,
   action: string,
@@ -173,7 +167,7 @@ export async function getProductCatalog(
   assertPermission(session, "catalog.manage");
   const companyId = session.company.id;
   const [currency, categories, products] = await Promise.all([
-    companyCurrency(companyId),
+    findCompanyCurrency(companyId),
     listProductCategories(companyId),
     listProducts(companyId, {
       search: filters.search?.trim() || undefined,
@@ -194,7 +188,7 @@ export async function getProductForm(session: StaffSessionDto, productId?: strin
   assertPermission(session, "catalog.manage");
   const companyId = session.company.id;
   const [currency, categories, product] = await Promise.all([
-    companyCurrency(companyId),
+    findCompanyCurrency(companyId),
     listProductCategories(companyId),
     productId ? findProduct(companyId, productId) : null,
   ]);
@@ -221,7 +215,7 @@ export type SaveProductResult =
 const PRODUCT_GONE = "El producto ya no existe. Actualiza la página.";
 
 async function parseProduct(companyId: string, input: ProductInput) {
-  const parsed = productSchema(await companyCurrency(companyId)).safeParse(input);
+  const parsed = productSchema(await findCompanyCurrency(companyId)).safeParse(input);
   if (parsed.success) return { ok: true as const, data: parsed.data };
   const { fieldErrors } = z.flattenError(parsed.error);
   return {

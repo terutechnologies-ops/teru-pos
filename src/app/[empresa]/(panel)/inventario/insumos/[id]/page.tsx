@@ -11,6 +11,7 @@ import { SectionTitle } from "@/components/shared/section-title";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatUnitCost } from "@/lib/company-formats";
 import { formatQuantity, UNIT_INFO } from "@/lib/units";
 import { requirePermission } from "@/server/http/staff-session";
 import { getSupplyDetail } from "@/server/services/inventory";
@@ -88,7 +89,7 @@ export default async function SupplyDetailPage({
         </Alert>
       )}
 
-      <dl className="grid gap-3 sm:grid-cols-2">
+      <dl className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-xl bg-card p-5 shadow-sm">
           <dt className="text-xs font-semibold text-muted-foreground">Existencia total</dt>
           <dd className="mt-1 text-2xl font-extrabold tabular-nums">
@@ -99,6 +100,14 @@ export default async function SupplyDetailPage({
           <dt className="text-xs font-semibold text-muted-foreground">Stock mínimo</dt>
           <dd className="mt-1 text-2xl font-extrabold tabular-nums">
             {supply.minStock === null ? "—" : formatQuantity(supply.minStock, supply.unit)}
+          </dd>
+        </div>
+        <div className="rounded-xl bg-card p-5 shadow-sm">
+          <dt className="text-xs font-semibold text-muted-foreground">
+            Costo por {UNIT_INFO[supply.unit].symbol}
+          </dt>
+          <dd className="mt-1 text-2xl font-extrabold tabular-nums">
+            {supply.unitCost === null ? "—" : formatUnitCost(supply.unitCost, detail.currency)}
           </dd>
         </div>
       </dl>
