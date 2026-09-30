@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CircleCheck } from "lucide-react";
 
@@ -41,6 +42,12 @@ export default async function LoginPage({
         session
           ? "Continúa con esta cuenta o cierra la sesión para entrar con otra."
           : `Ingresa con tu cuenta de ${company.name} para continuar.`
+      }
+      footer={
+        // Vuelve al buscador de empresas de la raíz de la plataforma.
+        <Link href="/" className="font-semibold text-link hover:underline">
+          ¿No es tu empresa? Cambiar
+        </Link>
       }
     >
       {notice && (

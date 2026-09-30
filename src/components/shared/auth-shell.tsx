@@ -14,6 +14,7 @@ export function AuthShell({
   eyebrow,
   title,
   description,
+  footer,
   children,
 }: {
   companyName: string;
@@ -22,6 +23,8 @@ export function AuthShell({
   eyebrow?: string;
   title: string;
   description?: string;
+  // Debajo de la tarjeta interna (p. ej. "¿No es tu empresa? Cambiar").
+  footer?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -62,6 +65,8 @@ export function AuthShell({
               </div>
               {children}
             </div>
+
+            {footer && <div className="text-center text-sm">{footer}</div>}
           </div>
         </div>
       </main>

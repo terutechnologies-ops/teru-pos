@@ -1427,7 +1427,81 @@ Commit `898e58e`.
 - Antes de producción: proveedor de correo, clave de Storage y bucket por
   entorno.
 
+Commit `fa158b4`.
+
+### Ajuste pedido por el usuario — "¿No es tu empresa? Cambiar" (aprobado 2026-09-29)
+
+Referencia: captura de otro proyecto (enlace lima bajo la tarjeta del
+login, sobre fondo oscuro).
+- `AuthShell` acepta `footer` (debajo de la tarjeta interna, dentro de la
+  tarjeta clara). El login lo usa con un enlace a `/` (buscador "Ingresa a
+  tu empresa"). Se muestra también con sesión abierta.
+- Color **morado** (`text-link`), no lima: nuestra tarjeta es clara y la
+  regla de la paleta prohíbe el lima como texto sobre claro (1.12:1).
+- Verificado: typecheck, lint, build, unitarias (90) y el HTML de
+  `/su-arepa/login`. No probado en el navegador.
+
+### Ajuste pedido por el usuario — firma "TeruTechnologies" (aprobado 2026-09-29)
+
+- El pie de las pantallas de acceso (`PlatformMark` en `AuthShell`) dice
+  "Con la tecnología de **TeruTechnologies**" (antes "... de Teru POS";
+  `DEVELOPER_NAME` en `lib/brand.ts`). `PLATFORM_NAME` ("Teru POS") sigue
+  en los títulos de pestaña y en la raíz.
+- Verificado: typecheck, lint, build y el HTML del pie en
+  `/su-arepa/login`.
+
+### Cierre de la sesión 2026-09-29
+
+**Implementado hoy (todo con commit y subido a `origin/master`):**
+- Fase 5, componente 5 — cierre (`5cfbb0f`): migración a los compartidos,
+  corrección de la carrera al desactivar bodegas, ADR 0005, README.
+  **Fase 5 cerrada.**
+- Fase 6 — recetas y costos, componentes 1–5: modelo (`2623991`), costo de
+  insumos (`55870f3`), receta del producto (`e1a17d2`), costo y margen
+  (`898e58e`), cierre con ADR 0006 y README (`fa158b4`). **Fase 6
+  cerrada.**
+- Ajustes del login: enlace "¿No es tu empresa? Cambiar" y firma "Con la
+  tecnología de TeruTechnologies" (último commit de la sesión).
+- Entregada al usuario la paleta TERU (tokens de `globals.css`) para usarla
+  en otro proyecto.
+
+**Pendiente:**
+- **Fase 7 — ventas/POS: empezar por el análisis con el usuario** (mañana).
+  Temas ya identificados: caja (apertura/cierre, gastos), métodos de pago,
+  zona horaria por empresa (hoy `America/Bogota` fija), descuento de
+  inventario por receta (convertir a la unidad del insumo como en
+  `services/costing.ts`), opciones/adiciones de productos, decidir si se
+  permite stock negativo al vender, bloquear o advertir el cambio de
+  moneda con ventas, rol CASHIER / área operativa del POS y pantalla
+  oscura del POS.
+- Despliegue en Vercel en pausa (preguntas abiertas: qué base usar y qué
+  hacer con el correo; arreglos `postinstall` y región `gru1`).
+- Usuario: renombrar el proyecto Supabase `su-arepa-dev` → `teru-pos-dev`.
+- Antes de producción: proveedor de correo, clave de Storage y bucket por
+  entorno.
+
+**Decisiones técnicas de hoy:** ver fase 6 (costo de referencia con
+historial solo en auditoría, receta simple por unidad vendida en página
+propia, unidad de la línea dentro de la familia del insumo, costo exacto y
+sin margen si falta algún costo) y el cierre de la fase 5 (bloqueo
+`FOR UPDATE`/`FOR SHARE` de la bodega).
+
+**Errores y riesgos conocidos:**
+- Riesgos del ADR 0006 (costo desactualizado, cambio de unidad dentro de
+  la familia sin corregir el costo, cambio de moneda).
+- Sin JS y desde una pestaña vieja, los rechazos no muestran mensaje.
+- `next dev` de larga duración puede quedarse con código viejo (500 en
+  `/insumos/nuevo` hoy): reiniciarlo borrando `.next/dev`. `npm run
+  typecheck` con `next dev` corriendo puede corromper
+  `.next/dev/types/validator.ts` (borrarlo y repetir).
+- En Windows, detener `next dev` deja node en el puerto 3000:
+  `taskkill /PID <pid> /T /F`.
+- Scripts de prueba HTTP en el scratchpad de la sesión (`http_client.py`,
+  `_fixture.ts`, `t_*.py`); `_fixture.ts` se copia a `scripts/` solo
+  mientras se usa. El extractor de texto deja espacios donde React pone
+  `<!-- -->`.
+
 ### Próximo paso recomendado
 
-Aprobación del cierre → commit → analizar la fase 7 (ventas/POS) con el
-usuario antes de diseñar nada.
+Análisis de la fase 7 (ventas/POS) con el usuario: alcance, flujo de venta
+y caja, y las decisiones pendientes listadas arriba, antes de diseñar.
