@@ -14,15 +14,31 @@ function prismaCode(error: unknown) {
   return error instanceof Prisma.PrismaClientKnownRequestError ? error.code : null;
 }
 
+const cashSessionSelect = {
+  id: true,
+  userId: true,
+  openingAmount: true,
+  openedAt: true,
+  closedAt: true,
+  expectedCash: true,
+  countedCash: true,
+  closingNote: true,
+  branch: { select: { id: true, name: true } },
+  // Ventas no anuladas del turno.
+  _count: { select: { sales: { where: { status: "COMPLETED" } } } },
+} satisfies Prisma.CashSessionSelect;
+
 export async function findOpenCashSession(companyId: string, userId: string) {
   return db.cashSession.findFirst({
     where: { companyId, userId, closedAt: null },
-    select: {
-      id: true,
-      openingAmount: true,
-      openedAt: true,
-      branch: { select: { id: true, name: true } },
-    },
+    select: cashSessionSelect,
+  });
+}
+
+export async function findCashSession(companyId: string, cashSessionId: string) {
+  return db.cashSession.findFirst({
+    where: { id: cashSessionId, companyId },
+    select: cashSessionSelect,
   });
 }
 

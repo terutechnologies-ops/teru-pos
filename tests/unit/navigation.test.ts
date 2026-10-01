@@ -4,6 +4,7 @@ import {
   NAV_ITEMS,
   navHref,
   navigationFor,
+  startsInPos,
 } from "@/app/[empresa]/(panel)/navigation";
 import type { StaffRole } from "@/generated/prisma/enums";
 import { hasPermission } from "@/server/services/auth/permissions";
@@ -71,8 +72,14 @@ describe("navigationFor", () => {
     expect(ids("CASHIER")).not.toContain("settings-payments");
   });
 
-  it("el cajero no ve secciones administrativas", () => {
-    expect(navigationFor("CASHIER").map((item) => item.id)).toEqual(["home"]);
+  it("el cajero solo ve Vender y entra directo al POS", () => {
+    expect(navigationFor("CASHIER").map((item) => item.id)).toEqual(["home", "pos"]);
+    expect(startsInPos("CASHIER")).toBe(true);
+    for (const role of ["OWNER", "ADMIN", "STAFF"] as const) {
+      expect(startsInPos(role)).toBe(false);
+    }
+    expect(navigationFor("ADMIN").map((item) => item.id)).toContain("pos");
+    expect(navigationFor("STAFF").map((item) => item.id)).not.toContain("pos");
   });
 
   it("los ids de las secciones no se repiten", () => {

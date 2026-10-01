@@ -8,7 +8,7 @@ import { hasPermission } from "@/server/services/auth/permissions";
 import { companyLogoUrl } from "@/server/services/companies";
 
 import { AppSidebar } from "./app-sidebar";
-import { navigationFor } from "./navigation";
+import { navigationFor, startsInPos } from "./navigation";
 
 // Cookie que escribe el Sidebar de shadcn al abrirlo o cerrarlo.
 const SIDEBAR_STATE_COOKIE = "sidebar_state";
@@ -26,6 +26,8 @@ export default async function PanelLayout({
   if (!company.setupCompletedAt && hasPermission(user.role, "company.manage")) {
     redirect(`/${company.slug}/configuracion-inicial`);
   }
+  // El login lleva aquí a todos; el cajero sigue al POS.
+  if (startsInPos(user.role)) redirect(`/${company.slug}/pos`);
 
   const sidebarOpen =
     (await cookies()).get(SIDEBAR_STATE_COOKIE)?.value !== "false";

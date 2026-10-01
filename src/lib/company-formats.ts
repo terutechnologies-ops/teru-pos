@@ -46,6 +46,24 @@ export function formatPercent(value: string | number) {
   return `${number} %`;
 }
 
+// Campo de monto mientras se escribe, con los separadores de MONEY_LOCALE:
+// "200000" → "200.000"; con decimales, la coma los separa ("1.234,5").
+// Descarta cualquier otro carácter. Lo entiende parseAmountInput.
+export function formatAmountInput(raw: string, decimals: number) {
+  const [integerPart, ...rest] = raw.split(",");
+  const digits = integerPart.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+  const grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  if (decimals === 0 || rest.length === 0) return grouped;
+  const fraction = rest.join("").replace(/\D/g, "").slice(0, decimals);
+  return `${grouped || "0"},${fraction}`;
+}
+
+// Inverso de formatAmountInput: "200.000" → "200000", "1.234,5" → "1234.5"
+// (texto decimal con punto, el que validan los esquemas de dinero).
+export function parseAmountInput(text: string) {
+  return text.replace(/[\s.$]/g, "").replace(",", ".");
+}
+
 export function formatMoney(amount: number, currency: string) {
   return new Intl.NumberFormat(MONEY_LOCALE, {
     style: "currency",
@@ -112,6 +130,13 @@ function formattersFor(timeZone: string) {
     formatters.set(timeZone, entry);
   }
   return entry;
+}
+
+// Mismo día del calendario en la zona de la empresa (p. ej. un turno abierto
+// "hoy" o "ayer").
+export function isSameCalendarDay(a: Date, b: Date, timeZone: string) {
+  const { day } = formattersFor(timeZone);
+  return day.format(a) === day.format(b);
 }
 
 // Hora en la zona de la empresa: "8:05 p. m.".

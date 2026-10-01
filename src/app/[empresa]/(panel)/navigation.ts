@@ -3,6 +3,7 @@ import {
   FolderTree,
   House,
   Package,
+  ShoppingCart,
   Store,
   Users,
   Wallet,
@@ -21,7 +22,7 @@ import {
 // en el orden de su primera sección. Ocultar un enlace no
 // autoriza nada: cada página vuelve a verificar su permiso.
 
-export type NavGroup = "general" | "catalog" | "inventory" | "settings";
+export type NavGroup = "general" | "sales" | "catalog" | "inventory" | "settings";
 
 export type NavItem = {
   id: string;
@@ -37,6 +38,7 @@ export type NavItem = {
 
 export const NAV_GROUP_LABELS: Record<NavGroup, string> = {
   general: "General",
+  sales: "Ventas",
   catalog: "Catálogo",
   inventory: "Inventario",
   settings: "Configuración",
@@ -51,6 +53,16 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: House,
     group: "general",
     permission: null,
+  },
+  {
+    // El POS es un área aparte (pantalla oscura, sin menú lateral).
+    id: "pos",
+    label: "Vender",
+    description: "Abre el punto de venta para cobrar.",
+    path: "pos",
+    icon: ShoppingCart,
+    group: "sales",
+    permission: "sales.charge",
   },
   {
     id: "catalog-products",
@@ -121,6 +133,13 @@ export function navigationFor(role: StaffRole) {
   return NAV_ITEMS.filter(
     (item) => item.permission === null || hasPermission(role, item.permission),
   );
+}
+
+// Quien solo puede vender (el cajero) no tiene nada que hacer en el panel:
+// entra directo al POS.
+export function startsInPos(role: StaffRole) {
+  const sections = navigationFor(role).filter((item) => item.id !== "home");
+  return sections.length > 0 && sections.every((item) => item.id === "pos");
 }
 
 export function navHref(companySlug: string, item: Pick<NavItem, "path">) {

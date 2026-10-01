@@ -1639,6 +1639,48 @@ superior no corren con `tsx` (formato cjs).
   la hizo el usuario (crear una sesión temporal en dev lo bloquean los
   permisos de Claude Code).
 
+### Componente 3 — Turno de caja (aprobado 2026-09-30)
+
+Decisión del usuario: **conteo ciego** (el cajero no ve el esperado antes
+de contar; la diferencia la ve al cerrar y queda para revisión).
+
+- **Área POS** `/[empresa]/pos` (layout propio, clase `dark`, sin menú
+  lateral; `requirePermission("sales.charge")`). Con la configuración
+  inicial pendiente: OWNER al asistente; el resto ve un aviso (redirigir al
+  panel haría bucle con el cajero). `PosHeader`: empresa, persona y rol,
+  "Volver al panel" (si no es solo-POS) y "Salir".
+- **Tema oscuro TERU** en `.dark` de `globals.css` (antes el gris de
+  shadcn): fondo #111114, tarjeta #1c1c22, acción lima #b8ff3d con texto
+  negro, accent morado oscuro; contrastes verificados (textos secundarios
+  ≥ 6:1, bordes de campo ≥ 3:1).
+- **Navegación:** grupo "Ventas" con "Vender" (`pos`, `sales.charge`).
+  `startsInPos(role)`: quien solo tiene el POS (CASHIER) va del panel al
+  POS (el login sigue llevando a `/[empresa]`; el layout del panel
+  redirige).
+- **Páginas:** `/pos` (sin turno: "Abre tu turno"; con turno: resumen,
+  aviso si quedó abierto de otro día — `isSameCalendarDay` en la zona de
+  la empresa — y espacio reservado para la venta), `/pos/cierre` (conteo
+  ciego + nota), `/pos/turno/[id]` (resultado solo para su dueño:
+  esperado, contado y diferencia como faltante/sobrante/cuadrada).
+- `services/cash-sessions.ts`: `getPosShift`, `openShift` (sucursal vacía =
+  la única activa; si hay varias, hay que elegir), `closeShift`,
+  `getClosedShift`. `data/cash-sessions.ts`: `findCashSession` y conteo de
+  ventas no anuladas en el select.
+- `validations/cash.ts`; `moneySchema(currency, noun)` en
+  `validations/common.ts` (lo usa `priceSchema`, mismos mensajes).
+- Ajuste pedido por el usuario: el monto muestra separador de miles
+  mientras se escribe ("200.000"). `formatAmountInput` / `parseAmountInput`
+  en `lib/company-formats.ts` (punto = miles, coma = decimales, como
+  `MONEY_LOCALE`); `validations/cash.ts` acepta el valor con o sin
+  separadores (sin JS también funciona). El precio de productos sigue con
+  campo numérico (punto decimal): se ofreció aplicarle el mismo formato y
+  el usuario aprobó sin responder; queda pendiente de confirmar.
+- Componentes en `components/pos/` (`MoneyField` grande y táctil,
+  formularios con `useActionState` que funcionan sin JS, `ShiftSummary`).
+- Pruebas: `cash-shifts.test.ts` (6), `tests/unit/cash.test.ts` (6),
+  navegación. Verificado: typecheck, lint, suite **246/246**, build.
+  Revisión visual: la hace el usuario.
+
 ### Próximo paso recomendado
 
-Diseño del componente 3 (turno de caja).
+Diseño del componente 4 (POS y venta).
