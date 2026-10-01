@@ -1759,6 +1759,64 @@ analizar cuando se diseñe:
   "ventas en el panel", para reimprimir desde el detalle) o al inicio de
   la fase siguiente; decidirlo con el usuario.
 
+### Componente 5 — Alertas (diseño aprobado 2026-09-30, sin implementar)
+
+- **Inicio del panel, tarjeta "Pendientes"** (OWNER/ADMIN), cada alerta
+  solo si tiene casos, con su número y enlace a la lista filtrada:
+  productos sin receta (no se venden), productos con costo incompleto
+  (margen no medible), insumos con saldo negativo (alguna bodega < 0),
+  insumos sin carga inicial (activo y sin ningún movimiento), insumos bajo
+  mínimo. Sin pendientes: "Todo listo para vender y controlar".
+- **Listas:** insignias "Saldo negativo" y "Sin carga inicial" en insumos;
+  "Sin receta · no se vende" en productos; saldos negativos en rojo en el
+  kardex; filtro `?alerta=…` en ambas listas con etiqueta removible.
+- Solo no archivados. Alertas de productos con `catalog.manage`, de
+  insumos con `inventory.manage`. Inicio del cajero y del personal sin
+  cambios.
+- Pruebas previstas: conteos sin cruzar empresas, filtros, permisos, la
+  tarjeta oculta sin permisos.
+
+### Cierre de la sesión 2026-09-30
+
+**Implementado hoy (todo con commit y subido a `origin/master`):**
+- Fase 7 — ventas/POS: análisis y alcance aprobados; componentes 1–4
+  aprobados: modelo de datos (`79810d6`), ajustes de base — zona horaria,
+  moneda bloqueada con ventas, métodos de pago, rol Cajero (`f398d43`),
+  área POS y turno de caja con conteo ciego (`446746f`), pantalla de venta
+  con pago mixto, pedido guardado y clave anti-duplicado (`36aceb9`).
+- Diseño del componente 5 (alertas) aprobado.
+- Proyecto Supabase renombrado a `teru-pos-dev` (usuario); se queda en
+  sa-east-1.
+
+**Pendiente:**
+- Fase 7: componente 5 (alertas, implementar), 6 (ventas en el panel:
+  lista, detalle, anulación), 7 (cierres de caja en el panel; ahí también
+  cerrar el turno olvidado de otra persona), 8 (cierre: ADR 0007, README).
+- **Tiquete de venta imprimible** (anotado por el usuario; ver sección
+  arriba): ubicarlo, probablemente, después del componente 6.
+- Confirmar si el precio de productos usa el mismo campo con separador de
+  miles que el POS.
+- Hoja de ruta acordada: fase 8 Compras; fase 9 conteo físico y consumo
+  teórico vs. real.
+- Siguen abiertos: despliegue en Vercel (en pausa), proveedor de correo,
+  clave de Storage y bucket por entorno.
+
+**Decisiones técnicas de hoy:** ver los componentes 1–4 (stock negativo
+solo por ventas, cantidades de inventario a 6 decimales, consecutivo con
+`lastSaleNumber`, conteo ciego, efectivo aplicado hasta lo que falta,
+`clientKey` por pedido, tema oscuro TERU en `.dark`, POS con JS).
+
+**Errores y riesgos conocidos:**
+- La revisión visual con sesión la hace el usuario: crear una sesión
+  temporal en dev (o consultar rutas tras intentarlo) lo bloquean los
+  permisos de Claude Code.
+- Si una respuesta de venta se pierde y el cajero cambia el pedido antes
+  de reintentar con la misma clave, el servidor devuelve la venta original
+  (el POS lo avisa con su total).
+- La pantalla de venta requiere JavaScript (excepción aprobada).
+- Siguen los de sesiones anteriores (latencia a Supabase en dev, `next
+  dev` con código viejo, `prisma generate` con EPERM si `next dev` corre).
+
 ### Próximo paso recomendado
 
-Diseño del componente 5 (alertas de configuración e inventario).
+Implementar el componente 5 (alertas) según el diseño aprobado.
