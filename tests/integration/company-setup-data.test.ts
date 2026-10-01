@@ -62,6 +62,7 @@ describe("configuración de la empresa", () => {
       address: null,
       currency: "USD",
       dateFormat: "DD/MM/YYYY",
+      timeZone: "America/Lima",
     });
     const settings = await companies.findCompanySettings(a.id);
     expect(settings).toMatchObject({

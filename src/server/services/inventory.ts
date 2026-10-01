@@ -5,7 +5,7 @@ import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 import type { StockMovementType } from "@/generated/prisma/enums";
 import type { RequestContext, StaffSessionDto } from "@/server/dto/auth";
-import { isDateFormat, type DateFormat } from "@/lib/company-formats";
+import { DEFAULT_TIME_ZONE, isDateFormat, type DateFormat } from "@/lib/company-formats";
 import { formatQuantity } from "@/lib/units";
 import { recordAuthEvent } from "@/server/data/auth-audit";
 import { listActiveBranches } from "@/server/data/branches";
@@ -382,6 +382,7 @@ export async function getSupplyDetail(
       userName: movement.user.name,
     })),
     dateFormat,
+    timeZone: company?.timeZone ?? DEFAULT_TIME_ZONE,
     currency: company?.currency ?? "COP",
   };
 }

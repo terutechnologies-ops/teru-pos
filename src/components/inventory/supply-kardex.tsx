@@ -29,7 +29,7 @@ export function SupplyKardex({
   basePath: string;
   warehouseFilter: string;
 }) {
-  const { supply, movements, warehouseOptions, dateFormat } = detail;
+  const { supply, movements, warehouseOptions, dateFormat, timeZone } = detail;
   const branchCount = new Set(warehouseOptions.map((option) => option.branchName)).size;
 
   return (
@@ -95,7 +95,7 @@ export function SupplyKardex({
               {movements.map((movement) => (
                 <tr key={movement.id} className="align-top">
                   <td className="py-2.5 pr-3 whitespace-nowrap tabular-nums">
-                    {formatDateTime(movement.createdAt, dateFormat)}
+                    {formatDateTime(movement.createdAt, dateFormat, timeZone)}
                   </td>
                   <td className="py-2.5 pr-3">{movement.warehouseName}</td>
                   <td className="py-2.5 pr-3 whitespace-nowrap">{KIND_LABELS[movement.kind]}</td>

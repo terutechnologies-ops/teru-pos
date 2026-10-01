@@ -13,6 +13,7 @@ import {
   replaceCompanyLogoPath,
   updateCompanySettings,
 } from "@/server/data/companies";
+import { companyHasSales } from "@/server/data/sales";
 import { listPendingStaffInvitations } from "@/server/data/staff-invitations";
 import { listCompanyMembers } from "@/server/data/users";
 import { getAppUrl } from "@/server/env";
@@ -75,8 +76,15 @@ export async function createCompany(input: CreateCompanyInput) {
 
 export async function getCompanyProfile(session: StaffSessionDto) {
   assertPermission(session, "company.manage");
-  return findCompanySettings(session.company.id);
+  const [profile, hasSales] = await Promise.all([
+    findCompanySettings(session.company.id),
+    companyHasSales(session.company.id),
+  ]);
+  // Con ventas, la moneda queda fija: ni precios ni historial se convierten.
+  return profile && { ...profile, currencyLocked: hasSales };
 }
+
+export const CURRENCY_LOCKED_ERROR = "No se puede cambiar la moneda: ya hay ventas registradas.";
 
 export type CompanyProfileField = keyof CompanyProfileInput;
 
@@ -110,6 +118,13 @@ export async function saveCompanyProfile(
       (field) => parsed.data[field] !== current[field],
     );
   if (!changed) return { ok: true };
+  if (
+    current &&
+    parsed.data.currency !== current.currency &&
+    (await companyHasSales(session.company.id))
+  ) {
+    return { ok: false, fieldErrors: { currency: CURRENCY_LOCKED_ERROR } };
+  }
 
   await updateCompanySettings(session.company.id, parsed.data);
   await recordAuthEvent({

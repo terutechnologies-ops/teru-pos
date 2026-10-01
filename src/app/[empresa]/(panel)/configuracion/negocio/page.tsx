@@ -37,6 +37,7 @@ export default async function BusinessSettingsPage({
         action={saveCompanySettingsAction}
         companySlug={profile.slug}
         initialValues={toProfileFormValues(profile)}
+        currencyLocked={profile.currencyLocked}
       />
     </div>
   );

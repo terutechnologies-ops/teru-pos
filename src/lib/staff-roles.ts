@@ -10,12 +10,14 @@ export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
 };
 
 // OWNER no se invita: el primero sale del script de alta de la empresa.
-export const INVITABLE_ROLES = ["STAFF", "ADMIN"] as const satisfies readonly StaffRole[];
+// En el orden en que se ofrecen al invitar (el primero, por defecto).
+export const INVITABLE_ROLES = ["CASHIER", "STAFF", "ADMIN"] as const satisfies readonly StaffRole[];
 
 export type InvitableRole = (typeof INVITABLE_ROLES)[number];
 
 export const INVITABLE_ROLE_DESCRIPTIONS: Record<InvitableRole, string> = {
-  STAFF: "Operación del día a día. Sus funciones llegan con cada módulo.",
+  CASHIER: "Cobra en el POS y maneja su propio turno de caja. No entra a la administración.",
+  STAFF: "Cocina y apoyo. Sus funciones llegan con los próximos módulos.",
   ADMIN: "Apoya la administración del negocio. Sus permisos se amplían con cada módulo.",
 };
 
@@ -28,7 +30,7 @@ export function isInvitableRole(value: string): value is InvitableRole {
 // team.manage: el permiso da acceso, esto limita sobre quién.
 const MANAGEABLE_ROLES: Record<StaffRole, readonly InvitableRole[]> = {
   OWNER: INVITABLE_ROLES,
-  ADMIN: ["STAFF"],
+  ADMIN: ["CASHIER", "STAFF"],
   STAFF: [],
   CASHIER: [],
 };

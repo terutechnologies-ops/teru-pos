@@ -11,6 +11,11 @@ import { lockSupply, stockBalance, writeStockMovement } from "@/server/data/inve
 // anulan mientras su turno siga abierto (ver ADR 0007). Montos como texto
 // decimal ya validado; cantidades de producto enteras.
 
+// La moneda no cambia con ventas registradas (services/companies.ts).
+export async function companyHasSales(companyId: string) {
+  return (await db.sale.count({ where: { companyId }, take: 1 })) > 0;
+}
+
 export type SaleLineInput = { productId: string; quantity: number; note: string | null };
 export type SalePaymentInput = {
   paymentMethodId: string;

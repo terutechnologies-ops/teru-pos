@@ -1605,6 +1605,40 @@ Notas: `prisma generate` falla con EPERM si `next dev` está corriendo
 (bloquea el motor): detenerlo antes. Los scripts con `await` de nivel
 superior no corren con `tsx` (formato cjs).
 
+### Componente 2 — Ajustes de base (aprobado 2026-09-30)
+
+- **Zona horaria por empresa:** `SUPPORTED_TIME_ZONES` en
+  `lib/company-formats.ts` (10 zonas con nombre en español; para habilitar
+  otra basta con agregarla), `DEFAULT_TIME_ZONE`, `formatClock` y
+  `formatDateTime(date, format, timeZone)` con formateadores en caché por
+  zona. Se eliminó `BUSINESS_TIME_ZONE`. Campo `timeZone` en
+  `companyProfileSchema`, datos, formulario (select nativo + hora en la
+  vista previa; aparece también en el asistente) y resumen "Confirmar". El
+  kardex usa la zona de la empresa.
+- **Moneda bloqueada con ventas:** `companyHasSales` (`data/sales.ts`);
+  `getCompanyProfile` devuelve `currencyLocked`; `saveCompanyProfile`
+  rechaza el cambio con `CURRENCY_LOCKED_ERROR` en el campo moneda. En el
+  formulario las opciones van deshabilitadas y la moneda viaja en un campo
+  oculto (un radio deshabilitado no se envía).
+- **Métodos de pago** (`/configuracion/pagos`, `payments.manage`): data
+  (`createPaymentMethod` devuelve id, `renamePaymentMethod`,
+  `setPaymentMethodActive` — `IS_CASH` para el efectivo —,
+  `movePaymentMethod`), servicio con auditoría `PAYMENT_METHOD_EVENTS`
+  (target `PAYMENT_METHOD`; el orden no se audita), validación
+  `paymentMethodNameSchema` (40), componentes en `components/payments/`.
+  Lista única con insignias (como Categorías) en lugar de pestañas
+  activos/inactivos: así se ordenan todos juntos.
+- `components/shared/new-name-form.tsx`: alta por nombre compartida;
+  `NewCategoryForm` ahora la usa.
+- **Rol Cajero invitable:** `INVITABLE_ROLES = CASHIER, STAFF, ADMIN`
+  (Cajero por defecto), ADMIN gestiona CASHIER y STAFF; nuevas
+  descripciones; grilla de roles a 3 columnas en pantallas grandes.
+- Pruebas: `payment-methods.test.ts` (5), perfil (zona, moneda bloqueada),
+  equipo (admin invita cajero), navegación y permisos. Verificado:
+  typecheck, lint, suite **234/234**, build. La revisión visual con sesión
+  la hizo el usuario (crear una sesión temporal en dev lo bloquean los
+  permisos de Claude Code).
+
 ### Próximo paso recomendado
 
-Diseño del componente 2 (ajustes de base).
+Diseño del componente 3 (turno de caja).

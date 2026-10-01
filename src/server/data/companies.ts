@@ -21,6 +21,7 @@ export type CompanySettingsData = {
   address: string | null;
   currency: string;
   dateFormat: string;
+  timeZone: string;
 };
 
 export async function findCompanySettings(companyId: string) {
@@ -36,6 +37,7 @@ export async function findCompanySettings(companyId: string) {
       address: true,
       currency: true,
       dateFormat: true,
+      timeZone: true,
       setupCompletedAt: true,
       logoPath: true,
     },

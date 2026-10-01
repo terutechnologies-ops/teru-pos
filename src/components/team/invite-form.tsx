@@ -96,7 +96,7 @@ export function InviteForm({
 
       <fieldset className="flex min-w-0 flex-col gap-2">
         <legend className="mb-2 text-[13px] font-semibold">Rol</legend>
-        <div className="grid gap-2 sm:grid-cols-2">
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {roles.map((role) => (
             <label
               key={role}

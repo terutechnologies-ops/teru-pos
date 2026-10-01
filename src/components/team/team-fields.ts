@@ -4,7 +4,7 @@ import type { InviteField } from "@/server/services/team";
 
 export type InviteFormValues = Record<InviteField, string>;
 
-export const EMPTY_INVITE: InviteFormValues = { name: "", email: "", role: "STAFF" };
+export const EMPTY_INVITE: InviteFormValues = { name: "", email: "", role: "CASHIER" };
 
 export type InviteFormState = {
   status: "idle" | "sent" | "error";

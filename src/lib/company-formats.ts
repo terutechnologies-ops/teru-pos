@@ -70,28 +70,59 @@ export function formatDate(date: Date, format: DateFormat) {
   return format.replace("DD", dd).replace("MM", mm).replace("YYYY", yyyy);
 }
 
-// Zona horaria con la que se muestran las fechas y horas registradas (que
-// se guardan en UTC). Es la misma para todas las empresas hasta que cada
-// una tenga la suya: llegará con caja y ventas, que cortan por día.
-export const BUSINESS_TIME_ZONE = "America/Bogota";
+// Zonas horarias habilitadas (IANA), con el nombre que ve el usuario. Para
+// habilitar otra basta con agregarla aquí. Las fechas se guardan en UTC y se
+// muestran en la zona de la empresa; también define el "día" de las ventas.
+export const SUPPORTED_TIME_ZONES = {
+  "America/Bogota": "Bogotá",
+  "America/Mexico_City": "Ciudad de México",
+  "America/Lima": "Lima",
+  "America/Panama": "Panamá",
+  "America/Guayaquil": "Guayaquil",
+  "America/Caracas": "Caracas",
+  "America/Santiago": "Santiago de Chile",
+  "America/Argentina/Buenos_Aires": "Buenos Aires",
+  "America/New_York": "Nueva York",
+  "Europe/Madrid": "Madrid",
+} as const;
 
-const calendarDay = new Intl.DateTimeFormat("en-CA", {
-  timeZone: BUSINESS_TIME_ZONE,
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-});
+export type SupportedTimeZone = keyof typeof SUPPORTED_TIME_ZONES;
 
-const clockTime = new Intl.DateTimeFormat("es-CO", {
-  timeZone: BUSINESS_TIME_ZONE,
-  hour: "numeric",
-  minute: "2-digit",
-});
+export const DEFAULT_TIME_ZONE: SupportedTimeZone = "America/Bogota";
+
+export function isSupportedTimeZone(value: string): value is SupportedTimeZone {
+  return Object.hasOwn(SUPPORTED_TIME_ZONES, value);
+}
+
+// Formateadores por zona: crearlos cuesta más que usarlos.
+const formatters = new Map<string, { day: Intl.DateTimeFormat; clock: Intl.DateTimeFormat }>();
+
+function formattersFor(timeZone: string) {
+  let entry = formatters.get(timeZone);
+  if (!entry) {
+    entry = {
+      day: new Intl.DateTimeFormat("en-CA", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }),
+      clock: new Intl.DateTimeFormat("es-CO", { timeZone, hour: "numeric", minute: "2-digit" }),
+    };
+    formatters.set(timeZone, entry);
+  }
+  return entry;
+}
+
+// Hora en la zona de la empresa: "8:05 p. m.".
+export function formatClock(date: Date, timeZone: string) {
+  return formattersFor(timeZone).clock.format(date);
+}
 
 // Fecha y hora de un registro en la zona del negocio: "28/09/2026 8:05 p. m.".
-export function formatDateTime(date: Date, format: DateFormat) {
+export function formatDateTime(date: Date, format: DateFormat, timeZone: string) {
   // en-CA da "AAAA-MM-DD": el día del calendario local, que formatDate
   // (con componentes UTC) escribe en el formato de la empresa.
-  const day = new Date(`${calendarDay.format(date)}T00:00:00Z`);
-  return `${formatDate(day, format)} ${clockTime.format(date)}`;
+  const day = new Date(`${formattersFor(timeZone).day.format(date)}T00:00:00Z`);
+  return `${formatDate(day, format)} ${formatClock(date, timeZone)}`;
 }

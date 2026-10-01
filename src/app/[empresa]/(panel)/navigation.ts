@@ -5,6 +5,7 @@ import {
   Package,
   Store,
   Users,
+  Wallet,
   Warehouse,
   type LucideIcon,
 } from "lucide-react";
@@ -95,6 +96,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: Store,
     group: "settings",
     permission: "company.manage",
+  },
+  {
+    id: "settings-payments",
+    label: "Métodos de pago",
+    description: "Cómo te pagan y en qué orden se ofrecen al cobrar.",
+    path: "configuracion/pagos",
+    icon: Wallet,
+    group: "settings",
+    permission: "payments.manage",
   },
   {
     id: "settings-team",

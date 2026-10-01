@@ -5,17 +5,18 @@ import {
   navHref,
   navigationFor,
 } from "@/app/[empresa]/(panel)/navigation";
+import type { StaffRole } from "@/generated/prisma/enums";
 import { hasPermission } from "@/server/services/auth/permissions";
 
 describe("navigationFor", () => {
   it("todos los roles ven Inicio", () => {
-    for (const role of ["OWNER", "ADMIN", "STAFF"] as const) {
+    for (const role of ["OWNER", "ADMIN", "STAFF", "CASHIER"] as const) {
       expect(navigationFor(role).map((item) => item.id)).toContain("home");
     }
   });
 
   it("cada rol ve solo las secciones de sus permisos", () => {
-    for (const role of ["OWNER", "ADMIN", "STAFF"] as const) {
+    for (const role of ["OWNER", "ADMIN", "STAFF", "CASHIER"] as const) {
       for (const item of navigationFor(role)) {
         expect(
           item.permission === null || hasPermission(role, item.permission),
@@ -60,6 +61,18 @@ describe("navigationFor", () => {
     expect(ids("STAFF")).not.toContain("inventory-supplies");
     expect(ids("ADMIN")).toContain("inventory-warehouses");
     expect(ids("STAFF")).not.toContain("inventory-warehouses");
+  });
+
+  it("propietario y administrador ven Métodos de pago; personal y cajeros no", () => {
+    const ids = (role: StaffRole) => navigationFor(role).map((item) => item.id);
+    expect(ids("OWNER")).toContain("settings-payments");
+    expect(ids("ADMIN")).toContain("settings-payments");
+    expect(ids("STAFF")).not.toContain("settings-payments");
+    expect(ids("CASHIER")).not.toContain("settings-payments");
+  });
+
+  it("el cajero no ve secciones administrativas", () => {
+    expect(navigationFor("CASHIER").map((item) => item.id)).toEqual(["home"]);
   });
 
   it("los ids de las secciones no se repiten", () => {

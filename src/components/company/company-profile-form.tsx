@@ -9,6 +9,7 @@ import {
 import {
   ArrowRight,
   BadgeCheck,
+  Lock,
   CircleCheck,
   Loader2,
   MapPin,
@@ -28,11 +29,14 @@ import { Label } from "@/components/ui/label";
 import {
   DATE_FORMATS,
   SUPPORTED_CURRENCIES,
+  SUPPORTED_TIME_ZONES,
   currencyName,
+  formatClock,
   formatDate,
   formatMoney,
   isDateFormat,
   isSupportedCurrency,
+  isSupportedTimeZone,
 } from "@/lib/company-formats";
 import { cn } from "@/lib/utils";
 import type { CompanyProfileField } from "@/server/services/companies";
@@ -49,6 +53,8 @@ import {
 // de día y mes.
 const SAMPLE_DATE = new Date(Date.UTC(2026, 2, 24));
 const SAMPLE_PRICE = 16500;
+// Instante fijo para el ejemplo de hora: 20:05 UTC (3:05 p. m. en Bogotá).
+const SAMPLE_INSTANT = new Date(Date.UTC(2026, 2, 24, 20, 5));
 
 const fieldClass =
   "h-11 rounded-lg border-transparent bg-muted text-sm focus-visible:bg-card";
@@ -57,16 +63,19 @@ const iconClass =
 
 // Datos del negocio. Lo usan el asistente ("setup": guarda y pasa al paso
 // siguiente) y la configuración del panel ("settings": guarda y se queda).
+// currencyLocked: la empresa ya tiene ventas y la moneda no se cambia.
 export function CompanyProfileForm({
   mode,
   action,
   companySlug,
   initialValues,
+  currencyLocked = false,
 }: {
   mode: "setup" | "settings";
   action: SaveProfileAction;
   companySlug: string;
   initialValues: ProfileFormValues;
+  currencyLocked?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(
     action,
@@ -78,6 +87,7 @@ export function CompanyProfileForm({
   // igual con los valores enviados.
   const [currency, setCurrency] = useState(values.currency);
   const [dateFormat, setDateFormat] = useState(values.dateFormat);
+  const [timeZone, setTimeZone] = useState(values.timeZone);
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
@@ -158,19 +168,28 @@ export function CompanyProfileForm({
 
           <fieldset className="flex min-w-0 flex-col gap-2">
             <legend className="mb-2 text-[13px] font-semibold">Moneda</legend>
+            {/* Un radio deshabilitado no se envía: la moneda viaja oculta. */}
+            {currencyLocked && <input type="hidden" name="currency" value={currency} />}
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {SUPPORTED_CURRENCIES.map((code) => (
                 <OptionCard
                   key={code}
-                  name="currency"
+                  name={currencyLocked ? "currency-locked" : "currency"}
                   value={code}
                   checked={currency === code}
                   onChange={() => setCurrency(code)}
                   title={code}
                   subtitle={currencyName(code)}
+                  disabled={currencyLocked}
                 />
               ))}
             </div>
+            {currencyLocked && (
+              <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Lock className="size-3.5 shrink-0" aria-hidden />
+                No se puede cambiar: ya hay ventas registradas en esta moneda.
+              </p>
+            )}
             <FieldError name="currency" error={fieldErrors.currency} />
           </fieldset>
 
@@ -194,6 +213,33 @@ export function CompanyProfileForm({
             <FieldError name="dateFormat" error={fieldErrors.dateFormat} />
           </fieldset>
 
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <Label htmlFor="timeZone" className="text-[13px] font-semibold">
+              Zona horaria
+            </Label>
+            <select
+              id="timeZone"
+              name="timeZone"
+              value={timeZone}
+              onChange={(event) => setTimeZone(event.target.value)}
+              required
+              aria-invalid={fieldErrors.timeZone ? true : undefined}
+              aria-describedby={fieldErrors.timeZone ? "timeZone-error" : "timeZone-hint"}
+              className={cn(fieldClass, "w-full min-w-0 border px-3 outline-none")}
+            >
+              {!isSupportedTimeZone(timeZone) && <option value="">Elige una zona…</option>}
+              {Object.entries(SUPPORTED_TIME_ZONES).map(([zone, label]) => (
+                <option key={zone} value={zone}>
+                  {label}
+                </option>
+              ))}
+            </select>
+            <p id="timeZone-hint" className="text-xs text-muted-foreground">
+              Define la hora de ventas y turnos, y en qué momento empieza cada día.
+            </p>
+            <FieldError name="timeZone" error={fieldErrors.timeZone} />
+          </div>
+
           <div className="rounded-xl border border-dashed border-input bg-muted/60 p-4">
             <p className="text-[11px] font-semibold tracking-wide text-muted-foreground uppercase">
               Así se verá en tickets y reportes
@@ -208,6 +254,7 @@ export function CompanyProfileForm({
                 {isDateFormat(dateFormat)
                   ? formatDate(SAMPLE_DATE, dateFormat)
                   : "—"}
+                {isSupportedTimeZone(timeZone) && ` ${formatClock(SAMPLE_INSTANT, timeZone)}`}
               </span>
             </div>
             <p className="mt-1 text-xs text-muted-foreground">
@@ -297,6 +344,7 @@ function OptionCard({
   title,
   subtitle,
   className,
+  disabled,
 }: {
   name: string;
   value: string;
@@ -305,6 +353,7 @@ function OptionCard({
   title: string;
   subtitle: string;
   className?: string;
+  disabled?: boolean;
 }) {
   return (
     <label
@@ -313,6 +362,7 @@ function OptionCard({
         checked
           ? "border-ring bg-accent/60"
           : "border-transparent bg-muted hover:border-input",
+        disabled && "cursor-not-allowed opacity-60 hover:border-transparent",
         className,
       )}
     >
@@ -322,6 +372,7 @@ function OptionCard({
         value={value}
         checked={checked}
         onChange={onChange}
+        disabled={disabled}
         className="sr-only"
       />
       <span className="text-sm font-bold">{title}</span>

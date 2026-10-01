@@ -6,11 +6,19 @@ import type { StaffSessionDto } from "@/server/dto/auth";
 import { COMPANY_EVENTS } from "@/server/services/auth/config";
 import { ForbiddenError } from "@/server/services/auth/permissions";
 import {
+  CURRENCY_LOCKED_ERROR,
   getCompanyProfile,
   saveCompanyProfile,
 } from "@/server/services/companies";
 
-import { cleanupCompanies, createCompany, ctx, uniqueTag } from "../helpers";
+import {
+  cleanupCompanies,
+  createCompany,
+  createMainBranch,
+  createUser,
+  ctx,
+  uniqueTag,
+} from "../helpers";
 
 const tag = uniqueTag("profile");
 let a: { id: string; name: string; slug: string };
@@ -43,6 +51,7 @@ const input = {
   address: "Calle 1 # 2-3",
   currency: "USD",
   dateFormat: "YYYY-MM-DD",
+  timeZone: "America/Lima",
 };
 
 describe("saveCompanyProfile", () => {
@@ -58,7 +67,9 @@ describe("saveCompanyProfile", () => {
       email: "admin@suarepa.co",
       currency: "USD",
       dateFormat: "YYYY-MM-DD",
+      timeZone: "America/Lima",
       setupCompletedAt: null,
+      currencyLocked: false,
     });
     const other = await db.company.findUniqueOrThrow({ where: { id: b.id } });
     expect(other).toMatchObject({ name: b.name, currency: "COP", taxId: null });
@@ -112,5 +123,39 @@ describe("saveCompanyProfile", () => {
 
     // Los intentos inválidos o sin permiso no dejan evento.
     expect(await events(b.id)).toBe(0);
+  });
+
+  it("con ventas registradas la moneda no cambia, pero el resto sí", async () => {
+    // Una venta mínima en la empresa B (los datos de venta no importan aquí).
+    const { branchId } = await createMainBranch(b.id);
+    const user = await createUser({ companyId: b.id, email: `c@${tag}.co`, role: "CASHIER" });
+    const session = await db.cashSession.create({
+      data: { companyId: b.id, branchId, userId: user.id, openingAmount: "0" },
+    });
+    await db.sale.create({
+      data: {
+        companyId: b.id,
+        number: 1,
+        branchId,
+        cashSessionId: session.id,
+        userId: user.id,
+        total: "0",
+      },
+    });
+    const owner = sessionFor(b, "OWNER");
+    expect(await getCompanyProfile(owner)).toMatchObject({ currency: "COP", currencyLocked: true });
+
+    expect(await saveCompanyProfile(owner, input, ctx(tag))).toEqual({
+      ok: false,
+      fieldErrors: { currency: CURRENCY_LOCKED_ERROR },
+    });
+    expect(
+      await saveCompanyProfile(owner, { ...input, currency: "COP" }, ctx(tag)),
+    ).toEqual({ ok: true });
+    expect(await db.company.findUniqueOrThrow({ where: { id: b.id } })).toMatchObject({
+      name: input.name,
+      currency: "COP",
+      timeZone: "America/Lima",
+    });
   });
 });

@@ -67,14 +67,16 @@ describe("assertPermission", () => {
 });
 
 describe("roles gestionables", () => {
-  it("OWNER gestiona ADMIN y STAFF; ADMIN solo STAFF; nadie al OWNER", () => {
-    expect(manageableRoles("OWNER")).toEqual(["STAFF", "ADMIN"]);
-    expect(manageableRoles("ADMIN")).toEqual(["STAFF"]);
+  it("OWNER gestiona ADMIN, STAFF y CASHIER; ADMIN solo STAFF y CASHIER; nadie al OWNER", () => {
+    expect(manageableRoles("OWNER")).toEqual(["CASHIER", "STAFF", "ADMIN"]);
+    expect(manageableRoles("ADMIN")).toEqual(["CASHIER", "STAFF"]);
     expect(manageableRoles("STAFF")).toEqual([]);
+    expect(manageableRoles("CASHIER")).toEqual([]);
     expect(canManageRole("OWNER", "ADMIN")).toBe(true);
     expect(canManageRole("ADMIN", "ADMIN")).toBe(false);
     expect(canManageRole("ADMIN", "STAFF")).toBe(true);
-    for (const actor of ["OWNER", "ADMIN", "STAFF"] as const) {
+    expect(canManageRole("ADMIN", "CASHIER")).toBe(true);
+    for (const actor of ["OWNER", "ADMIN", "STAFF", "CASHIER"] as const) {
       expect(canManageRole(actor, "OWNER")).toBe(false);
     }
   });

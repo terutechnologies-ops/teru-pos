@@ -14,10 +14,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  SUPPORTED_TIME_ZONES,
   currencyName,
   formatDate,
   formatMoney,
   isDateFormat,
+  isSupportedTimeZone,
 } from "@/lib/company-formats";
 import { STAFF_ROLE_LABELS } from "@/lib/staff-roles";
 import { requirePermission } from "@/server/http/staff-session";
@@ -119,6 +121,14 @@ function BusinessCard({
           value={`${profile.currency} · ${currencyName(profile.currency)}`}
         />
         <Item label="Formato de fecha" value={profile.dateFormat} />
+        <Item
+          label="Zona horaria"
+          value={
+            isSupportedTimeZone(profile.timeZone)
+              ? SUPPORTED_TIME_ZONES[profile.timeZone]
+              : profile.timeZone
+          }
+        />
       </dl>
       <div className="flex flex-wrap items-baseline justify-between gap-2 rounded-xl border border-dashed border-input bg-muted/60 p-4">
         <span className="text-xl font-extrabold text-link">

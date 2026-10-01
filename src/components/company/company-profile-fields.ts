@@ -27,6 +27,7 @@ export function readProfileForm(formData: FormData): ProfileFormValues {
     address: field("address"),
     currency: field("currency"),
     dateFormat: field("dateFormat"),
+    timeZone: field("timeZone"),
   };
 }
 
@@ -42,6 +43,7 @@ export function toProfileFormValues(
     address: profile.address ?? "",
     currency: profile.currency ?? "",
     dateFormat: profile.dateFormat ?? "",
+    timeZone: profile.timeZone ?? "",
   };
 }
 

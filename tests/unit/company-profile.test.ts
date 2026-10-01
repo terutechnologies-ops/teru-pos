@@ -16,6 +16,7 @@ const base = {
   address: "",
   currency: "COP",
   dateFormat: "DD/MM/YYYY",
+  timeZone: "America/Bogota",
 };
 
 describe("companyProfileSchema", () => {
@@ -36,6 +37,7 @@ describe("companyProfileSchema", () => {
       address: null,
       currency: "USD",
       dateFormat: "DD/MM/YYYY",
+      timeZone: "America/Bogota",
     });
   });
 
@@ -46,6 +48,9 @@ describe("companyProfileSchema", () => {
     ["currency", "ARS"],
     ["currency", ""],
     ["dateFormat", "DD-MM-YY"],
+    ["timeZone", "America/Bogotá"],
+    ["timeZone", "Asia/Tokyo"],
+    ["timeZone", ""],
     ["taxId", "x".repeat(31)],
     ["address", "x".repeat(201)],
   ])("rechaza %s = %j", (field, value) => {
@@ -74,13 +79,18 @@ describe("formatos", () => {
     expect(formatDate(date, "YYYY-MM-DD")).toBe("2026-03-24");
   });
 
-  it("muestra fecha y hora en la zona del negocio, no en UTC", () => {
+  it("muestra fecha y hora en la zona de la empresa, no en UTC", () => {
     // 01:05 UTC del 29 = 8:05 p. m. del 28 en Bogotá (UTC−5).
     const date = new Date(Date.UTC(2026, 8, 29, 1, 5));
-    expect(formatDateTime(date, "DD/MM/YYYY")).toMatch(/^28\/09\/2026 8:05\sp\.\sm\.$/);
-    expect(formatDateTime(date, "YYYY-MM-DD")).toMatch(/^2026-09-28 8:05/);
-    expect(formatDateTime(new Date(Date.UTC(2026, 8, 28, 15, 0)), "MM/DD/YYYY")).toMatch(
-      /^09\/28\/2026 10:00\sa\.\sm\.$/,
+    const bogota = "America/Bogota";
+    expect(formatDateTime(date, "DD/MM/YYYY", bogota)).toMatch(/^28\/09\/2026 8:05\sp\.\sm\.$/);
+    expect(formatDateTime(date, "YYYY-MM-DD", bogota)).toMatch(/^2026-09-28 8:05/);
+    expect(
+      formatDateTime(new Date(Date.UTC(2026, 8, 28, 15, 0)), "MM/DD/YYYY", bogota),
+    ).toMatch(/^09\/28\/2026 10:00\sa\.\sm\.$/);
+    // En Madrid (UTC+2 en septiembre) ya es el 29 a las 3:05 a. m.
+    expect(formatDateTime(date, "DD/MM/YYYY", "Europe/Madrid")).toMatch(
+      /^29\/09\/2026 3:05\sa\.\sm\.$/,
     );
   });
 });
