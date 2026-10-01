@@ -1681,6 +1681,84 @@ de contar; la diferencia la ve al cerrar y queda para revisión).
   navegación. Verificado: typecheck, lint, suite **246/246**, build.
   Revisión visual: la hace el usuario.
 
+**Componentes renumerados** (aprobado 2026-09-30): las alertas pasan a
+componente propio. 4) POS y venta; 5) alertas de configuración e
+inventario; 6) ventas en el panel; 7) cierres de caja en el panel;
+8) cierre de la fase (ADR 0007).
+
+### Componente 4 — POS y venta (aprobado 2026-09-30)
+
+- **Pantalla de venta** en `/pos` con turno de hoy (con turno de otro día
+  solo se ofrece cerrarlo). Barra del turno (sucursal, hora, ventas,
+  "Cerrar turno") y `PosRegister` (`components/pos/sale/`): pestañas por
+  categoría + buscador (`ProductGrid`), pedido (`CartPanel`: −/+, nota por
+  línea, quitar, vaciar), cobro (`PaymentPanel`: pago mixto, un pago por
+  método, monto propuesto = lo que falta, efectivo con "Recibido" y
+  "Exacto", cambio) y resultado "Venta #N · Cambio". En pantallas
+  pequeñas el pedido va en una barra inferior + `Sheet` (con clase `dark`,
+  porque se monta fuera del layout).
+- **Requiere JavaScript** (excepción aprobada): el pedido vive en el
+  navegador; `checkoutAction(companySlug, payload)` llama al servicio, que
+  revalida todo. Tras vender o si cambió el catálogo/turno, `refresh()`.
+- Productos agotados y sin receta se ven deshabilitados con su motivo;
+  archivados y categorías inactivas no aparecen (`listPosCatalog`).
+- `services/sales.ts`: `getPosCatalog` (productos con `blocked`
+  `UNAVAILABLE`/`NO_RECIPE`, métodos activos) y `checkout` (turno abierto
+  propio; mensajes con el nombre del producto; `refresh` cuando la
+  pantalla debe recargarse). `validations/sales.ts`: 1–100 líneas,
+  cantidad entera 1–999, nota ≤ 100, pagos > 0, un pago por método.
+- Montos en el navegador en centavos enteros (`components/pos/sale/money.ts`:
+  `toCents`, `centsToInput`, `inputToCents`, `paymentTotals`,
+  `paymentsPayload`).
+- Ajuste pedido por el usuario (pago parcial en efectivo): en efectivo se
+  escribe solo lo **recibido**; se aplica hasta lo que falta después de los
+  demás métodos (`cashDue`). Si no alcanza, queda "Falta" para otro método
+  (ej. 33.000: 10.000 efectivo + 23.000 Nequi); si sobra, es cambio. Al
+  servidor va `amount` = aplicado y `tendered` = recibido solo si hubo
+  cambio. Un efectivo que ya no hace falta o un pago vacío bloquean
+  "Cobrar".
+- Ajuste pedido por el usuario (pedido que no se pierda y sin doble
+  cobro):
+  - **Pedido guardado en `localStorage`** (`components/pos/sale/cart-storage.ts`):
+    clave `teru-pos:pedido:<slug>:<userId>:<shiftId>`; se restaura al
+    montar y cuando cambia el catálogo (`reconcileCart`: quita productos
+    bloqueados o inexistentes y métodos inactivos, toma nombres y precios
+    vigentes); se borra al cobrar (de inmediato, no en el efecto: el
+    catálogo recargado tras vender lo restauraría) o al vaciar. Sin
+    almacenamiento disponible, el POS sigue funcionando en memoria. El
+    `setState` dentro del efecto lleva excepción de lint justificada.
+  - **Clave por pedido (idempotencia):** migración
+    `20260930130000_add_sale_client_key` (**aplicada en test y dev**):
+    `sales.clientKey` única por empresa. El POS genera un UUID v4 con
+    `getRandomValues` (`randomUUID` solo existe en https/localhost) y lo
+    renueva tras cada venta. `createSale` devuelve `ALREADY_RECORDED` con
+    la venta existente (también si dos envíos chocan en el índice, P2002);
+    el POS muestra "ya estaba registrada por $X, no se cobró de nuevo".
+    `saleSchema` exige la clave.
+- Pruebas: `pos-sales.test.ts` (6), `pos-money.test.ts` (3). Verificado:
+  typecheck, lint, suite **264/264**, build. Revisión visual: la hace el
+  usuario.
+
+### Pendiente anotado por el usuario (2026-09-30): tiquete de venta
+
+Implementar el **tiquete de venta imprimible**, compatible con las
+impresoras estándar del mercado, para imprimir el pedido. Puntos a
+analizar cuando se diseñe:
+- Impresoras térmicas de 58 y 80 mm (Epson TM, Bixolon, Star y genéricas
+  tipo Xprinter / 3nStar), casi todas con comandos **ESC/POS**.
+- Dos caminos: (a) impresión del navegador con una página de tiquete
+  (CSS `@page` de 58/80 mm): funciona con cualquier impresora instalada,
+  pero muestra el diálogo de impresión; (b) ESC/POS directo (WebUSB,
+  Web Serial o un agente local tipo QZ Tray): impresión silenciosa y
+  apertura del cajón de dinero, con más instalación por equipo.
+- Contenido: datos del negocio (nombre, NIT, dirección, teléfono, logo),
+  número y fecha de la venta, cajero, líneas con notas, total, pagos y
+  cambio; reimpresión desde el detalle de la venta. Revisar requisitos
+  locales (en Colombia el tiquete no reemplaza la factura electrónica).
+- Ubicación propuesta: componente aparte dentro de la fase 7 (después de
+  "ventas en el panel", para reimprimir desde el detalle) o al inicio de
+  la fase siguiente; decidirlo con el usuario.
+
 ### Próximo paso recomendado
 
-Diseño del componente 4 (POS y venta).
+Diseño del componente 5 (alertas de configuración e inventario).

@@ -163,6 +163,32 @@ export async function listProducts(
   });
 }
 
+// Catálogo del POS: categorías activas en su orden, con sus productos no
+// archivados (también los agotados o sin receta, que se muestran
+// deshabilitados).
+export async function listPosCatalog(companyId: string) {
+  return db.productCategory.findMany({
+    where: { companyId, isActive: true },
+    orderBy: [{ position: "asc" }, { name: "asc" }],
+    select: {
+      id: true,
+      name: true,
+      products: {
+        where: { isArchived: false },
+        orderBy: { name: "asc" },
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          imagePath: true,
+          isAvailable: true,
+          _count: { select: { recipeItems: true } },
+        },
+      },
+    },
+  });
+}
+
 export async function findProduct(companyId: string, productId: string) {
   return db.product.findFirst({
     where: { id: productId, companyId },

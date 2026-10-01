@@ -1,19 +1,22 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Lock, ShoppingBasket, TriangleAlert } from "lucide-react";
+import { Lock, TriangleAlert } from "lucide-react";
 
 import { OpenShiftForm } from "@/components/pos/open-shift-form";
+import { cartStorageKey } from "@/components/pos/sale/cart-storage";
+import { PosRegister } from "@/components/pos/sale/pos-register";
 import { ShiftSummary } from "@/components/pos/shift-summary";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { formatDateTime } from "@/lib/company-formats";
+import { formatClock, formatDateTime } from "@/lib/company-formats";
 import { requirePermission } from "@/server/http/staff-session";
 import { getPosShift } from "@/server/services/cash-sessions";
+import { getPosCatalog } from "@/server/services/sales";
 
 export const metadata: Metadata = { title: "Vender" };
 
-// Sin turno: se abre. Con turno: aquí se vende (componente 4) y desde aquí
-// se cierra.
+// Sin turno: se abre. Con turno de hoy: se vende. Con turno de otro día: se
+// pide cerrarlo antes de seguir.
 export default async function PosPage({ params }: PageProps<"/[empresa]/pos">) {
   const { empresa } = await params;
   const session = await requirePermission(empresa, "sales.charge");
@@ -35,9 +38,18 @@ export default async function PosPage({ params }: PageProps<"/[empresa]/pos">) {
     );
   }
 
-  return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-      {pos.stale && (
+  const closeButton = (
+    <Button asChild variant={pos.stale ? "default" : "outline"} className="h-11 gap-2">
+      <Link href={`/${slug}/pos/cierre`}>
+        <Lock aria-hidden />
+        Cerrar turno
+      </Link>
+    </Button>
+  );
+
+  if (pos.stale) {
+    return (
+      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
         <Alert variant="destructive">
           <TriangleAlert />
           <AlertDescription>
@@ -46,41 +58,40 @@ export default async function PosPage({ params }: PageProps<"/[empresa]/pos">) {
             uno nuevo para que las ventas de hoy queden en el turno de hoy.
           </AlertDescription>
         </Alert>
-      )}
-
-      <section className="flex flex-col gap-5 rounded-2xl bg-card p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-xs font-bold tracking-widest text-primary uppercase">
-              Turno abierto
-            </p>
+        <section className="flex flex-col gap-5 rounded-2xl bg-card p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-2xl font-extrabold tracking-tight">Tu caja</h1>
+            {closeButton}
           </div>
-          <Button asChild variant={pos.stale ? "default" : "outline"} className="h-11 gap-2">
-            <Link href={`/${slug}/pos/cierre`}>
-              <Lock aria-hidden />
-              Cerrar turno
-            </Link>
-          </Button>
-        </div>
-        <ShiftSummary
-          shift={pos.shift}
-          currency={pos.currency}
-          dateFormat={pos.dateFormat}
-          timeZone={pos.timeZone}
-        />
-      </section>
-
-      {!pos.stale && (
-        <section className="flex flex-col items-center gap-3 rounded-2xl border-2 border-dashed border-border p-10 text-center">
-          <ShoppingBasket className="size-10 text-muted-foreground" aria-hidden />
-          <p className="font-bold">Aquí armarás y cobrarás cada pedido</p>
-          <p className="max-w-sm text-sm text-muted-foreground">
-            La pantalla de venta llega en la siguiente entrega. Por ahora puedes abrir y cerrar tu
-            turno.
-          </p>
+          <ShiftSummary
+            shift={pos.shift}
+            currency={pos.currency}
+            dateFormat={pos.dateFormat}
+            timeZone={pos.timeZone}
+          />
         </section>
-      )}
+      </div>
+    );
+  }
+
+  const catalog = await getPosCatalog(session);
+  const { shift } = pos;
+
+  return (
+    <div className="flex w-full flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-muted-foreground">
+          <span className="font-bold text-primary">Turno abierto</span> · {shift.branchName} ·
+          desde {formatClock(shift.openedAt, pos.timeZone)} ·{" "}
+          {shift.salesCount === 1 ? "1 venta" : `${shift.salesCount} ventas`}
+        </p>
+        {closeButton}
+      </div>
+      <PosRegister
+        companySlug={slug}
+        catalog={catalog}
+        storageKey={cartStorageKey(slug, session.user.id, shift.id)}
+      />
     </div>
   );
 }

@@ -373,6 +373,9 @@ model Sale {
   voidedById    String?
   voidedBy      User?       @relation("SaleVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
   voidReason    String?
+  // Clave del pedido que genera el POS: si el mismo pedido llega dos veces
+  // (reintento tras una caída de red, doble toque), no se crea otra venta.
+  clientKey     String?
 
   lines          SaleLine[]
   payments       SalePayment[]
@@ -380,6 +383,7 @@ model Sale {
 
   @@unique([companyId, number])
   @@unique([companyId, id])
+  @@unique([companyId, clientKey])
   @@index([companyId, createdAt])
   @@index([cashSessionId])
   @@map("sales")

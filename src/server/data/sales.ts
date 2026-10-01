@@ -29,10 +29,21 @@ export type CreateSaleInput = {
   userId: string;
   lines: SaleLineInput[];
   payments: SalePaymentInput[];
+  // Clave del pedido (POS). Sin clave no hay protección contra duplicados.
+  clientKey?: string | null;
+};
+
+type SaleSummary = {
+  saleId: string;
+  number: number;
+  total: Prisma.Decimal;
+  change: Prisma.Decimal;
 };
 
 export type CreateSaleResult =
-  | { status: "OK"; saleId: string; number: number; total: Prisma.Decimal; change: Prisma.Decimal }
+  | ({ status: "OK" } & SaleSummary)
+  // El mismo pedido (clientKey) ya se había registrado: no se crea otra.
+  | ({ status: "ALREADY_RECORDED" } & SaleSummary)
   | {
       status:
         | "EMPTY_SALE"
@@ -48,12 +59,59 @@ export type CreateSaleResult =
 
 type Consumption = { quantity: Prisma.Decimal; unit: StockUnit };
 
+// Venta ya registrada con esa clave, por la misma persona.
+async function findRecordedSale(
+  companyId: string,
+  clientKey: string,
+  userId: string,
+): Promise<SaleSummary | null> {
+  const sale = await db.sale.findUnique({
+    where: { companyId_clientKey: { companyId, clientKey } },
+    select: {
+      id: true,
+      number: true,
+      total: true,
+      userId: true,
+      payments: { select: { amount: true, tendered: true } },
+    },
+  });
+  if (!sale || sale.userId !== userId) return null;
+  const change = sale.payments.reduce(
+    (sum, payment) => (payment.tendered ? sum.plus(payment.tendered.minus(payment.amount)) : sum),
+    new Prisma.Decimal(0),
+  );
+  return { saleId: sale.id, number: sale.number, total: sale.total, change };
+}
+
 export async function createSale(
   companyId: string,
   input: CreateSaleInput,
 ): Promise<CreateSaleResult> {
   if (input.lines.length === 0) return { status: "EMPTY_SALE" };
 
+  const { clientKey } = input;
+  if (clientKey) {
+    const recorded = await findRecordedSale(companyId, clientKey, input.userId);
+    if (recorded) return { status: "ALREADY_RECORDED", ...recorded };
+  }
+  try {
+    return await recordSale(companyId, input);
+  } catch (error) {
+    // Dos envíos simultáneos del mismo pedido: el índice único deja pasar
+    // uno; el otro devuelve la venta que quedó.
+    const duplicate =
+      clientKey &&
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002";
+    if (duplicate) {
+      const recorded = await findRecordedSale(companyId, clientKey, input.userId);
+      if (recorded) return { status: "ALREADY_RECORDED", ...recorded };
+    }
+    throw error;
+  }
+}
+
+async function recordSale(companyId: string, input: CreateSaleInput): Promise<CreateSaleResult> {
   return db.$transaction(async (tx) => {
     // El cierre del turno espera a que termine esta venta (FOR SHARE).
     const session = await lockCashSession(tx, companyId, input.cashSessionId, "SHARE");
@@ -166,6 +224,7 @@ export async function createSale(
         cashSessionId: input.cashSessionId,
         userId: input.userId,
         total,
+        clientKey: input.clientKey ?? null,
         lines: { createMany: { data: lines } },
         payments: {
           createMany: {
