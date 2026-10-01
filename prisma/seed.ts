@@ -9,6 +9,7 @@ import "dotenv/config";
 import { db } from "@/lib/db";
 import { MAIN_BRANCH_NAME } from "@/server/data/companies";
 import { MAIN_WAREHOUSE_NAME } from "@/server/data/inventory";
+import { createDefaultPaymentMethods } from "@/server/data/payment-methods";
 import { hashPassword } from "@/server/services/auth/passwords";
 import {
   companySlugSchema,
@@ -57,6 +58,10 @@ async function main() {
         isMain: true,
       },
     });
+  }
+
+  if ((await db.paymentMethod.count({ where: { companyId: company.id } })) === 0) {
+    await db.$transaction((tx) => createDefaultPaymentMethods(tx, company.id));
   }
 
   const existing = await db.user.findUnique({

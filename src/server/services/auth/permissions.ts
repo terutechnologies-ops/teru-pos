@@ -7,12 +7,31 @@ export type Permission =
   | "company.manage"
   | "team.manage"
   | "catalog.manage"
-  | "inventory.manage";
+  | "inventory.manage"
+  // Vender en el POS y manejar el propio turno de caja.
+  | "sales.charge"
+  | "sales.view"
+  | "sales.void"
+  | "cash.review"
+  | "payments.manage";
+
+// Lo que comparten OWNER y ADMIN: administración del negocio y ventas.
+const MANAGEMENT: readonly Permission[] = [
+  "team.manage",
+  "catalog.manage",
+  "inventory.manage",
+  "sales.charge",
+  "sales.view",
+  "sales.void",
+  "cash.review",
+  "payments.manage",
+];
 
 const ROLE_PERMISSIONS = {
-  OWNER: ["company.manage", "team.manage", "catalog.manage", "inventory.manage"],
-  ADMIN: ["team.manage", "catalog.manage", "inventory.manage"],
+  OWNER: ["company.manage", ...MANAGEMENT],
+  ADMIN: MANAGEMENT,
   STAFF: [],
+  CASHIER: ["sales.charge"],
 } satisfies Record<StaffRole, readonly Permission[]>;
 
 export function hasPermission(role: StaffRole, permission: Permission) {

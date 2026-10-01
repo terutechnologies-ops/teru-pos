@@ -6,6 +6,7 @@ export const STAFF_ROLE_LABELS: Record<StaffRole, string> = {
   OWNER: "Propietario",
   ADMIN: "Administrador",
   STAFF: "Personal",
+  CASHIER: "Cajero",
 };
 
 // OWNER no se invita: el primero sale del script de alta de la empresa.
@@ -29,6 +30,7 @@ const MANAGEABLE_ROLES: Record<StaffRole, readonly InvitableRole[]> = {
   OWNER: INVITABLE_ROLES,
   ADMIN: ["STAFF"],
   STAFF: [],
+  CASHIER: [],
 };
 
 export function manageableRoles(actor: StaffRole): readonly InvitableRole[] {

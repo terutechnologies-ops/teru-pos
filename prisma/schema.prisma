@@ -29,6 +29,8 @@ model Company {
   slug       String   @unique
   currency   String   @default("COP")
   dateFormat String   @default("DD/MM/YYYY")
+  // Zona horaria IANA: define el "día" de las ventas y los turnos.
+  timeZone   String   @default("America/Bogota")
   isActive   Boolean  @default(true)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
@@ -44,6 +46,9 @@ model Company {
   // Ruta del logo en el almacenamiento de archivos (no la URL: la URL
   // pública depende del proveedor configurado). null = sin logo.
   logoPath         String?
+  // Último número de venta usado. Se incrementa dentro de la transacción de
+  // la venta: el consecutivo queda sin huecos.
+  lastSaleNumber   Int       @default(0)
 
   users             User[]
   userSessions      UserSession[]
@@ -57,6 +62,11 @@ model Company {
   stockLevels       StockLevel[]
   stockMovements    StockMovement[]
   recipeItems       ProductRecipeItem[]
+  paymentMethods    PaymentMethod[]
+  cashSessions      CashSession[]
+  sales             Sale[]
+  saleLines         SaleLine[]
+  salePayments      SalePayment[]
 
   @@map("companies")
 }
@@ -74,7 +84,9 @@ model Branch {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  warehouses Warehouse[]
+  warehouses   Warehouse[]
+  cashSessions CashSession[]
+  sales        Sale[]
 
   @@unique([companyId, name])
   // Destino de la FK compuesta de warehouses (aislamiento entre empresas).
@@ -129,8 +141,9 @@ model Product {
   updatedAt   DateTime        @updatedAt
 
   recipeItems ProductRecipeItem[]
+  saleLines   SaleLine[]
 
-  // Destino de la FK compuesta de product_recipe_items.
+  // Destino de la FK compuesta de product_recipe_items y sale_lines.
   @@unique([companyId, id])
   @@index([companyId, categoryId])
   @@map("products")
@@ -152,6 +165,10 @@ enum StockMovementType {
   INITIAL
   // Corrección manual (entrada o salida), con motivo.
   ADJUSTMENT
+  // Salida por una venta (receta del producto).
+  SALE
+  // Devolución al anular una venta.
+  SALE_VOID
 }
 
 // Bodega de una sucursal. La sucursal se enlaza por (companyId, branchId),
@@ -208,7 +225,7 @@ model Supply {
 }
 
 // Saldo de un insumo en una bodega. Solo cambia junto con un movimiento, en
-// la misma transacción. La migración agrega CHECK (quantity >= 0).
+// la misma transacción. Puede quedar negativo por ventas (ADR 0007).
 model StockLevel {
   companyId   String
   company     Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
@@ -216,7 +233,7 @@ model StockLevel {
   warehouse   Warehouse @relation(fields: [companyId, warehouseId], references: [companyId, id], onDelete: Restrict)
   supplyId    String
   supply      Supply    @relation(fields: [companyId, supplyId], references: [companyId, id], onDelete: Restrict)
-  quantity    Decimal   @default(0) @db.Decimal(14, 3)
+  quantity    Decimal   @default(0) @db.Decimal(17, 6)
   updatedAt   DateTime  @updatedAt
 
   @@id([warehouseId, supplyId])
@@ -226,7 +243,11 @@ model StockLevel {
 
 // Movimiento de inventario (kardex). Inmutable: la capa de datos no expone
 // edición ni borrado; un error se corrige con otro movimiento. quantity va
-// con signo (+ entra, − sale) y balanceAfter es el saldo que dejó.
+// con signo (+ entra, − sale) y balanceAfter es el saldo que dejó. Las
+// ventas pueden dejar el saldo negativo (ver ADR 0007); saleId enlaza los
+// movimientos SALE y SALE_VOID con su venta (CHECK en la migración).
+// Cantidades con 6 decimales: una receta en g de un insumo en kg se
+// convierte sin redondear (0,5 g = 0,0005 kg).
 model StockMovement {
   id           String            @id @default(cuid())
   companyId    String
@@ -236,14 +257,17 @@ model StockMovement {
   supplyId     String
   supply       Supply            @relation(fields: [companyId, supplyId], references: [companyId, id], onDelete: Restrict)
   type         StockMovementType
-  quantity     Decimal           @db.Decimal(14, 3)
-  balanceAfter Decimal           @db.Decimal(14, 3)
+  quantity     Decimal           @db.Decimal(17, 6)
+  balanceAfter Decimal           @db.Decimal(17, 6)
   reason       String?
   userId       String
   user         User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  saleId       String?
+  sale         Sale?             @relation(fields: [companyId, saleId], references: [companyId, id], onDelete: Restrict)
   createdAt    DateTime          @default(now())
 
   @@index([companyId, supplyId, createdAt])
+  @@index([saleId])
   @@index([warehouseId, supplyId, createdAt])
   @@map("stock_movements")
 }
@@ -272,12 +296,143 @@ model ProductRecipeItem {
   @@map("product_recipe_items")
 }
 
+// --- Ventas y caja -----------------------------------------------------------
+
+// Método de pago de la empresa. La migración garantiza un solo método de
+// efectivo por empresa (índice parcial) y nombre único sobre lower(name).
+// El de efectivo lo crea el sistema. No se borra (lo referencian los
+// pagos): se desactiva.
+model PaymentMethod {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  name      String
+  // Efectivo: cuenta en la caja del turno y admite cambio.
+  isCash    Boolean  @default(false)
+  position  Int
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payments SalePayment[]
+
+  @@unique([companyId, id])
+  @@index([companyId, position])
+  @@map("payment_methods")
+}
+
+// Turno de caja de una persona en una sucursal. closedAt null = abierto; la
+// migración permite un solo turno abierto por persona (índice parcial). Al
+// cerrar se guardan el esperado (fondo + efectivo de las ventas no
+// anuladas) y lo contado; después el turno no cambia.
+model CashSession {
+  id            String    @id @default(cuid())
+  companyId     String
+  company       Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  branchId      String
+  branch        Branch    @relation(fields: [companyId, branchId], references: [companyId, id], onDelete: Restrict)
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  openingAmount Decimal   @db.Decimal(12, 2)
+  openedAt      DateTime  @default(now())
+  closedAt      DateTime?
+  expectedCash  Decimal?  @db.Decimal(12, 2)
+  countedCash   Decimal?  @db.Decimal(12, 2)
+  closingNote   String?
+
+  sales Sale[]
+
+  @@unique([companyId, id])
+  @@index([companyId, openedAt])
+  @@map("cash_sessions")
+}
+
+enum SaleStatus {
+  COMPLETED
+  VOIDED
+}
+
+// Venta de mostrador, cobrada al crearse. Documento inmutable: no se borra
+// ni se edita; se anula (estado VOIDED) mientras su turno siga abierto.
+model Sale {
+  id            String      @id @default(cuid())
+  companyId     String
+  company       Company     @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  // Consecutivo por empresa (companies.lastSaleNumber).
+  number        Int
+  branchId      String
+  branch        Branch      @relation(fields: [companyId, branchId], references: [companyId, id], onDelete: Restrict)
+  cashSessionId String
+  cashSession   CashSession @relation(fields: [companyId, cashSessionId], references: [companyId, id], onDelete: Restrict)
+  userId        String
+  user          User        @relation("SaleCashier", fields: [userId], references: [id], onDelete: Restrict)
+  total         Decimal     @db.Decimal(12, 2)
+  status        SaleStatus  @default(COMPLETED)
+  createdAt     DateTime    @default(now())
+  voidedAt      DateTime?
+  voidedById    String?
+  voidedBy      User?       @relation("SaleVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+  voidReason    String?
+
+  lines          SaleLine[]
+  payments       SalePayment[]
+  stockMovements StockMovement[]
+
+  @@unique([companyId, number])
+  @@unique([companyId, id])
+  @@index([companyId, createdAt])
+  @@index([cashSessionId])
+  @@map("sales")
+}
+
+// Línea de la venta. Nombre y precio se copian del producto al vender: la
+// venta no cambia si después cambia el catálogo.
+model SaleLine {
+  id          String  @id @default(cuid())
+  companyId   String
+  company     Company @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  saleId      String
+  sale        Sale    @relation(fields: [companyId, saleId], references: [companyId, id], onDelete: Restrict)
+  productId   String
+  product     Product @relation(fields: [companyId, productId], references: [companyId, id], onDelete: Restrict)
+  position    Int
+  productName String
+  unitPrice   Decimal @db.Decimal(12, 2)
+  quantity    Int
+  lineTotal   Decimal @db.Decimal(12, 2)
+  note        String?
+
+  @@index([saleId])
+  @@index([companyId, productId])
+  @@map("sale_lines")
+}
+
+// Pago de una venta (pago mixto = varios). amount es lo aplicado a la venta
+// (la suma da el total); tendered, solo en efectivo, lo que entregó el
+// cliente: el cambio es tendered − amount.
+model SalePayment {
+  id              String        @id @default(cuid())
+  companyId       String
+  company         Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  saleId          String
+  sale            Sale          @relation(fields: [companyId, saleId], references: [companyId, id], onDelete: Restrict)
+  paymentMethodId String
+  paymentMethod   PaymentMethod @relation(fields: [companyId, paymentMethodId], references: [companyId, id], onDelete: Restrict)
+  amount          Decimal       @db.Decimal(12, 2)
+  tendered        Decimal?      @db.Decimal(12, 2)
+
+  @@index([saleId])
+  @@index([companyId, paymentMethodId])
+  @@map("sale_payments")
+}
+
 // --- Personal interno (login "panel operativo") -----------------------
 
 enum StaffRole {
   OWNER
   ADMIN
   STAFF
+  CASHIER
 }
 
 model User {
@@ -298,6 +453,9 @@ model User {
   sentInvitations     StaffInvitation[]        @relation("InvitationSender")
   acceptedInvitation  StaffInvitation?         @relation("InvitationAcceptedUser")
   stockMovements      StockMovement[]
+  cashSessions        CashSession[]
+  sales               Sale[]                   @relation("SaleCashier")
+  voidedSales         Sale[]                   @relation("SaleVoidedBy")
 
   @@unique([companyId, email])
   @@index([companyId])

@@ -47,7 +47,7 @@ export async function createUser(params: {
 }
 
 // Borra todo lo creado bajo un prefijo de slug (auditoría, invitaciones,
-// inventario, catálogo, sucursales, usuarios con sus sesiones y tokens en cascada, y
+// ventas y caja, inventario, catálogo, sucursales, usuarios con sus sesiones y tokens en cascada, y
 // empresas).
 export async function cleanupCompanies(tag: string) {
   const companies = await db.company.findMany({
@@ -66,6 +66,11 @@ export async function cleanupCompanies(tag: string) {
   await db.staffInvitation.deleteMany({ where: { companyId: { in: ids } } });
   await db.productRecipeItem.deleteMany({ where: { companyId: { in: ids } } });
   await db.stockMovement.deleteMany({ where: { companyId: { in: ids } } });
+  await db.salePayment.deleteMany({ where: { companyId: { in: ids } } });
+  await db.saleLine.deleteMany({ where: { companyId: { in: ids } } });
+  await db.sale.deleteMany({ where: { companyId: { in: ids } } });
+  await db.cashSession.deleteMany({ where: { companyId: { in: ids } } });
+  await db.paymentMethod.deleteMany({ where: { companyId: { in: ids } } });
   await db.stockLevel.deleteMany({ where: { companyId: { in: ids } } });
   await db.supply.deleteMany({ where: { companyId: { in: ids } } });
   await db.warehouse.deleteMany({ where: { companyId: { in: ids } } });

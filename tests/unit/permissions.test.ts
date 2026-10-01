@@ -31,6 +31,29 @@ describe("hasPermission", () => {
     expect(hasPermission("ADMIN", "team.manage")).toBe(true);
     expect(hasPermission("STAFF", "team.manage")).toBe(false);
   });
+
+  it("OWNER, ADMIN y CASHIER venden; STAFF no", () => {
+    for (const role of ["OWNER", "ADMIN", "CASHIER"] as const) {
+      expect(hasPermission(role, "sales.charge")).toBe(true);
+    }
+    expect(hasPermission("STAFF", "sales.charge")).toBe(false);
+  });
+
+  it("solo OWNER y ADMIN ven y anulan ventas, revisan cierres y configuran pagos", () => {
+    const admin = ["sales.view", "sales.void", "cash.review", "payments.manage"] as const;
+    for (const permission of admin) {
+      expect(hasPermission("OWNER", permission)).toBe(true);
+      expect(hasPermission("ADMIN", permission)).toBe(true);
+      expect(hasPermission("CASHIER", permission)).toBe(false);
+      expect(hasPermission("STAFF", permission)).toBe(false);
+    }
+  });
+
+  it("CASHIER no entra a la administración", () => {
+    for (const permission of ["company.manage", "team.manage", "catalog.manage", "inventory.manage"] as const) {
+      expect(hasPermission("CASHIER", permission)).toBe(false);
+    }
+  });
 });
 
 describe("assertPermission", () => {

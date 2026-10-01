@@ -139,8 +139,9 @@ export async function setWarehouseActive(
     const warehouse = await lockWarehouse(tx, companyId, warehouseId, "UPDATE");
     if (!warehouse) return "NOT_FOUND";
     if (warehouse.isMain) return "IS_MAIN";
+    // Distinto de 0: un saldo negativo (por ventas) también queda pendiente.
     const stocked = await tx.stockLevel.count({
-      where: { companyId, warehouseId, quantity: { gt: 0 } },
+      where: { companyId, warehouseId, quantity: { not: 0 } },
     });
     if (stocked > 0) return "HAS_STOCK";
     await tx.warehouse.update({ where: { id: warehouseId }, data: { isActive } });
@@ -268,8 +269,9 @@ export async function setSupplyArchived(
   return db.$transaction(async (tx) => {
     if (!(await lockSupply(tx, companyId, supplyId))) return "NOT_FOUND";
     if (isArchived) {
+      // Distinto de 0: un saldo negativo (por ventas) también queda pendiente.
       const stocked = await tx.stockLevel.count({
-        where: { companyId, supplyId, quantity: { gt: 0 } },
+        where: { companyId, supplyId, quantity: { not: 0 } },
       });
       if (stocked > 0) return "HAS_STOCK";
     }
@@ -303,9 +305,10 @@ export type StockMovementResult =
   // available: saldo de la bodega, en la unidad del insumo.
   | { status: "INSUFFICIENT_STOCK"; available: Prisma.Decimal; unit: StockUnit };
 
-// Registra el movimiento y actualiza el saldo en la misma transacción. Con
-// el insumo bloqueado, leer el saldo y escribirlo después es seguro. El
-// saldo nunca queda negativo (también lo impide un CHECK en la BD).
+// Registra un movimiento manual y actualiza el saldo en la misma
+// transacción. Con el insumo bloqueado, leer el saldo y escribirlo después
+// es seguro. Una salida manual no deja el saldo negativo; una entrada se
+// acepta aunque no alcance a cubrir el negativo que dejaron las ventas.
 export async function recordStockMovement(
   companyId: string,
   input: StockMovementInput,
@@ -327,35 +330,63 @@ export async function recordStockMovement(
       if (previous > 0) return { status: "ALREADY_INITIALIZED" };
     }
 
-    const level = await tx.stockLevel.findUnique({
-      where: { warehouseId_supplyId: key },
-      select: { quantity: true },
-    });
-    const available = level?.quantity ?? new Prisma.Decimal(0);
+    const available = await stockBalance(tx, key);
     const balance = available.plus(quantity);
-    if (balance.isNegative()) {
+    if (quantity.isNegative() && balance.isNegative()) {
       return { status: "INSUFFICIENT_STOCK", available, unit: supply.unit };
     }
 
-    await tx.stockLevel.upsert({
-      where: { warehouseId_supplyId: key },
-      create: { companyId, ...key, quantity: balance },
-      update: { quantity: balance },
+    const movementId = await writeStockMovement(tx, companyId, {
+      ...key,
+      type: input.type,
+      quantity,
+      balanceAfter: balance,
+      reason: input.reason,
+      userId: input.userId,
+      saleId: null,
     });
-    const movement = await tx.stockMovement.create({
-      data: {
-        companyId,
-        ...key,
-        type: input.type,
-        quantity,
-        balanceAfter: balance,
-        reason: input.reason,
-        userId: input.userId,
-      },
-      select: { id: true },
-    });
-    return { status: "OK", movementId: movement.id, balance };
+    return { status: "OK", movementId, balance };
   }, MOVEMENT_TX_OPTIONS);
+}
+
+type StockKey = { warehouseId: string; supplyId: string };
+
+// Saldo actual (0 si el insumo nunca tuvo movimientos en la bodega). Leerlo
+// para escribir después exige tener el insumo bloqueado (lockSupply).
+export async function stockBalance(tx: Prisma.TransactionClient, key: StockKey) {
+  const level = await tx.stockLevel.findUnique({
+    where: { warehouseId_supplyId: key },
+    select: { quantity: true },
+  });
+  return level?.quantity ?? new Prisma.Decimal(0);
+}
+
+// Escribe el saldo y su movimiento. No valida nada: quien llama bloquea el
+// insumo y decide si acepta el saldo resultante (las ventas aceptan
+// negativos, los ajustes no).
+export async function writeStockMovement(
+  tx: Prisma.TransactionClient,
+  companyId: string,
+  input: StockKey & {
+    type: StockMovementType;
+    quantity: Prisma.Decimal;
+    balanceAfter: Prisma.Decimal;
+    reason: string | null;
+    userId: string;
+    saleId: string | null;
+  },
+) {
+  const { warehouseId, supplyId, balanceAfter } = input;
+  await tx.stockLevel.upsert({
+    where: { warehouseId_supplyId: { warehouseId, supplyId } },
+    create: { companyId, warehouseId, supplyId, quantity: balanceAfter },
+    update: { quantity: balanceAfter },
+  });
+  const movement = await tx.stockMovement.create({
+    data: { companyId, ...input },
+    select: { id: true },
+  });
+  return movement.id;
 }
 
 // Kardex de un insumo, del más reciente al más antiguo.

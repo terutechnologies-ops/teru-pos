@@ -6,14 +6,17 @@ import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/company-formats";
 import { formatQuantity } from "@/lib/units";
 import { cn } from "@/lib/utils";
-import { KARDEX_LIMIT, type SupplyDetail } from "@/server/services/inventory";
-import type { MovementKind } from "@/server/validations/inventory";
+import { KARDEX_LIMIT, type KardexKind, type SupplyDetail } from "@/server/services/inventory";
 
-const KIND_LABELS: Record<MovementKind, string> = {
+const KIND_LABELS: Record<KardexKind, string> = {
   INITIAL: "Carga inicial",
   IN: "Entrada",
   OUT: "Salida",
+  SALE: "Venta",
+  SALE_VOID: "Anulación de venta",
 };
+
+const isOutflow = (kind: KardexKind) => kind === "OUT" || kind === "SALE";
 
 // Historial de movimientos del insumo, del más reciente al más antiguo, con
 // filtro por bodega (GET: queda en la dirección y funciona sin JS).
@@ -99,10 +102,10 @@ export function SupplyKardex({
                   <td
                     className={cn(
                       "py-2.5 pr-3 text-right font-semibold whitespace-nowrap tabular-nums",
-                      movement.kind === "OUT" && "text-destructive",
+                      isOutflow(movement.kind) && "text-destructive",
                     )}
                   >
-                    {`${movement.kind === "OUT" ? "−" : "+"}${formatQuantity(movement.quantity, supply.unit)}`}
+                    {`${isOutflow(movement.kind) ? "−" : "+"}${formatQuantity(movement.quantity, supply.unit)}`}
                   </td>
                   <td className="py-2.5 pr-3 text-right whitespace-nowrap tabular-nums">
                     {formatQuantity(movement.balanceAfter, supply.unit)}

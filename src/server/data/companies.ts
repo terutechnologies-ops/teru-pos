@@ -2,6 +2,7 @@ import "server-only";
 
 import { db } from "@/lib/db";
 import { createMainWarehouse } from "@/server/data/inventory";
+import { createDefaultPaymentMethods } from "@/server/data/payment-methods";
 
 export const MAIN_BRANCH_NAME = "Sede principal";
 
@@ -87,7 +88,8 @@ export async function markCompanySetupCompleted(
 }
 
 // Alta de una empresa (script de soporte): empresa, sucursal principal con
-// su bodega e invitación para su propietario, todo o nada.
+// su bodega, métodos de pago iniciales e invitación para su propietario,
+// todo o nada.
 export async function createCompanyWithOwnerInvitation(params: {
   name: string;
   slug: string;
@@ -105,6 +107,7 @@ export async function createCompanyWithOwnerInvitation(params: {
       select: { id: true },
     });
     await createMainWarehouse(tx, company.id, branch.id);
+    await createDefaultPaymentMethods(tx, company.id);
     const invitation = await tx.staffInvitation.create({
       data: {
         companyId: company.id,

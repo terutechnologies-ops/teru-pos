@@ -1505,3 +1505,106 @@ sin margen si falta algún costo) y el cierre de la fase 5 (bloqueo
 
 Análisis de la fase 7 (ventas/POS) con el usuario: alcance, flujo de venta
 y caja, y las decisiones pendientes listadas arriba, antes de diseñar.
+
+## Sesión 2026-09-30
+
+- El usuario renombró el proyecto Supabase `su-arepa-dev` → `teru-pos-dev`
+  (verificado: ref `icecyozrwddieqshjaga`, sa-east-1). El ref no cambió, así
+  que `.env` y las URL siguen iguales. **Pendiente cerrado.** (Las menciones
+  a `su-arepa-dev` en sesiones anteriores se refieren a esta misma base.)
+- Decisión: la base se queda en **sa-east-1**. Supabase no permite cambiar
+  la región de un proyecto existente (habría que migrar a uno nuevo), y la
+  latencia de ~0,8 s por consulta solo afecta el desarrollo local; en
+  producción la app irá en la misma región (`gru1`).
+
+### Fase 7 — ventas/POS: análisis (alcance por aprobar)
+
+Decisiones del usuario (2026-09-30):
+- **Solo mostrador:** se arma el pedido y se cobra al momento. Mesas y
+  cuentas abiertas, en otra fase.
+- **Stock negativo permitido:** la venta nunca se frena por inventario; el
+  saldo queda negativo en el kardex y el inventario lo muestra como alerta
+  (hay que relajar el CHECK `quantity >= 0` de `stock_levels`).
+- **Métodos de pago configurables por empresa** (arranque: Efectivo,
+  Tarjeta, Transferencia) y **pago mixto**; cambio en efectivo.
+- **Nuevo rol CASHIER:** cobra y maneja su propio turno de caja. STAFF queda
+  para funciones futuras (cocina, meseros).
+
+Alcance propuesto: turno de caja por persona y sucursal (fondo inicial,
+cierre con conteo y diferencia); POS oscuro en `/[empresa]/pos`; venta con
+consecutivo por empresa, pagos y descuento por receta de la bodega principal
+de la sucursal en una transacción; anulación por estado (OWNER/ADMIN) que
+revierte inventario y caja; lista/detalle de ventas y revisión de cierres en
+el panel; zona horaria por empresa; bloquear cambio de moneda con ventas.
+Fuera: mesas, domicilios, adiciones, descuentos, propinas, impuestos,
+factura electrónica, cliente en la venta, gastos de caja, tiquete impreso,
+reportes con gráficas.
+
+**Alcance aprobado** (2026-09-30). Componentes: 1) modelo de datos;
+2) ajustes de base (zona horaria, bloqueo de moneda, métodos de pago, rol
+Cajero en invitaciones); 3) turno de caja; 4) POS y venta (más alertas de
+saldo negativo, insumos sin carga inicial y productos sin receta/costo);
+5) ventas en el panel; 6) cierres de caja en el panel; 7) cierre (ADR 0007).
+
+Decisión adicional del usuario: el sistema es para **control y medir lo
+gastado**. Se mantiene "permitir y avisar", pero **un producto sin receta
+no se vende** (`NO_RECIPE`). Recomendado y aceptado como hoja de ruta:
+fase 8 = **Compras** (entradas con costo real, causa principal de los
+negativos); fase 9 = **conteo físico y consumo teórico vs. real**
+(diferencias valorizadas).
+
+### Componente 1 — Modelo de datos (aprobado 2026-09-30)
+
+- Migración `20260930120000_add_sales` (**aplicada en test y dev**):
+  `StaffRole.CASHIER`; `StockMovementType` `SALE`/`SALE_VOID`;
+  `companies.timeZone` (default `America/Bogota`) y `lastSaleNumber`
+  (consecutivo sin huecos: `UPDATE … RETURNING` al final de la transacción
+  de la venta); `stock_movements.saleId` (FK compuesta); tablas
+  `payment_methods`, `cash_sessions`, `sales`, `sale_lines`,
+  `sale_payments`, todas con FK compuestas `(companyId, …)` y RLS.
+  Solo en SQL: se quitan los CHECK de saldo ≥ 0 (`stock_levels` y
+  `balanceAfter`); movimiento de venta ⇔ `saleId` y su signo (comparando
+  `type::text`: un valor de enum nuevo no se usa en la misma transacción);
+  nombre único y **un solo efectivo por empresa** en métodos de pago; **un
+  turno abierto por persona** (índice parcial); cierre completo (esperado y
+  contado juntos); anulación completa (fecha, quién y motivo); montos ≥ 0,
+  cantidades > 0, `lineTotal = unitPrice × quantity`, `tendered ≥ amount`.
+  Crea Efectivo/Tarjeta/Transferencia de las empresas existentes.
+- Migración `20260930120100_widen_stock_quantities` (**aplicada en test y
+  dev**): saldos y movimientos a `Decimal(17,6)`. Motivo: 0,5 g de receta
+  en un insumo en kg = 0,0005 kg; con 3 decimales se redondeaba a 0. Va
+  aparte porque la primera ya estaba aplicada en test (`migrate reset`
+  pide consentimiento explícito).
+- `data/payment-methods.ts` (`createDefaultPaymentMethods`, usado por el
+  alta de empresa y el seed; `listPaymentMethods`).
+- `data/cash-sessions.ts`: `findOpenCashSession`, `openCashSession`
+  (`ALREADY_OPEN`, `BRANCH_NOT_FOUND`), `lockCashSession` (SHARE para
+  ventas/anulaciones, UPDATE para el cierre), `closeCashSession` (solo su
+  dueño; guarda esperado = fondo + efectivo de ventas no anuladas, y
+  devuelve la diferencia).
+- `data/sales.ts`: `createSale` (turno propio y abierto, productos
+  disponibles y con receta, pagos que suman el total exacto, `tendered` solo
+  en efectivo; consumo agregado por insumo, bloqueo en orden de `supplyId`,
+  conversión con la unidad vigente del insumo bloqueado, descuento de la
+  bodega principal de la sucursal del turno; puede dejar negativo) y
+  `voidSale` (solo con el turno abierto; devuelve con `SALE_VOID`).
+- `data/inventory.ts`: `stockBalance` y `writeStockMovement` extraídos de
+  `recordStockMovement` y reutilizados por ventas. Ajuste manual: una
+  **salida** no deja saldo negativo; una **entrada** siempre se acepta.
+  Archivar insumo / desactivar bodega exige saldo **distinto de 0** (antes
+  `> 0`).
+- Permisos: `sales.charge` (OWNER, ADMIN, CASHIER); `sales.view`,
+  `sales.void`, `cash.review`, `payments.manage` (OWNER, ADMIN). Etiqueta
+  "Cajero". Kardex: "Venta" y "Anulación de venta".
+- Pruebas: `tests/integration/sales-data.test.ts` (13) y 3 unitarias de
+  permisos. Verificado: typecheck, lint, suite **223/223**, build; dev
+  revisado por SQL (métodos de Su Arepa y RLS en las 5 tablas).
+- Commit al aprobar (incluye la nota del 2026-09-30 sobre Supabase).
+
+Notas: `prisma generate` falla con EPERM si `next dev` está corriendo
+(bloquea el motor): detenerlo antes. Los scripts con `await` de nivel
+superior no corren con `tsx` (formato cjs).
+
+### Próximo paso recomendado
+
+Diseño del componente 2 (ajustes de base).

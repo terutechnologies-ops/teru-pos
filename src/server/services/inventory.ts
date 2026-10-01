@@ -3,6 +3,7 @@ import "server-only";
 import { z } from "zod";
 
 import { Prisma } from "@/generated/prisma/client";
+import type { StockMovementType } from "@/generated/prisma/enums";
 import type { RequestContext, StaffSessionDto } from "@/server/dto/auth";
 import { isDateFormat, type DateFormat } from "@/lib/company-formats";
 import { formatQuantity } from "@/lib/units";
@@ -387,9 +388,12 @@ export async function getSupplyDetail(
 
 export type SupplyDetail = NonNullable<Awaited<ReturnType<typeof getSupplyDetail>>>;
 
-function movementKind(type: "INITIAL" | "ADJUSTMENT", quantity: Prisma.Decimal): MovementKind {
-  if (type === "INITIAL") return "INITIAL";
-  return quantity.isNegative() ? "OUT" : "IN";
+// Tipo para el kardex: los que registra una persona y los de las ventas.
+export type KardexKind = MovementKind | "SALE" | "SALE_VOID";
+
+function movementKind(type: StockMovementType, quantity: Prisma.Decimal): KardexKind {
+  if (type === "ADJUSTMENT") return quantity.isNegative() ? "OUT" : "IN";
+  return type;
 }
 
 export type StockMovementField = keyof StockMovementFormInput;
