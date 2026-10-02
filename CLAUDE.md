@@ -1940,3 +1940,117 @@ abiertos de días anteriores.
   miles mientras se escribe (el `MoneyField` del POS sí). No se revisó
   reutilizarlo porque Claude Code bloqueó la lectura de los componentes
   del POS en esta sesión.
+
+### Impresiones — análisis (2026-10-01)
+
+Maqueta aprobada por el usuario: `../Maqueta_impresiones_Teru_POS.pdf`
+(fuera del repo; generada con Chrome headless e `@page` por hoja). Se
+mantiene ese diseño (abierto a cambios menores). Hojas: comanda de
+cocina, soporte de venta (80 y 58 mm), cierre de turno, existencias con
+columna "Contado".
+- Impresión por el navegador (cualquier impresora instalada); silenciosa
+  con Chrome `--kiosk-printing`; cajón por la opción del driver. ESC/POS
+  directo, para después.
+- **Una sola impresora, en caja** (decisión del usuario). Dos impresoras
+  (caja y cocina) necesitaría un agente local tipo QZ Tray: después.
+- **Todos los productos van en la comanda**, bebidas incluidas. Si un
+  cliente pide separar, mejora futura (marca por categoría "Se prepara en
+  cocina").
+- "Soporte de venta" (no "factura"), solo si el cliente lo pide; con la
+  aclaración de que no es factura electrónica.
+- Orden propuesto: a) base de impresión + comanda + soporte; b) cierre de
+  turno impreso; c) hoja de existencias y conteo (80 mm y carta). Después,
+  cierre de la fase 7 (ADR 0007).
+
+### Idea anotada por el usuario (2026-10-01): aviso por WhatsApp de lo que falta
+
+El propietario quiere recibir, **preferiblemente por WhatsApp y de forma
+automática** (por ejemplo al cerrar el último turno del día), un mensaje
+informativo con la **lista de insumos que hacen falta y cuánto comprar**,
+porque algunas compras son diarias. Puntos a analizar cuando se diseñe:
+- Qué es "falta": bajo mínimo y saldo negativo ya existen; "cuánto
+  comprar" pide un nivel objetivo por insumo (p. ej. "stock ideal") o usar
+  el mínimo (mínimo − existencia).
+- Disparador: cierre del último turno abierto del día, una hora fija por
+  empresa, o un botón "Enviar ahora".
+- Canal: WhatsApp Business Cloud API (Meta: verificación del negocio,
+  plantillas aprobadas, costo por conversación) o un proveedor (Twilio);
+  número del propietario por empresa con su consentimiento. Alternativas
+  más simples para empezar: correo (también pendiente de proveedor) o un
+  enlace `wa.me` con el texto armado.
+- Ubicación sugerida: con o después de la fase 8 (Compras), que da el
+  costo real y los proveedores.
+
+### Componente a) de impresiones — Base, comanda y soporte (diseño aprobado 2026-10-01, sin implementar)
+
+- Páginas `/[empresa]/imprimir/comanda/[id]` y `/[empresa]/imprimir/soporte/[id]`:
+  blancas, sin menú, diseño de la maqueta, logo de la empresa si tiene;
+  barra en pantalla (Imprimir, ancho 80/58 mm, Volver) oculta al
+  imprimir; marca "ANULADA" si aplica.
+- Acceso: OWNER/ADMIN (`sales.view`) cualquier venta, con "Imprimir
+  soporte" y "Reimprimir comanda" en el detalle de la venta; el cajero
+  solo ventas de su turno abierto.
+- POS: al cobrar, la comanda se imprime sola sin salir de la pantalla de
+  venta (iframe oculto); en "Venta #N · Cambio", botón "Imprimir soporte".
+  `checkout` tendrá que devolver el id de la venta.
+- Ajustes por equipo en el navegador (sin migración): ancho del papel (80
+  por defecto) e "Imprimir comanda al cobrar" (activado por defecto).
+- README: Chrome `--kiosk-printing` para imprimir sin diálogo y opción
+  del driver para abrir el cajón.
+- Fuera: dos impresoras, comanda por categoría, ESC/POS directo; el
+  cierre de turno impreso y la hoja de existencias son los componentes b)
+  y c).
+- Pruebas: permisos (dueño/admin, cajero con su turno abierto, otro
+  cajero no, otra empresa no) y contenido de cada hoja.
+
+### Cierre de la sesión 2026-10-01
+
+**Implementado hoy (todo con commit y subido a `origin/master`):**
+- Fase 7, componente 5 — alertas (`de793b8`): tarjeta "Pendientes",
+  insignias y filtro `?alerta=` en productos e insumos, saldos negativos en
+  rojo.
+- Componente 6 — ventas en el panel (`29e33d3`): lista con rango de fechas
+  en la zona de la empresa, resumen por método de pago, detalle con
+  inventario descontado y anulación con motivo.
+- Componente 7 — cierres de caja en el panel (`8caae45`): turnos abiertos
+  y cerrados con cuadre, faltantes/sobrantes, cierre del turno olvidado
+  (`cash.close`, `closedById`), alerta de turnos de días anteriores.
+- Maqueta de impresiones en PDF y diseño aprobado del componente a).
+
+**Pendiente:**
+- Impresiones: a) base + comanda + soporte (diseño aprobado, implementar);
+  b) cierre de turno impreso; c) hoja de existencias y conteo.
+- Fase 7, componente 8: cierre de la fase (ADR 0007, README).
+- Aviso por WhatsApp de insumos que faltan (idea anotada, ver arriba).
+- "Efectivo contado" del panel sin formato de miles mientras se escribe
+  (revisar reutilizar `MoneyField` del POS).
+- Confirmar si el precio de productos usa el campo con separador de miles.
+- Hoja de ruta: fase 8 Compras; fase 9 conteo físico y consumo teórico
+  vs. real.
+- Siguen abiertos: despliegue en Vercel (en pausa), proveedor de correo,
+  clave de Storage y bucket por entorno.
+
+**Decisiones técnicas de hoy:** `belowMinimum` exige carga inicial;
+alertas calculadas con las mismas banderas del DTO que los filtros;
+fechas por día en la zona de la empresa (`resolveDayRange`,
+`startOfCalendarDay`, corrige el cambio de horario); `findCompanyFormats`
+única; anulación sin auditoría aparte (la venta guarda quién/cuándo/por
+qué); `cash.close` como permiso por acción; `closedById` con CHECK de
+motivo si cierra otra persona; sin marca de "revisado" en los cierres;
+impresión por el navegador con una impresora en caja.
+
+**Errores y riesgos conocidos:**
+- Claude Code bloqueó en esta sesión la lectura de componentes del POS
+  (clasificador: "Production Deploy", probablemente por la migración
+  recién aplicada en dev). El componente a) toca la pantalla de venta: si
+  vuelve a pasar, avisar al usuario antes de seguir.
+- Las consultas SQL directas con fechas comparan con la zona de la sesión
+  de PostgreSQL: preferir consultas de Prisma (pasó con los faltantes).
+- Siguen los de sesiones anteriores (latencia a Supabase en dev, revisión
+  visual con sesión a cargo del usuario, `prisma generate` con EPERM si
+  `next dev` corre).
+
+### Próximo paso recomendado
+
+Implementar el componente a) de impresiones (base, comanda y soporte)
+según el diseño aprobado.
