@@ -1895,3 +1895,48 @@ cuándo y por qué).
   `tests/unit/calendar-days.test.ts` (3), navegación. Verificado:
   typecheck, lint, suite **287/287**, build. Revisión visual: la hace el
   usuario.
+
+### Componente 7 — Cierres de caja en el panel (aprobado 2026-10-01)
+
+Diseño aprobado el 2026-10-01, con dos decisiones del usuario: **sin**
+marca de "revisado" por ahora; **con** alerta en "Pendientes" para turnos
+abiertos de días anteriores.
+- **Migración `20261001120000_add_cash_session_closed_by`** (**aplicada en
+  test y dev**): `cash_sessions.closedById` (FK a users; los ya cerrados
+  quedan a nombre de su dueño), el CHECK `cash_sessions_closing_complete`
+  lo incluye y `cash_sessions_other_close_reason` exige `closingNote` si
+  cerró otra persona. Relaciones con nombre `CashSessionOwner` /
+  `CashSessionClosedBy` en el esquema.
+- **Permiso nuevo `cash.close`** (OWNER, ADMIN): cerrar el turno de otra
+  persona. Ver: `cash.review`.
+- **Datos:** `closeCashSession` recibe `onlyOwner` (POS: true; panel:
+  false) y guarda `closedById`; `expectedCash` exportado (también sirve
+  fuera de transacción para el "cómo va"); `listOpenCashSessions`,
+  `countOpenCashSessionsBefore`, `listClosedCashSessions` (con faltantes y
+  sobrantes del rango completo, sumados en código: una consulta SQL directa
+  comparaba fechas con la zona de la sesión de PostgreSQL),
+  `listCashSessionUsers`, `findCashSessionReview`.
+- **Servicio** (`services/cash-sessions.ts`): `getCashOverview`,
+  `getCashSessionReview` (`canClose`), `closeShiftFromPanel`
+  (`closeOthersShiftSchema`: conteo + motivo 3–200), `countStaleShifts`.
+  `resolveDayRange` en `lib/company-formats.ts` (lo comparten ventas y
+  caja).
+- **UI:** menú "Cierres de caja" (`cash-review`, `caja`). Lista: turnos
+  abiertos arriba (insignia "De un día anterior"), filtros por día de
+  apertura / cajero / sucursal, resumen de faltantes y sobrantes, cerrados
+  con diferencia (faltante en rojo) y "Lo cerró X" si no fue su cajero.
+  Detalle: cuadre (fondo + efectivo de ventas = esperado; contado;
+  diferencia; nota), "Cómo va" si está abierto, métodos de pago, ventas
+  del turno (enlazan al detalle con `sales.view`) y "Cerrar este turno"
+  (`<details>`; el monto acepta "70.000"). Componentes en
+  `components/cash/` (`close-others-shift-*` para no confundirlos con el
+  cierre del POS). `FilterField` compartido (`components/shared/`), ahora
+  también en los filtros de ventas. Alerta "Turnos abiertos de días
+  anteriores" en el inicio.
+- Pruebas: `cash-review.test.ts` (10), permisos, alertas y
+  `sales-data.test.ts` ajustados. Verificado: typecheck, lint, suite
+  **297/297**, build. Revisión visual: la hace el usuario.
+- Pendiente menor: el campo "Efectivo contado" del panel no formatea los
+  miles mientras se escribe (el `MoneyField` del POS sí). No se revisó
+  reutilizarlo porque Claude Code bloqueó la lectura de los componentes
+  del POS en esta sesión.

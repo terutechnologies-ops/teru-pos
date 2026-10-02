@@ -98,8 +98,9 @@ export async function lockCashSession(
 }
 
 // Efectivo que debería haber en la caja: fondo inicial + lo cobrado en
-// efectivo en ventas no anuladas (amount ya descuenta el cambio).
-async function expectedCash(
+// efectivo en ventas no anuladas (amount ya descuenta el cambio). Fuera de
+// una transacción sirve para ver cómo va un turno abierto.
+export async function expectedCash(
   tx: Prisma.TransactionClient,
   companyId: string,
   cashSessionId: string,
@@ -129,16 +130,27 @@ export type CloseCashSessionResult =
     }
   | { status: "NOT_FOUND" | "ALREADY_CLOSED" };
 
-// Solo su dueño cierra el turno. Después de cerrado no cambia: las ventas
-// ya no se pueden anular (ver data/sales.ts).
+// Cierra el turno: su dueño desde el POS (onlyOwner) o un administrador
+// desde el panel, que debe dar el motivo en closingNote (CHECK en la
+// migración). Después de cerrado no cambia: las ventas ya no se pueden
+// anular (ver data/sales.ts).
 export async function closeCashSession(
   companyId: string,
-  input: { cashSessionId: string; userId: string; countedCash: string; closingNote: string | null },
+  input: {
+    cashSessionId: string;
+    // Quién cierra.
+    userId: string;
+    onlyOwner: boolean;
+    countedCash: string;
+    closingNote: string | null;
+  },
 ): Promise<CloseCashSessionResult> {
   const countedCash = new Prisma.Decimal(input.countedCash);
   return db.$transaction(async (tx) => {
     const session = await lockCashSession(tx, companyId, input.cashSessionId, "UPDATE");
-    if (!session || session.userId !== input.userId) return { status: "NOT_FOUND" };
+    if (!session || (input.onlyOwner && session.userId !== input.userId)) {
+      return { status: "NOT_FOUND" };
+    }
     if (session.closedAt) return { status: "ALREADY_CLOSED" };
 
     const expected = await expectedCash(tx, companyId, input.cashSessionId);
@@ -146,6 +158,7 @@ export async function closeCashSession(
       where: { id: input.cashSessionId },
       data: {
         closedAt: new Date(),
+        closedById: input.userId,
         expectedCash: expected,
         countedCash,
         closingNote: input.closingNote,
@@ -158,4 +171,120 @@ export async function closeCashSession(
       difference: countedCash.minus(expected),
     };
   }, CASH_TX_OPTIONS);
+}
+
+// --- Revisión de cierres (panel) -------------------------------------------
+
+const reviewSelect = {
+  id: true,
+  userId: true,
+  openingAmount: true,
+  openedAt: true,
+  closedAt: true,
+  expectedCash: true,
+  countedCash: true,
+  closingNote: true,
+  user: { select: { name: true } },
+  closedBy: { select: { id: true, name: true } },
+  branch: { select: { name: true } },
+  _count: { select: { sales: { where: { status: "COMPLETED" } } } },
+} satisfies Prisma.CashSessionSelect;
+
+// Todos los turnos abiertos de la empresa, el más antiguo primero.
+export async function listOpenCashSessions(companyId: string) {
+  return db.cashSession.findMany({
+    where: { companyId, closedAt: null },
+    orderBy: { openedAt: "asc" },
+    select: reviewSelect,
+  });
+}
+
+// Abiertos antes de ese instante (turnos olvidados de días anteriores).
+export async function countOpenCashSessionsBefore(companyId: string, before: Date) {
+  return db.cashSession.count({
+    where: { companyId, closedAt: null, openedAt: { lt: before } },
+  });
+}
+
+export type CashSessionFilters = {
+  // Día de apertura, [from, to).
+  from: Date;
+  to: Date;
+  userId?: string;
+  branchId?: string;
+};
+
+// Turnos cerrados abiertos en el rango, el más reciente primero.
+export async function listClosedCashSessions(
+  companyId: string,
+  filters: CashSessionFilters,
+  take: number,
+) {
+  const where: Prisma.CashSessionWhereInput = {
+    companyId,
+    closedAt: { not: null },
+    openedAt: { gte: filters.from, lt: filters.to },
+    ...(filters.userId && { userId: filters.userId }),
+    ...(filters.branchId && { branchId: filters.branchId }),
+  };
+  const [sessions, total, all] = await Promise.all([
+    db.cashSession.findMany({ where, orderBy: { openedAt: "desc" }, take, select: reviewSelect }),
+    db.cashSession.count({ where }),
+    // Diferencias del rango completo (no solo de las filas mostradas).
+    db.cashSession.findMany({ where, select: { expectedCash: true, countedCash: true } }),
+  ]);
+  const shortages = { total: new Prisma.Decimal(0), count: 0 };
+  const surpluses = { total: new Prisma.Decimal(0), count: 0 };
+  for (const row of all) {
+    if (!row.expectedCash || !row.countedCash) continue;
+    const difference = row.countedCash.minus(row.expectedCash);
+    if (difference.isNegative()) {
+      shortages.total = shortages.total.plus(difference.negated());
+      shortages.count += 1;
+    } else if (!difference.isZero()) {
+      surpluses.total = surpluses.total.plus(difference);
+      surpluses.count += 1;
+    }
+  }
+  return { sessions, total, shortages, surpluses };
+}
+
+// Quienes han tenido turnos (incluye personas ya desactivadas).
+export async function listCashSessionUsers(companyId: string) {
+  return db.user.findMany({
+    where: { companyId, cashSessions: { some: {} } },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+}
+
+export async function findCashSessionReview(companyId: string, cashSessionId: string) {
+  const session = await db.cashSession.findFirst({
+    where: { id: cashSessionId, companyId },
+    select: {
+      ...reviewSelect,
+      sales: {
+        orderBy: { number: "desc" },
+        select: { id: true, number: true, createdAt: true, total: true, status: true },
+      },
+    },
+  });
+  if (!session) return null;
+  const [byMethod, liveExpected] = await Promise.all([
+    db.salePayment.groupBy({
+      by: ["paymentMethodId"],
+      where: { companyId, sale: { cashSessionId, status: "COMPLETED" } },
+      _sum: { amount: true },
+    }),
+    // Abierto: lo que debería haber hasta ahora.
+    session.closedAt ? null : expectedCash(db, companyId, cashSessionId),
+  ]);
+  return {
+    ...session,
+    byMethod: byMethod.map((row) => ({
+      paymentMethodId: row.paymentMethodId,
+      amount: row._sum.amount ?? new Prisma.Decimal(0),
+    })),
+    liveExpected,
+  };
 }

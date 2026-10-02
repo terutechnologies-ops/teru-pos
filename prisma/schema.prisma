@@ -332,10 +332,14 @@ model CashSession {
   branchId      String
   branch        Branch    @relation(fields: [companyId, branchId], references: [companyId, id], onDelete: Restrict)
   userId        String
-  user          User      @relation(fields: [userId], references: [id], onDelete: Restrict)
+  user          User      @relation("CashSessionOwner", fields: [userId], references: [id], onDelete: Restrict)
   openingAmount Decimal   @db.Decimal(12, 2)
   openedAt      DateTime  @default(now())
   closedAt      DateTime?
+  // Quién cerró: su dueño o un administrador (turno olvidado). Al cerrar
+  // otra persona, closingNote lleva el motivo (CHECK en la migración).
+  closedById    String?
+  closedBy      User?     @relation("CashSessionClosedBy", fields: [closedById], references: [id], onDelete: Restrict)
   expectedCash  Decimal?  @db.Decimal(12, 2)
   countedCash   Decimal?  @db.Decimal(12, 2)
   closingNote   String?
@@ -457,7 +461,8 @@ model User {
   sentInvitations     StaffInvitation[]        @relation("InvitationSender")
   acceptedInvitation  StaffInvitation?         @relation("InvitationAcceptedUser")
   stockMovements      StockMovement[]
-  cashSessions        CashSession[]
+  cashSessions        CashSession[]            @relation("CashSessionOwner")
+  closedCashSessions  CashSession[]            @relation("CashSessionClosedBy")
   sales               Sale[]                   @relation("SaleCashier")
   voidedSales         Sale[]                   @relation("SaleVoidedBy")
 

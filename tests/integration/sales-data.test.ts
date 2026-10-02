@@ -358,6 +358,7 @@ describe("anulación y cierre", () => {
       await closeCashSession(a.id, {
         cashSessionId: session.id,
         userId: admin,
+        onlyOwner: true,
         countedCash: "0",
         closingNote: null,
       }),
@@ -365,6 +366,7 @@ describe("anulación y cierre", () => {
     const closed = await closeCashSession(a.id, {
       cashSessionId: session.id,
       userId: cashier,
+      onlyOwner: true,
       countedCash: "152000",
       closingNote: "Faltan 1.000",
     });
@@ -377,6 +379,7 @@ describe("anulación y cierre", () => {
       await closeCashSession(a.id, {
         cashSessionId: session.id,
         userId: cashier,
+        onlyOwner: true,
         countedCash: "0",
         closingNote: null,
       }),

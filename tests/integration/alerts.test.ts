@@ -115,10 +115,12 @@ describe("pendientes del inicio", () => {
     expect(await getPendingAlerts(ownerA())).toEqual({
       products: { "sin-receta": 1, "costo-incompleto": 1 },
       supplies: { "saldo-negativo": 1, "sin-carga": 1, "bajo-minimo": 1 },
+      staleShifts: 0,
     });
     expect(await getPendingAlerts(sessionFor(b, "ADMIN"))).toEqual({
       products: { "sin-receta": 1, "costo-incompleto": 0 },
       supplies: { "saldo-negativo": 0, "sin-carga": 1, "bajo-minimo": 0 },
+      staleShifts: 0,
     });
   });
 
@@ -127,6 +129,7 @@ describe("pendientes del inicio", () => {
       expect(await getPendingAlerts(sessionFor(a, role))).toEqual({
         products: null,
         supplies: null,
+        staleShifts: null,
       });
     }
     await expect(getProductAlertCounts(sessionFor(a, "CASHIER"))).rejects.toThrow(ForbiddenError);

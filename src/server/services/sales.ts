@@ -1,12 +1,7 @@
 import "server-only";
 
 import { Prisma } from "@/generated/prisma/client";
-import {
-  addCalendarDays,
-  calendarDay,
-  isCalendarDay,
-  startOfCalendarDay,
-} from "@/lib/company-formats";
+import { resolveDayRange } from "@/lib/company-formats";
 import { listActiveBranches } from "@/server/data/branches";
 import { findOpenCashSession } from "@/server/data/cash-sessions";
 import { findProduct, listPosCatalog } from "@/server/data/catalog";
@@ -160,25 +155,15 @@ export type SalesQuery = {
   estado?: string;
 };
 
-// Días en la zona de la empresa (por defecto, hoy); invertidos, se
-// ordenan.
-function dayRange(query: SalesQuery, timeZone: string) {
-  const today = calendarDay(new Date(), timeZone);
-  let from = query.desde && isCalendarDay(query.desde) ? query.desde : today;
-  let to = query.hasta && isCalendarDay(query.hasta) ? query.hasta : from;
-  if (to < from) [from, to] = [to, from];
-  return { from, to, today };
-}
-
 export async function getSalesOverview(session: StaffSessionDto, query: SalesQuery) {
   assertPermission(session, "sales.view");
   const companyId = session.company.id;
   const formats = await findCompanyFormats(companyId);
-  const days = dayRange(query, formats.timeZone);
+  const days = resolveDayRange(query, formats.timeZone);
   const status = query.estado && isStatusFilter(query.estado) ? query.estado : "";
   const filters: SaleFilters = {
-    from: startOfCalendarDay(days.from, formats.timeZone),
-    to: startOfCalendarDay(addCalendarDays(days.to, 1), formats.timeZone),
+    from: days.start,
+    to: days.end,
     userId: query.cajero || undefined,
     branchId: query.sucursal || undefined,
     status: status ? STATUS_FILTERS[status] : undefined,

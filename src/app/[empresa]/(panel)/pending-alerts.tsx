@@ -53,6 +53,16 @@ export function PendingAlerts({
       });
     }
   }
+  if (alerts.staleShifts !== null) {
+    rows.push({
+      id: "turnos-abiertos",
+      title: "Turnos abiertos de días anteriores",
+      hint: "Ciérralos para cuadrar la caja; mientras sigan abiertos, sus ventas se pueden anular.",
+      count: alerts.staleShifts,
+      href: `/${companySlug}/caja`,
+      urgent: true,
+    });
+  }
   const pending = rows.filter((row) => row.count > 0);
 
   return (

@@ -34,3 +34,16 @@ export function closeShiftSchema(currency: string) {
 }
 
 export type CloseShiftInput = z.input<ReturnType<typeof closeShiftSchema>>;
+
+// Cierre del turno de otra persona desde el panel: lo cuenta quien cierra y
+// el motivo es obligatorio (queda como nota del cierre).
+export function closeOthersShiftSchema(currency: string) {
+  return z.object({
+    countedCash: amountSchema(currency, "conteo"),
+    closingNote: z
+      .string()
+      .trim()
+      .min(3, { error: "Escribe el motivo del cierre (mínimo 3 caracteres)." })
+      .max(NOTE_MAX, { error: `El motivo no puede superar ${NOTE_MAX} caracteres.` }),
+  });
+}

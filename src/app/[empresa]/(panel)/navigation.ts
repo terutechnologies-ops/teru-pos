@@ -7,6 +7,7 @@ import {
   ShoppingCart,
   Store,
   Users,
+  Vault,
   Wallet,
   Warehouse,
   type LucideIcon,
@@ -73,6 +74,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: Receipt,
     group: "sales",
     permission: "sales.view",
+  },
+  {
+    id: "cash-review",
+    label: "Cierres de caja",
+    description: "Turnos abiertos y cerrados, con su cuadre.",
+    path: "caja",
+    icon: Vault,
+    group: "sales",
+    permission: "cash.review",
   },
   {
     id: "catalog-products",

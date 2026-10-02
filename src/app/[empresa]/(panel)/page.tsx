@@ -35,7 +35,7 @@ export default async function PanelHomePage({ params }: PageProps<"/[empresa]">)
         </Alert>
       )}
 
-      {(alerts.products || alerts.supplies) && (
+      {(alerts.products || alerts.supplies || alerts.staleShifts !== null) && (
         <PendingAlerts alerts={alerts} companySlug={company.slug} />
       )}
 

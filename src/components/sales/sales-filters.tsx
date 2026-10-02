@@ -1,24 +1,10 @@
-import type { ReactNode } from "react";
 import Link from "next/link";
 import { Hash } from "lucide-react";
 
+import { FilterField, filterControlClass } from "@/components/shared/filter-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { SalesOverview } from "@/server/services/sales";
-
-const fieldClass =
-  "h-10 min-w-0 rounded-lg border border-transparent bg-muted px-3 text-sm outline-none focus-visible:bg-card";
-
-function Field({ id, label, children }: { id: string; label: string; children: ReactNode }) {
-  return (
-    <div className="flex min-w-0 flex-col gap-1.5">
-      <label htmlFor={id} className="text-[13px] font-semibold">
-        {label}
-      </label>
-      {children}
-    </div>
-  );
-}
 
 // Filtros de la lista (GET: quedan en la dirección y funcionan sin JS) y
 // acceso directo a una venta por su número.
@@ -41,32 +27,32 @@ export function SalesFilters({
     <div className="flex flex-col gap-3 rounded-xl bg-card p-4 shadow-sm">
       <form action={basePath} className="flex flex-col gap-3">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Field id="ventas-desde" label="Desde">
+          <FilterField id="ventas-desde" label="Desde">
             <input
               id="ventas-desde"
               type="date"
               name="desde"
               defaultValue={filters.from}
               max={today}
-              className={fieldClass}
+              className={filterControlClass}
             />
-          </Field>
-          <Field id="ventas-hasta" label="Hasta">
+          </FilterField>
+          <FilterField id="ventas-hasta" label="Hasta">
             <input
               id="ventas-hasta"
               type="date"
               name="hasta"
               defaultValue={filters.to}
               max={today}
-              className={fieldClass}
+              className={filterControlClass}
             />
-          </Field>
-          <Field id="ventas-cajero" label="Cajero">
+          </FilterField>
+          <FilterField id="ventas-cajero" label="Cajero">
             <select
               id="ventas-cajero"
               name="cajero"
               defaultValue={filters.cashierId}
-              className={fieldClass}
+              className={filterControlClass}
             >
               <option value="">Todos</option>
               {cashiers.map((cashier) => (
@@ -75,26 +61,26 @@ export function SalesFilters({
                 </option>
               ))}
             </select>
-          </Field>
-          <Field id="ventas-estado" label="Estado">
+          </FilterField>
+          <FilterField id="ventas-estado" label="Estado">
             <select
               id="ventas-estado"
               name="estado"
               defaultValue={filters.status}
-              className={fieldClass}
+              className={filterControlClass}
             >
               <option value="">Todas</option>
               <option value="completadas">Completadas</option>
               <option value="anuladas">Anuladas</option>
             </select>
-          </Field>
+          </FilterField>
           {branches.length > 0 && (
-            <Field id="ventas-sucursal" label="Sucursal">
+            <FilterField id="ventas-sucursal" label="Sucursal">
               <select
                 id="ventas-sucursal"
                 name="sucursal"
                 defaultValue={filters.branchId}
-                className={fieldClass}
+                className={filterControlClass}
               >
                 <option value="">Todas</option>
                 {branches.map((branch) => (
@@ -103,7 +89,7 @@ export function SalesFilters({
                   </option>
                 ))}
               </select>
-            </Field>
+            </FilterField>
           )}
         </div>
         <div className="flex gap-2">

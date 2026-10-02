@@ -213,3 +213,24 @@ export function startOfCalendarDay(day: string, timeZone: string) {
   instant = midnightUtc - zoneOffsetMinutes(instant, timeZone) * 60_000;
   return new Date(instant);
 }
+
+// Rango de días de un filtro (desde/hasta de la dirección) en la zona de
+// la empresa: por defecto hoy; inválidos vuelven a hoy; invertidos se
+// ordenan. start/end es el intervalo [start, end) para consultar.
+export function resolveDayRange(
+  query: { desde?: string; hasta?: string },
+  timeZone: string,
+  now = new Date(),
+) {
+  const today = calendarDay(now, timeZone);
+  let from = query.desde && isCalendarDay(query.desde) ? query.desde : today;
+  let to = query.hasta && isCalendarDay(query.hasta) ? query.hasta : from;
+  if (to < from) [from, to] = [to, from];
+  return {
+    from,
+    to,
+    today,
+    start: startOfCalendarDay(from, timeZone),
+    end: startOfCalendarDay(addCalendarDays(to, 1), timeZone),
+  };
+}
