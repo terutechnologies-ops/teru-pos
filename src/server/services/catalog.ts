@@ -25,7 +25,7 @@ import { findCompanyCurrency } from "@/server/data/companies";
 import { listRecipeCostLines } from "@/server/data/recipes";
 import { PRODUCT_EVENTS } from "@/server/services/auth/config";
 import { assertPermission } from "@/server/services/auth/permissions";
-import { recipeCosting, type CostLine } from "@/server/services/costing";
+import { recipeCosting, type CostLine, type RecipeCosting } from "@/server/services/costing";
 import {
   publicFileUrl,
   removeFileQuietly,
@@ -163,23 +163,9 @@ function toProductDto(product: NonNullable<Awaited<ReturnType<typeof findProduct
 
 export type ProductDto = ReturnType<typeof toProductDto>;
 
-export async function getProductCatalog(
-  session: StaffSessionDto,
-  filters: { search?: string; categoryId?: string; archived?: boolean },
-) {
-  assertPermission(session, "catalog.manage");
-  const companyId = session.company.id;
-  const [currency, categories, products] = await Promise.all([
-    findCompanyCurrency(companyId),
-    listProductCategories(companyId),
-    listProducts(companyId, {
-      search: filters.search?.trim() || undefined,
-      categoryId: filters.categoryId || undefined,
-      archived: filters.archived,
-    }),
-  ]);
-
-  // Costo y margen de cada producto según su receta.
+// Costo y margen de cada producto según su receta (una sola consulta para
+// todas las líneas).
+async function withCosting(companyId: string, products: Awaited<ReturnType<typeof listProducts>>) {
   const lines = await listRecipeCostLines(
     companyId,
     products.map((product) => product.id),
@@ -188,15 +174,65 @@ export async function getProductCatalog(
   for (const line of lines) {
     byProduct.set(line.productId, [...(byProduct.get(line.productId) ?? []), line]);
   }
+  return products.map((product) => ({
+    ...toProductDto(product),
+    costing: recipeCosting(byProduct.get(product.id) ?? [], product.price),
+  }));
+}
+
+// Alertas de productos (?alerta=... en la lista y tarjeta del inicio):
+// sin receta no se vende; con costo incompleto el margen no se mide. Solo
+// cuentan los productos no archivados.
+export const PRODUCT_ALERTS = ["sin-receta", "costo-incompleto"] as const;
+
+export type ProductAlert = (typeof PRODUCT_ALERTS)[number];
+
+export function isProductAlert(value: string): value is ProductAlert {
+  return (PRODUCT_ALERTS as readonly string[]).includes(value);
+}
+
+const PRODUCT_ALERT_STATUS: Record<ProductAlert, RecipeCosting["status"]> = {
+  "sin-receta": "NO_RECIPE",
+  "costo-incompleto": "INCOMPLETE",
+};
+
+// Con archivados, el filtro de alerta no aplica.
+export async function getProductCatalog(
+  session: StaffSessionDto,
+  filters: { search?: string; categoryId?: string; archived?: boolean; alert?: ProductAlert },
+) {
+  assertPermission(session, "catalog.manage");
+  const companyId = session.company.id;
+  const [currency, categories, rows] = await Promise.all([
+    findCompanyCurrency(companyId),
+    listProductCategories(companyId),
+    listProducts(companyId, {
+      search: filters.search?.trim() || undefined,
+      categoryId: filters.categoryId || undefined,
+      archived: filters.archived,
+    }),
+  ]);
+  const products = await withCosting(companyId, rows);
+  const status = !filters.archived && filters.alert ? PRODUCT_ALERT_STATUS[filters.alert] : null;
 
   return {
     currency,
     categories: categories.map(({ id, name, isActive }) => ({ id, name, isActive })),
-    products: products.map((product) => ({
-      ...toProductDto(product),
-      costing: recipeCosting(byProduct.get(product.id) ?? [], product.price),
-    })),
+    products: status
+      ? products.filter((product) => product.costing.status === status)
+      : products,
   };
+}
+
+export async function getProductAlertCounts(
+  session: StaffSessionDto,
+): Promise<Record<ProductAlert, number>> {
+  assertPermission(session, "catalog.manage");
+  const companyId = session.company.id;
+  const products = await withCosting(companyId, await listProducts(companyId));
+  const count = (alert: ProductAlert) =>
+    products.filter((product) => product.costing.status === PRODUCT_ALERT_STATUS[alert]).length;
+  return { "sin-receta": count("sin-receta"), "costo-incompleto": count("costo-incompleto") };
 }
 
 export type CatalogProduct = Awaited<ReturnType<typeof getProductCatalog>>["products"][number];

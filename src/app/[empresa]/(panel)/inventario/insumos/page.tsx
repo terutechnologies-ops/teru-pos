@@ -2,16 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CircleCheck, Plus, Search } from "lucide-react";
 
-import { SUPPLY_NOTICES } from "@/components/inventory/supply-fields";
+import { SUPPLY_ALERT_INFO, SUPPLY_NOTICES } from "@/components/inventory/supply-fields";
 import { SupplyList } from "@/components/inventory/supply-list";
 import { EmptyState } from "@/components/shared/empty-state";
+import { FilterChip } from "@/components/shared/filter-chip";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusTabs } from "@/components/shared/status-tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { withQuery } from "@/lib/utils";
 import { requirePermission } from "@/server/http/staff-session";
-import { getSupplyList } from "@/server/services/inventory";
+import { getSupplyList, isSupplyAlert } from "@/server/services/inventory";
 
 export const metadata: Metadata = { title: "Inventario · Insumos" };
 
@@ -27,10 +29,17 @@ export default async function SuppliesPage({
   const query = await searchParams;
   const search = param(query.q);
   const archived = param(query.archivados) === "1";
+  // Las alertas (enlaces del inicio) son de insumos no archivados.
+  const alertParam = param(query.alerta);
+  const alert = !archived && isSupplyAlert(alertParam) ? alertParam : null;
   const notice = SUPPLY_NOTICES[param(query.aviso) as keyof typeof SUPPLY_NOTICES];
 
   const session = await requirePermission(empresa, "inventory.manage");
-  const { currency, supplies } = await getSupplyList(session, { search, archived });
+  const { currency, supplies } = await getSupplyList(session, {
+    search,
+    archived,
+    alert: alert ?? undefined,
+  });
   const base = `/${session.company.slug}/inventario/insumos`;
   const newButton = (
     <Button asChild className="h-11 gap-2 px-5">
@@ -65,6 +74,7 @@ export default async function SuppliesPage({
         className="flex flex-col gap-3 rounded-xl bg-card p-4 shadow-sm sm:flex-row sm:items-end"
       >
         {archived && <input type="hidden" name="archivados" value="1" />}
+        {alert && <input type="hidden" name="alerta" value={alert} />}
         <div className="relative flex min-w-0 flex-1 items-center">
           <Search
             className="pointer-events-none absolute left-3 size-4 text-muted-foreground"
@@ -84,7 +94,11 @@ export default async function SuppliesPage({
           </Button>
           {search && (
             <Button asChild variant="ghost" className="h-10 px-3">
-              <Link href={archived ? `${base}?archivados=1` : base}>Limpiar</Link>
+              <Link
+                href={withQuery(base, { archivados: archived ? "1" : "", alerta: alert ?? "" })}
+              >
+                Limpiar
+              </Link>
             </Button>
           )}
         </div>
@@ -98,10 +112,19 @@ export default async function SuppliesPage({
         ]}
       />
 
+      {alert && (
+        <FilterChip
+          label={SUPPLY_ALERT_INFO[alert].title}
+          clearHref={withQuery(base, { q: search })}
+        />
+      )}
+
       {supplies.length > 0 ? (
         <SupplyList supplies={supplies} currency={currency} companySlug={session.company.slug} />
       ) : search ? (
         <EmptyState title="Sin resultados" text="Ningún insumo coincide con la búsqueda." />
+      ) : alert ? (
+        <EmptyState icon={CircleCheck} title="Sin pendientes" text={SUPPLY_ALERT_INFO[alert].empty} />
       ) : archived ? (
         <EmptyState
           title="No hay insumos archivados"

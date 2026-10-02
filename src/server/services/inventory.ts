@@ -152,11 +152,12 @@ type SupplyRow = NonNullable<Awaited<ReturnType<typeof findSupply>>>;
 
 // Cantidades como texto (Decimal serializado): la vista las formatea con
 // la unidad. total suma todas las bodegas.
-function toSupplyDto(supply: Omit<SupplyRow, "_count">) {
+function toSupplyDto(supply: SupplyRow) {
   const total = supply.stockLevels.reduce(
     (sum, level) => sum.plus(level.quantity),
     new Prisma.Decimal(0),
   );
+  const initialized = supply._count.stockMovements > 0;
   return {
     id: supply.id,
     name: supply.name,
@@ -166,25 +167,62 @@ function toSupplyDto(supply: Omit<SupplyRow, "_count">) {
     // Costo de referencia por unidad, en la moneda de la empresa.
     unitCost: supply.unitCost?.toString() ?? null,
     totalStock: total.toString(),
-    belowMinimum: supply.minStock !== null && total.lessThan(supply.minStock),
+    // Sin ningún movimiento: falta la carga inicial. Mientras tanto no se
+    // marca bajo mínimo (la existencia aún no se conoce).
+    uninitialized: !initialized,
+    belowMinimum: initialized && supply.minStock !== null && total.lessThan(supply.minStock),
+    // Alguna bodega quedó en negativo (solo pasa por ventas).
+    negativeStock: supply.stockLevels.some((level) => level.quantity.isNegative()),
   };
 }
 
 export type SupplyDto = ReturnType<typeof toSupplyDto>;
 
+// Alertas de insumos (?alerta=... en la lista y tarjeta del inicio). Solo
+// cuentan los insumos no archivados.
+export const SUPPLY_ALERTS = ["saldo-negativo", "sin-carga", "bajo-minimo"] as const;
+
+export type SupplyAlert = (typeof SUPPLY_ALERTS)[number];
+
+export function isSupplyAlert(value: string): value is SupplyAlert {
+  return (SUPPLY_ALERTS as readonly string[]).includes(value);
+}
+
+const SUPPLY_ALERT_TEST: Record<SupplyAlert, (supply: SupplyDto) => boolean> = {
+  "saldo-negativo": (supply) => supply.negativeStock,
+  "sin-carga": (supply) => supply.uninitialized,
+  "bajo-minimo": (supply) => supply.belowMinimum,
+};
+
+// Con archivados, el filtro de alerta no aplica.
 export async function getSupplyList(
   session: StaffSessionDto,
-  filters: { search?: string; archived?: boolean },
+  filters: { search?: string; archived?: boolean; alert?: SupplyAlert },
 ) {
   assertPermission(session, "inventory.manage");
-  const [currency, supplies] = await Promise.all([
+  const [currency, rows] = await Promise.all([
     findCompanyCurrency(session.company.id),
     listSupplies(session.company.id, {
       search: filters.search?.trim() || undefined,
       archived: filters.archived,
     }),
   ]);
-  return { currency, supplies: supplies.map(toSupplyDto) };
+  const supplies = rows.map(toSupplyDto);
+  const test = !filters.archived && filters.alert ? SUPPLY_ALERT_TEST[filters.alert] : null;
+  return { currency, supplies: test ? supplies.filter(test) : supplies };
+}
+
+export async function getSupplyAlertCounts(
+  session: StaffSessionDto,
+): Promise<Record<SupplyAlert, number>> {
+  assertPermission(session, "inventory.manage");
+  const supplies = (await listSupplies(session.company.id)).map(toSupplyDto);
+  const count = (alert: SupplyAlert) => supplies.filter(SUPPLY_ALERT_TEST[alert]).length;
+  return {
+    "saldo-negativo": count("saldo-negativo"),
+    "sin-carga": count("sin-carga"),
+    "bajo-minimo": count("bajo-minimo"),
+  };
 }
 
 // unitLocked: ya tiene movimientos, la unidad no se puede cambiar.

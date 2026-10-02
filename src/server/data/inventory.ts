@@ -159,6 +159,8 @@ const supplySelect = {
   unitCost: true,
   isArchived: true,
   stockLevels: { select: { warehouseId: true, quantity: true } },
+  // Sin movimientos = sin carga inicial (alerta de la lista y del inicio).
+  _count: { select: { stockMovements: true } },
 } satisfies Prisma.SupplySelect;
 
 export async function listSupplies(
@@ -181,10 +183,7 @@ export async function listSupplies(
 export async function findSupply(companyId: string, supplyId: string) {
   return db.supply.findFirst({
     where: { id: supplyId, companyId },
-    select: {
-      ...supplySelect,
-      _count: { select: { stockMovements: true } },
-    },
+    select: supplySelect,
   });
 }
 

@@ -107,7 +107,12 @@ export function SupplyKardex({
                   >
                     {`${isOutflow(movement.kind) ? "−" : "+"}${formatQuantity(movement.quantity, supply.unit)}`}
                   </td>
-                  <td className="py-2.5 pr-3 text-right whitespace-nowrap tabular-nums">
+                  <td
+                    className={cn(
+                      "py-2.5 pr-3 text-right whitespace-nowrap tabular-nums",
+                      movement.balanceAfter.startsWith("-") && "font-semibold text-destructive",
+                    )}
+                  >
                     {formatQuantity(movement.balanceAfter, supply.unit)}
                   </td>
                   <td className="py-2.5 pr-3 break-words text-muted-foreground">

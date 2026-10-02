@@ -1,4 +1,4 @@
-import type { ProductField, ProductFormField } from "@/server/services/catalog";
+import type { ProductAlert, ProductField, ProductFormField } from "@/server/services/catalog";
 
 // Compartido entre los formularios de productos (cliente) y sus acciones
 // (servidor).
@@ -41,3 +41,23 @@ export const PRODUCT_NOTICES = {
   guardado: "Cambios guardados.",
   "sin-foto": "Producto creado, pero no se pudo subir la foto. Inténtalo de nuevo aquí.",
 } as const;
+
+// Textos de cada alerta: insignia de la lista, tarjeta del inicio y lista
+// filtrada sin resultados.
+export const PRODUCT_ALERT_INFO: Record<
+  ProductAlert,
+  { badge: string; title: string; hint: string; empty: string }
+> = {
+  "sin-receta": {
+    badge: "Sin receta · no se vende",
+    title: "Productos sin receta",
+    hint: "No se pueden vender hasta que tengan su receta.",
+    empty: "Todos los productos tienen receta.",
+  },
+  "costo-incompleto": {
+    badge: "Costo incompleto",
+    title: "Productos con costo incompleto",
+    hint: "Falta el costo de algún insumo: el margen no se puede medir.",
+    empty: "Todos los productos con receta tienen su costo completo.",
+  },
+};

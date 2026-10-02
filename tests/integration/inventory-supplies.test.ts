@@ -100,9 +100,12 @@ describe("insumos (servicio)", () => {
 
   it("lista con existencia total y marca los que están bajo el mínimo", async () => {
     const harina = await idOf("Harina");
-    expect((await list()).map((s) => [s.name, s.totalStock, s.belowMinimum])).toEqual([
-      ["Gaseosa", "0", false],
-      ["Harina", "0", true],
+    // Sin carga inicial la existencia no se conoce: no se marca bajo mínimo.
+    expect(
+      (await list()).map((s) => [s.name, s.totalStock, s.uninitialized, s.belowMinimum]),
+    ).toEqual([
+      ["Gaseosa", "0", true, false],
+      ["Harina", "0", true, false],
     ]);
 
     await move(harina, "7.25", "INITIAL");
@@ -115,7 +118,9 @@ describe("insumos (servicio)", () => {
           minStock: "5",
           unitCost: null,
           totalStock: "7.25",
+          uninitialized: false,
           belowMinimum: false,
+          negativeStock: false,
         }),
       ],
     });

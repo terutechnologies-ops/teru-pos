@@ -2,16 +2,18 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CircleCheck, Plus, Search, TriangleAlert } from "lucide-react";
 
-import { PRODUCT_NOTICES } from "@/components/catalog/product-fields";
+import { PRODUCT_ALERT_INFO, PRODUCT_NOTICES } from "@/components/catalog/product-fields";
 import { ProductList } from "@/components/catalog/product-list";
 import { EmptyState } from "@/components/shared/empty-state";
+import { FilterChip } from "@/components/shared/filter-chip";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusTabs } from "@/components/shared/status-tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { withQuery } from "@/lib/utils";
 import { requirePermission } from "@/server/http/staff-session";
-import { getProductCatalog } from "@/server/services/catalog";
+import { getProductCatalog, isProductAlert } from "@/server/services/catalog";
 
 export const metadata: Metadata = { title: "Catálogo · Productos" };
 
@@ -31,6 +33,9 @@ export default async function ProductsPage({
   const search = param(query.q);
   const categoryId = param(query.categoria);
   const archived = param(query.archivados) === "1";
+  // Las alertas (enlaces del inicio) son de productos no archivados.
+  const alertParam = param(query.alerta);
+  const alert = !archived && isProductAlert(alertParam) ? alertParam : null;
   const notice = PRODUCT_NOTICES[param(query.aviso) as keyof typeof PRODUCT_NOTICES];
 
   const session = await requirePermission(empresa, "catalog.manage");
@@ -38,6 +43,7 @@ export default async function ProductsPage({
     search,
     categoryId,
     archived,
+    alert: alert ?? undefined,
   });
   const slug = session.company.slug;
   const base = `/${slug}/catalogo/productos`;
@@ -101,6 +107,7 @@ export default async function ProductsPage({
             className="flex flex-col gap-3 rounded-xl bg-card p-4 shadow-sm sm:flex-row sm:items-end"
           >
             {archived && <input type="hidden" name="archivados" value="1" />}
+            {alert && <input type="hidden" name="alerta" value={alert} />}
             <div className="relative flex min-w-0 flex-1 items-center">
               <Search
                 className="pointer-events-none absolute left-3 size-4 text-muted-foreground"
@@ -133,7 +140,11 @@ export default async function ProductsPage({
               </Button>
               {filtered && (
                 <Button asChild variant="ghost" className="h-10 px-3">
-                  <Link href={archived ? `${base}?archivados=1` : base}>Limpiar</Link>
+                  <Link
+                    href={withQuery(base, { archivados: archived ? "1" : "", alerta: alert ?? "" })}
+                  >
+                    Limpiar
+                  </Link>
                 </Button>
               )}
             </div>
@@ -147,12 +158,25 @@ export default async function ProductsPage({
             ]}
           />
 
+          {alert && (
+            <FilterChip
+              label={PRODUCT_ALERT_INFO[alert].title}
+              clearHref={withQuery(base, { q: search, categoria: categoryId })}
+            />
+          )}
+
           {products.length > 0 ? (
             <ProductList products={products} currency={currency} companySlug={slug} />
           ) : filtered ? (
             <EmptyState
               title="Sin resultados"
               text="Ningún producto coincide con la búsqueda o el filtro."
+            />
+          ) : alert ? (
+            <EmptyState
+              icon={CircleCheck}
+              title="Sin pendientes"
+              text={PRODUCT_ALERT_INFO[alert].empty}
             />
           ) : archived ? (
             <EmptyState title="No hay productos archivados" text="Los productos que archives aparecerán aquí." />

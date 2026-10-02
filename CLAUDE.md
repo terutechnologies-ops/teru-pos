@@ -1820,3 +1820,40 @@ solo por ventas, cantidades de inventario a 6 decimales, consecutivo con
 ### Próximo paso recomendado
 
 Implementar el componente 5 (alertas) según el diseño aprobado.
+
+## Sesión 2026-10-01
+
+### Componente 5 — Alertas (aprobado 2026-10-01)
+
+- **Servicios:** `getSupplyAlertCounts` (`services/inventory.ts`) y
+  `getProductAlertCounts` (`services/catalog.ts`), cada uno con su permiso;
+  `services/alerts.ts` → `getPendingAlerts(session)` los reúne según el rol
+  (`null` = sin permiso, sin tarjeta). Alertas como constantes
+  (`SUPPLY_ALERTS`, `PRODUCT_ALERTS`) con `isSupplyAlert` /
+  `isProductAlert` para leer `?alerta=`. Una sola fuente de verdad: las
+  banderas del DTO (insumos) y `costing.status` (productos); los conteos y
+  los filtros usan la misma prueba. Solo no archivados.
+- **DTO de insumos:** `uninitialized` (sin ningún movimiento),
+  `negativeStock` (alguna bodega < 0); `_count.stockMovements` pasa a
+  `supplySelect`. **Cambio de criterio:** `belowMinimum` exige carga
+  inicial (sin carga la existencia no se conoce; así un insumo nuevo no
+  sale a la vez "sin carga" y "bajo mínimo"). Se ajustó
+  `inventory-supplies.test.ts`.
+- `getSupplyList` / `getProductCatalog` aceptan `alert` (se ignora con
+  archivados). Costeo de productos extraído a `withCosting`.
+- **UI:** tarjeta "Pendientes" en el inicio
+  (`(panel)/pending-alerts.tsx`): solo alertas con casos, número (rojo en
+  sin receta y saldo negativo), explicación y enlace a la lista filtrada;
+  sin pendientes, "Todo listo para vender y controlar.". Insignias
+  "Saldo negativo" y "Sin carga inicial" en insumos y
+  "Sin receta · no se vende" en productos (reemplaza la línea de costo).
+  Saldos negativos en rojo en el kardex, en la existencia por bodega y en
+  el total de la lista. Filtro `?alerta=` con `FilterChip`
+  (`components/shared/filter-chip.tsx`) que se quita conservando la
+  búsqueda; la búsqueda conserva la alerta. Textos en
+  `SUPPLY_ALERT_INFO` / `PRODUCT_ALERT_INFO` (archivos `*-fields.ts`).
+  `withQuery` en `lib/utils.ts`; `SectionTitle` acepta `titleId`.
+- Pruebas: `alerts.test.ts` (4: conteos sin cruzar empresas, permisos,
+  filtros) y `tests/unit/utils.test.ts`. Verificado: typecheck, lint,
+  suite **274/274**, build. Revisión visual: la hace el usuario.
+- Commit al aprobar.

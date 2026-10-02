@@ -5,16 +5,20 @@ import { ArrowRight, Clock, Sparkles } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { requireStaffSession } from "@/server/http/staff-session";
+import { getPendingAlerts } from "@/server/services/alerts";
 
 import { navHref, navigationFor } from "./navigation";
+import { PendingAlerts } from "./pending-alerts";
 
 export const metadata: Metadata = { title: "Inicio" };
 
-// Inicio del panel: accesos a las secciones que el rol puede usar. Cuando
-// existan los módulos de negocio, aquí irá el resumen del día.
+// Inicio del panel: pendientes (según los permisos) y accesos a las
+// secciones que el rol puede usar.
 export default async function PanelHomePage({ params }: PageProps<"/[empresa]">) {
   const { empresa } = await params;
-  const { user, company } = await requireStaffSession(empresa);
+  const session = await requireStaffSession(empresa);
+  const { user, company } = session;
+  const alerts = await getPendingAlerts(session);
   const shortcuts = navigationFor(user.role).filter((item) => item.id !== "home");
 
   return (
@@ -29,6 +33,10 @@ export default async function PanelHomePage({ params }: PageProps<"/[empresa]">)
             estarán disponibles cuando termine.
           </AlertDescription>
         </Alert>
+      )}
+
+      {(alerts.products || alerts.supplies) && (
+        <PendingAlerts alerts={alerts} companySlug={company.slug} />
       )}
 
       {shortcuts.length > 0 ? (

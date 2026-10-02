@@ -2,6 +2,7 @@ import { MapPin } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { formatQuantity, UNIT_INFO } from "@/lib/units";
+import { cn } from "@/lib/utils";
 import type { SupplyDetail } from "@/server/services/inventory";
 
 import { MovementForm } from "./movement-form";
@@ -46,7 +47,12 @@ export function SupplyStock({
                     <span className="truncate font-bold">{warehouse.name}</span>
                     {warehouse.isMain && <Badge variant="secondary">Principal</Badge>}
                   </div>
-                  <span className="font-semibold tabular-nums">
+                  <span
+                    className={cn(
+                      "font-semibold tabular-nums",
+                      warehouse.quantity.startsWith("-") && "text-destructive",
+                    )}
+                  >
                     {warehouse.initialized
                       ? formatQuantity(warehouse.quantity, supply.unit)
                       : "Sin carga inicial"}

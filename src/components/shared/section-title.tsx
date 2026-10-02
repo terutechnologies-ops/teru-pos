@@ -1,14 +1,17 @@
 import type { ReactNode } from "react";
 
-// Encabezado de cada tarjeta del asistente.
+// Encabezado de una tarjeta (asistente, inicio). titleId: para que la
+// sección se nombre con su título (aria-labelledby).
 export function SectionTitle({
   icon,
   title,
+  titleId,
   description,
   action,
 }: {
   icon: ReactNode;
   title: string;
+  titleId?: string;
   description: string;
   action?: ReactNode;
 }) {
@@ -18,7 +21,9 @@ export function SectionTitle({
         {icon}
       </span>
       <div className="min-w-0 flex-1">
-        <h2 className="text-lg font-bold">{title}</h2>
+        <h2 id={titleId} className="text-lg font-bold">
+          {title}
+        </h2>
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
       {action}

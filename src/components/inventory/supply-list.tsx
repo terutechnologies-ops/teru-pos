@@ -8,6 +8,7 @@ import { formatQuantity, UNIT_INFO } from "@/lib/units";
 import { cn } from "@/lib/utils";
 import type { SupplyDto } from "@/server/services/inventory";
 
+import { SUPPLY_ALERT_INFO } from "./supply-fields";
 import { SupplyRowButton } from "./supply-row-button";
 
 // Insumos en orden alfabético con su existencia total (todas las bodegas).
@@ -38,13 +39,31 @@ export function SupplyList({
               <span className="text-xs text-muted-foreground">
                 · {UNIT_INFO[supply.unit].label.toLowerCase()}
               </span>
-              {supply.isArchived && <Badge variant="secondary">Archivado</Badge>}
-              {!supply.isArchived && supply.belowMinimum && (
-                <Badge variant="destructive">Bajo mínimo</Badge>
+              {supply.isArchived ? (
+                <Badge variant="secondary">Archivado</Badge>
+              ) : (
+                <>
+                  {supply.negativeStock && (
+                    <Badge variant="destructive">{SUPPLY_ALERT_INFO["saldo-negativo"].badge}</Badge>
+                  )}
+                  {supply.uninitialized && (
+                    <Badge variant="outline">{SUPPLY_ALERT_INFO["sin-carga"].badge}</Badge>
+                  )}
+                  {supply.belowMinimum && (
+                    <Badge variant="destructive">{SUPPLY_ALERT_INFO["bajo-minimo"].badge}</Badge>
+                  )}
+                </>
               )}
             </div>
             <p className="text-sm">
-              <span className="font-semibold">{formatQuantity(supply.totalStock, supply.unit)}</span>
+              <span
+                className={cn(
+                  "font-semibold",
+                  supply.totalStock.startsWith("-") && "text-destructive",
+                )}
+              >
+                {formatQuantity(supply.totalStock, supply.unit)}
+              </span>
               <span className="text-muted-foreground">
                 {" "}
                 en existencia

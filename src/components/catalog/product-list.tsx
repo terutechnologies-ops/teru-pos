@@ -7,6 +7,7 @@ import { formatMoney } from "@/lib/company-formats";
 import { cn } from "@/lib/utils";
 import type { CatalogProduct } from "@/server/services/catalog";
 
+import { PRODUCT_ALERT_INFO } from "./product-fields";
 import { CostingLine } from "./product-costing";
 import { ProductRowButton } from "./product-row-button";
 import { ProductThumb } from "./product-thumb";
@@ -45,62 +46,69 @@ export function ProductList({
             {!category.isActive && <Badge variant="destructive">Categoría inactiva</Badge>}
           </div>
           <ul className="flex flex-col divide-y divide-border">
-            {items.map((product) => (
-              <li
-                key={product.id}
-                className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0 md:flex-row md:items-center md:justify-between"
-              >
-                <div
-                  className={cn(
-                    "flex min-w-0 flex-1 items-center gap-3",
-                    (product.isArchived || !product.isAvailable) && "opacity-70",
-                  )}
+            {items.map((product) => {
+              // Sin receta no se vende: la insignia reemplaza la línea de costo.
+              const noRecipe = !product.isArchived && product.costing.status === "NO_RECIPE";
+              return (
+                <li
+                  key={product.id}
+                  className="flex flex-col gap-3 py-3 first:pt-0 last:pb-0 md:flex-row md:items-center md:justify-between"
                 >
-                  <ProductThumb imageUrl={product.imageUrl} productName={product.name} size="sm" />
-                  <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="font-bold">{product.name}</span>
-                      {product.isArchived && <Badge variant="secondary">Archivado</Badge>}
-                      {!product.isAvailable && <Badge variant="destructive">Agotado</Badge>}
-                    </div>
-                    {product.description && (
-                      <p className="line-clamp-1 text-sm text-muted-foreground">
-                        {product.description}
-                      </p>
+                  <div
+                    className={cn(
+                      "flex min-w-0 flex-1 items-center gap-3",
+                      (product.isArchived || !product.isAvailable) && "opacity-70",
                     )}
-                    <p className="text-sm font-extrabold text-link">
-                      {formatMoney(Number(product.price), currency)}
-                    </p>
-                    <CostingLine costing={product.costing} currency={currency} />
+                  >
+                    <ProductThumb imageUrl={product.imageUrl} productName={product.name} size="sm" />
+                    <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="font-bold">{product.name}</span>
+                        {product.isArchived && <Badge variant="secondary">Archivado</Badge>}
+                        {!product.isAvailable && <Badge variant="destructive">Agotado</Badge>}
+                        {noRecipe && (
+                          <Badge variant="destructive">{PRODUCT_ALERT_INFO["sin-receta"].badge}</Badge>
+                        )}
+                      </div>
+                      {product.description && (
+                        <p className="line-clamp-1 text-sm text-muted-foreground">
+                          {product.description}
+                        </p>
+                      )}
+                      <p className="text-sm font-extrabold text-link">
+                        {formatMoney(Number(product.price), currency)}
+                      </p>
+                      {!noRecipe && <CostingLine costing={product.costing} currency={currency} />}
+                    </div>
                   </div>
-                </div>
-                <div className="flex shrink-0 flex-wrap items-start justify-end gap-2">
-                  <Button asChild variant="outline" size="sm">
-                    <Link
-                      href={`/${companySlug}/catalogo/productos/${product.id}`}
-                      aria-label={`Editar ${product.name}`}
-                    >
-                      <Pencil aria-hidden />
-                      Editar
-                    </Link>
-                  </Button>
-                  {!product.isArchived && (
+                  <div className="flex shrink-0 flex-wrap items-start justify-end gap-2">
+                    <Button asChild variant="outline" size="sm">
+                      <Link
+                        href={`/${companySlug}/catalogo/productos/${product.id}`}
+                        aria-label={`Editar ${product.name}`}
+                      >
+                        <Pencil aria-hidden />
+                        Editar
+                      </Link>
+                    </Button>
+                    {!product.isArchived && (
+                      <ProductRowButton
+                        companySlug={companySlug}
+                        intent={product.isAvailable ? "soldout" : "available"}
+                        id={product.id}
+                        productName={product.name}
+                      />
+                    )}
                     <ProductRowButton
                       companySlug={companySlug}
-                      intent={product.isAvailable ? "soldout" : "available"}
+                      intent={product.isArchived ? "restore" : "archive"}
                       id={product.id}
                       productName={product.name}
                     />
-                  )}
-                  <ProductRowButton
-                    companySlug={companySlug}
-                    intent={product.isArchived ? "restore" : "archive"}
-                    id={product.id}
-                    productName={product.name}
-                  />
-                </div>
-              </li>
-            ))}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
         </section>
       ))}
