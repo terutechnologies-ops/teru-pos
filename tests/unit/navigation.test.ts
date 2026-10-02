@@ -72,6 +72,14 @@ describe("navigationFor", () => {
     expect(ids("CASHIER")).not.toContain("settings-payments");
   });
 
+  it("propietario y administrador ven Ventas; personal y cajeros no", () => {
+    const ids = (role: StaffRole) => navigationFor(role).map((item) => item.id);
+    expect(ids("OWNER")).toContain("sales-list");
+    expect(ids("ADMIN")).toContain("sales-list");
+    expect(ids("STAFF")).not.toContain("sales-list");
+    expect(ids("CASHIER")).not.toContain("sales-list");
+  });
+
   it("el cajero solo ve Vender y entra directo al POS", () => {
     expect(navigationFor("CASHIER").map((item) => item.id)).toEqual(["home", "pos"]);
     expect(startsInPos("CASHIER")).toBe(true);

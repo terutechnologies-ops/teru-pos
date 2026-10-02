@@ -1857,3 +1857,41 @@ Implementar el componente 5 (alertas) según el diseño aprobado.
   filtros) y `tests/unit/utils.test.ts`. Verificado: typecheck, lint,
   suite **274/274**, build. Revisión visual: la hace el usuario.
 - Commit al aprobar.
+
+### Componente 6 — Ventas en el panel (aprobado 2026-10-01)
+
+Diseño aprobado el 2026-10-01 (lista con rango de fechas, resumen y
+detalle con anulación; sin auditoría aparte: la venta guarda quién,
+cuándo y por qué).
+- **Menú:** "Ventas" (`sales-list`, `ventas`, `sales.view`) en el grupo
+  Ventas.
+- **Lista `/[empresa]/ventas`:** filtros GET `desde`/`hasta` (días en la
+  zona de la empresa; por defecto hoy; invertidos se ordenan; inválidos
+  vuelven a hoy), `cajero` (quienes han vendido, incluso desactivados),
+  `estado` (`completadas`/`anuladas`), `sucursal` (solo con varias).
+  "Ir a la venta" (`?numero=`, acepta "#12"): si existe redirige al
+  detalle; si no, aviso. Resumen del rango sin el filtro de estado:
+  vendido (cantidad y total), por método de pago y anuladas. Hasta 200
+  ventas (`SALES_LIST_LIMIT`) con aviso si hay más.
+- **Detalle `/[empresa]/ventas/[id]`:** pedido (precio de la venta, nota),
+  pagos con recibido y cambio, turno (abierto/cerrado), inventario
+  descontado y devuelto (enlaza a la ficha del insumo con
+  `inventory.manage`). Anulada: alerta con quién, cuándo y motivo.
+- **Anulación** (`sales.void`): `<details>` con motivo (3–200,
+  `voidSaleSchema`) y botón "Anular la venta #N" como confirmación; solo
+  si está completada y su turno sigue abierto (si no, se explica).
+  `voidSaleFromPanel` usa `voidSale` (ya existía). Vuelve con
+  `?aviso=anulada`.
+- **Fechas por zona:** `calendarDay`, `isCalendarDay`, `addCalendarDays`,
+  `startOfCalendarDay` en `lib/company-formats.ts` (corrige el cambio de
+  horario; probado con Bogotá, Madrid y Nueva York).
+- **Datos:** `listSales` (+ conteo), `summarizeSales` (aggregate y groupBy
+  de pagos), `listSaleCashiers`, `findSaleIdByNumber`, `findSaleDetail` en
+  `data/sales.ts`.
+- **Refactor:** `findCompanyFormats` (`data/companies.ts`) reemplaza las
+  copias de `companyFormats` de turnos y la lectura del kardex; también lo
+  usa ventas.
+- Componentes en `components/sales/`. Pruebas: `sales-panel.test.ts` (10),
+  `tests/unit/calendar-days.test.ts` (3), navegación. Verificado:
+  typecheck, lint, suite **287/287**, build. Revisión visual: la hace el
+  usuario.

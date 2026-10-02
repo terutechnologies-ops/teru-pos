@@ -1,5 +1,10 @@
 import "server-only";
 
+import {
+  DEFAULT_TIME_ZONE,
+  isDateFormat,
+  type DateFormat,
+} from "@/lib/company-formats";
 import { db } from "@/lib/db";
 import { createMainWarehouse } from "@/server/data/inventory";
 import { createDefaultPaymentMethods } from "@/server/data/payment-methods";
@@ -52,6 +57,24 @@ export async function findCompanyCurrency(companyId: string) {
   });
   if (!company) throw new Error("Empresa no encontrada");
   return company.currency;
+}
+
+// Moneda, formato de fecha y zona horaria con que se muestran los registros
+// (kardex, turnos, ventas).
+export async function findCompanyFormats(companyId: string) {
+  const company = await db.company.findUnique({
+    where: { id: companyId },
+    select: { currency: true, dateFormat: true, timeZone: true },
+  });
+  if (!company) throw new Error("Empresa no encontrada");
+  const dateFormat: DateFormat = isDateFormat(company.dateFormat)
+    ? company.dateFormat
+    : "DD/MM/YYYY";
+  return {
+    currency: company.currency,
+    dateFormat,
+    timeZone: company.timeZone || DEFAULT_TIME_ZONE,
+  };
 }
 
 export async function updateCompanySettings(

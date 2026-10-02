@@ -2,12 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
-import {
-  DEFAULT_TIME_ZONE,
-  isDateFormat,
-  isSameCalendarDay,
-  type DateFormat,
-} from "@/lib/company-formats";
+import { isSameCalendarDay } from "@/lib/company-formats";
 import { listActiveBranches } from "@/server/data/branches";
 import {
   closeCashSession,
@@ -15,7 +10,7 @@ import {
   findOpenCashSession,
   openCashSession,
 } from "@/server/data/cash-sessions";
-import { findCompanySettings } from "@/server/data/companies";
+import { findCompanyFormats } from "@/server/data/companies";
 import type { StaffSessionDto } from "@/server/dto/auth";
 import { assertPermission } from "@/server/services/auth/permissions";
 import {
@@ -44,22 +39,13 @@ function toShift(row: CashSessionRow) {
 
 export type ShiftDto = ReturnType<typeof toShift>;
 
-async function companyFormats(companyId: string) {
-  const company = await findCompanySettings(companyId);
-  if (!company) throw new Error("Empresa no encontrada");
-  const dateFormat: DateFormat = isDateFormat(company.dateFormat)
-    ? company.dateFormat
-    : "DD/MM/YYYY";
-  return { currency: company.currency, timeZone: company.timeZone || DEFAULT_TIME_ZONE, dateFormat };
-}
-
 // Lo que necesita el POS al cargar: el turno abierto (si hay) o lo
 // necesario para abrir uno.
 export async function getPosShift(session: StaffSessionDto, now = new Date()) {
   assertPermission(session, "sales.charge");
   const companyId = session.company.id;
   const [formats, open, branches] = await Promise.all([
-    companyFormats(companyId),
+    findCompanyFormats(companyId),
     findOpenCashSession(companyId, session.user.id),
     listActiveBranches(companyId),
   ]);
@@ -97,7 +83,7 @@ export async function openShift(
 ): Promise<ShiftResult> {
   assertPermission(session, "sales.charge");
   const companyId = session.company.id;
-  const { currency } = await companyFormats(companyId);
+  const { currency } = await findCompanyFormats(companyId);
   const parsed = openShiftSchema(currency).safeParse(input);
   if (!parsed.success) return invalid(parsed.error);
 
@@ -140,7 +126,7 @@ export async function closeShift(
 ): Promise<ShiftResult> {
   assertPermission(session, "sales.charge");
   const companyId = session.company.id;
-  const { currency } = await companyFormats(companyId);
+  const { currency } = await findCompanyFormats(companyId);
   const parsed = closeShiftSchema(currency).safeParse(input);
   if (!parsed.success) return invalid(parsed.error);
 
@@ -164,7 +150,7 @@ export async function getClosedShift(session: StaffSessionDto, cashSessionId: st
   assertPermission(session, "sales.charge");
   const companyId = session.company.id;
   const [formats, row] = await Promise.all([
-    companyFormats(companyId),
+    findCompanyFormats(companyId),
     findCashSession(companyId, cashSessionId),
   ]);
   if (!row || row.userId !== session.user.id || !row.closedAt) return null;

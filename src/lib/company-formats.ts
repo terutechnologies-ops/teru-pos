@@ -151,3 +151,65 @@ export function formatDateTime(date: Date, format: DateFormat, timeZone: string)
   const day = new Date(`${formattersFor(timeZone).day.format(date)}T00:00:00Z`);
   return `${formatDate(day, format)} ${formatClock(date, timeZone)}`;
 }
+
+// Día del calendario en la zona de la empresa, como "AAAA-MM-DD" (el valor
+// de un <input type="date">).
+export function calendarDay(date: Date, timeZone: string) {
+  return formattersFor(timeZone).day.format(date);
+}
+
+const DAY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+// "AAAA-MM-DD" válido (descarta 2026-02-30).
+export function isCalendarDay(value: string) {
+  if (!DAY_PATTERN.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value);
+}
+
+export function addCalendarDays(day: string, days: number) {
+  const date = new Date(`${day}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+const offsetFormatters = new Map<string, Intl.DateTimeFormat>();
+
+// Minutos que la zona va adelante de UTC en ese instante (Bogotá: −300).
+function zoneOffsetMinutes(instant: number, timeZone: string) {
+  let formatter = offsetFormatters.get(timeZone);
+  if (!formatter) {
+    formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone,
+      hourCycle: "h23",
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      second: "numeric",
+    });
+    offsetFormatters.set(timeZone, formatter);
+  }
+  const parts = Object.fromEntries(
+    formatter.formatToParts(instant).map((part) => [part.type, part.value]),
+  );
+  const wall = Date.UTC(
+    Number(parts.year),
+    Number(parts.month) - 1,
+    Number(parts.day),
+    Number(parts.hour),
+    Number(parts.minute),
+    Number(parts.second),
+  );
+  return Math.round((wall - Math.floor(instant / 1000) * 1000) / 60_000);
+}
+
+// Instante en que empieza ese día en la zona de la empresa (filtros por
+// fecha). Se corrige dos veces por si el cambio de horario cae ese día.
+export function startOfCalendarDay(day: string, timeZone: string) {
+  const midnightUtc = new Date(`${day}T00:00:00Z`).getTime();
+  let instant = midnightUtc - zoneOffsetMinutes(midnightUtc, timeZone) * 60_000;
+  instant = midnightUtc - zoneOffsetMinutes(instant, timeZone) * 60_000;
+  return new Date(instant);
+}

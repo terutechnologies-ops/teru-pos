@@ -53,3 +53,18 @@ export function saleSchema(currency: string) {
 }
 
 export type SaleInput = z.input<ReturnType<typeof saleSchema>>;
+
+export const VOID_REASON_MAX = 200;
+
+// Anulación desde el panel: el motivo queda en la venta.
+export const voidSaleSchema = z.object({
+  reason: z
+    .string()
+    .trim()
+    .min(3, { error: "Escribe el motivo de la anulación (mínimo 3 caracteres)." })
+    .max(VOID_REASON_MAX, {
+      error: `El motivo no puede superar ${VOID_REASON_MAX} caracteres.`,
+    }),
+});
+
+export type VoidSaleInput = z.input<typeof voidSaleSchema>;

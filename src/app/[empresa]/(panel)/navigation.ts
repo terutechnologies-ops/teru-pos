@@ -3,6 +3,7 @@ import {
   FolderTree,
   House,
   Package,
+  Receipt,
   ShoppingCart,
   Store,
   Users,
@@ -63,6 +64,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: ShoppingCart,
     group: "sales",
     permission: "sales.charge",
+  },
+  {
+    id: "sales-list",
+    label: "Ventas",
+    description: "Lo vendido, con su detalle y anulaciones.",
+    path: "ventas",
+    icon: Receipt,
+    group: "sales",
+    permission: "sales.view",
   },
   {
     id: "catalog-products",

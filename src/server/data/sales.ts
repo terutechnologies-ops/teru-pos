@@ -311,3 +311,151 @@ export async function voidSale(
     return { status: "OK" };
   }, CASH_TX_OPTIONS);
 }
+
+// --- Consultas del panel ----------------------------------------------------
+
+export type SaleFilters = {
+  // Rango [from, to) ya convertido desde los días de la zona de la empresa.
+  from: Date;
+  to: Date;
+  userId?: string;
+  branchId?: string;
+  status?: "COMPLETED" | "VOIDED";
+};
+
+function saleWhere(companyId: string, filters: SaleFilters): Prisma.SaleWhereInput {
+  return {
+    companyId,
+    createdAt: { gte: filters.from, lt: filters.to },
+    ...(filters.userId && { userId: filters.userId }),
+    ...(filters.branchId && { branchId: filters.branchId }),
+    ...(filters.status && { status: filters.status }),
+  };
+}
+
+// Las más recientes primero, con lo necesario para la fila de la lista.
+export async function listSales(companyId: string, filters: SaleFilters, take: number) {
+  const where = saleWhere(companyId, filters);
+  const [sales, total] = await Promise.all([
+    db.sale.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      take,
+      select: {
+        id: true,
+        number: true,
+        createdAt: true,
+        total: true,
+        status: true,
+        user: { select: { name: true } },
+        branch: { select: { name: true } },
+        lines: {
+          orderBy: { position: "asc" },
+          select: { productName: true, quantity: true },
+        },
+        payments: { select: { paymentMethod: { select: { name: true } } } },
+      },
+    }),
+    db.sale.count({ where }),
+  ]);
+  return { sales, total };
+}
+
+// Resumen del rango (sin el filtro de estado): vendido por método de pago y
+// anuladas aparte.
+export async function summarizeSales(companyId: string, filters: SaleFilters) {
+  const base = saleWhere(companyId, { ...filters, status: undefined });
+  const [completed, voided, byMethod] = await Promise.all([
+    db.sale.aggregate({
+      where: { ...base, status: "COMPLETED" },
+      _count: true,
+      _sum: { total: true },
+    }),
+    db.sale.aggregate({
+      where: { ...base, status: "VOIDED" },
+      _count: true,
+      _sum: { total: true },
+    }),
+    db.salePayment.groupBy({
+      by: ["paymentMethodId"],
+      where: { companyId, sale: { ...base, status: "COMPLETED" } },
+      _sum: { amount: true },
+    }),
+  ]);
+  return {
+    completedCount: completed._count,
+    completedTotal: completed._sum.total ?? new Prisma.Decimal(0),
+    voidedCount: voided._count,
+    voidedTotal: voided._sum.total ?? new Prisma.Decimal(0),
+    byMethod: byMethod.map((row) => ({
+      paymentMethodId: row.paymentMethodId,
+      amount: row._sum.amount ?? new Prisma.Decimal(0),
+    })),
+  };
+}
+
+// Quienes han vendido (incluye personas ya desactivadas): filtro de cajero.
+export async function listSaleCashiers(companyId: string) {
+  return db.user.findMany({
+    where: { companyId, sales: { some: {} } },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
+}
+
+export async function findSaleIdByNumber(companyId: string, number: number) {
+  const sale = await db.sale.findUnique({
+    where: { companyId_number: { companyId, number } },
+    select: { id: true },
+  });
+  return sale?.id ?? null;
+}
+
+export async function findSaleDetail(companyId: string, saleId: string) {
+  return db.sale.findFirst({
+    where: { id: saleId, companyId },
+    select: {
+      id: true,
+      number: true,
+      createdAt: true,
+      total: true,
+      status: true,
+      voidedAt: true,
+      voidReason: true,
+      voidedBy: { select: { name: true } },
+      user: { select: { name: true } },
+      branch: { select: { name: true } },
+      cashSession: { select: { id: true, openedAt: true, closedAt: true } },
+      lines: {
+        orderBy: { position: "asc" },
+        select: {
+          id: true,
+          productName: true,
+          unitPrice: true,
+          quantity: true,
+          lineTotal: true,
+          note: true,
+        },
+      },
+      payments: {
+        orderBy: { paymentMethod: { position: "asc" } },
+        select: {
+          id: true,
+          amount: true,
+          tendered: true,
+          paymentMethod: { select: { name: true, isCash: true } },
+        },
+      },
+      stockMovements: {
+        orderBy: [{ type: "asc" }, { supply: { name: "asc" } }],
+        select: {
+          id: true,
+          type: true,
+          quantity: true,
+          warehouse: { select: { name: true } },
+          supply: { select: { id: true, name: true, unit: true } },
+        },
+      },
+    },
+  });
+}

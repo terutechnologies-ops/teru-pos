@@ -5,11 +5,10 @@ import { z } from "zod";
 import { Prisma } from "@/generated/prisma/client";
 import type { StockMovementType } from "@/generated/prisma/enums";
 import type { RequestContext, StaffSessionDto } from "@/server/dto/auth";
-import { DEFAULT_TIME_ZONE, isDateFormat, type DateFormat } from "@/lib/company-formats";
 import { formatQuantity } from "@/lib/units";
 import { recordAuthEvent } from "@/server/data/auth-audit";
 import { listActiveBranches } from "@/server/data/branches";
-import { findCompanyCurrency, findCompanySettings } from "@/server/data/companies";
+import { findCompanyCurrency, findCompanyFormats } from "@/server/data/companies";
 import {
   createSupply,
   createWarehouse,
@@ -373,13 +372,13 @@ export async function getSupplyDetail(
   const supply = await findSupply(companyId, supplyId);
   if (!supply) return null;
 
-  const [warehouses, movements, company] = await Promise.all([
+  const [warehouses, movements, formats] = await Promise.all([
     listWarehouses(companyId),
     listStockMovements(companyId, supplyId, {
       warehouseId: filters.warehouseId || undefined,
       take: KARDEX_LIMIT,
     }),
-    findCompanySettings(companyId),
+    findCompanyFormats(companyId),
   ]);
 
   // El saldo de una bodega nace con su primer movimiento: sin saldo, lo
@@ -395,9 +394,6 @@ export async function getSupplyDetail(
       initialized: levels.has(warehouse.id),
     }),
   );
-
-  const dateFormat: DateFormat =
-    company && isDateFormat(company.dateFormat) ? company.dateFormat : "DD/MM/YYYY";
 
   return {
     supply: { ...toSupplyDto(supply), unitLocked: supply._count.stockMovements > 0 },
@@ -419,9 +415,7 @@ export async function getSupplyDetail(
       warehouseName: movement.warehouse.name,
       userName: movement.user.name,
     })),
-    dateFormat,
-    timeZone: company?.timeZone ?? DEFAULT_TIME_ZONE,
-    currency: company?.currency ?? "COP",
+    ...formats,
   };
 }
 
