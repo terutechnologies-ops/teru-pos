@@ -4,12 +4,13 @@ Plataforma de gestión multiempresa de TERU (ventas, inventario, caja, etc.).
 Cada negocio es una empresa cliente con su propia URL; la arepería
 **Su Arepa** es la primera, no el modelo del sistema.
 
-**Estado:** fase 6 cerrada (autenticación del personal, configuración
+**Estado:** fase 7 cerrada (autenticación del personal, configuración
 inicial de la empresa, panel con menú por rol, configuración de negocio y
 equipo, logo, catálogo de venta con categorías y productos con precio y
-foto, inventario con insumos, bodegas, carga inicial, ajustes y kardex, y
-recetas con costo de referencia de los insumos, costo y margen de cada
-producto).
+foto, inventario con insumos, bodegas, carga inicial, ajustes y kardex,
+recetas con costo y margen, y ventas de mostrador: POS con turno de caja,
+pago mixto y descuento de inventario por receta, ventas y cierres de caja
+en el panel, alertas y hojas impresas).
 
 ## Stack
 
@@ -36,10 +37,14 @@ npm run dev
 - Mientras la empresa no termine su configuración, el propietario entra al
   asistente `/<slug-empresa>/configuracion-inicial` (Negocio → Equipo →
   Confirmar).
-- Panel `/<slug-empresa>`: menú lateral según el rol. Catálogo > Productos
-  y Categorías, Inventario > Insumos y Bodegas (propietario y
-  administrador), Configuración > Negocio (propietario) y Configuración >
-  Equipo (propietario y administrador).
+- Panel `/<slug-empresa>`: menú lateral según el rol. Ventas > Vender,
+  Ventas y Cierres de caja, Catálogo > Productos y Categorías, Inventario >
+  Insumos y Bodegas (propietario y administrador), Configuración > Negocio
+  (propietario), Equipo y Métodos de pago (propietario y administrador).
+  El inicio muestra los pendientes (alertas).
+- POS `/<slug-empresa>/pos` (pantalla oscura, requiere JavaScript): abrir
+  turno con fondo inicial, vender con pago mixto y cerrar el turno contando
+  el efectivo (conteo ciego). El cajero entra directo aquí.
 - Inventario: cada insumo tiene su ficha (`/inventario/insumos/<id>`) con
   existencias por bodega, carga inicial, ajustes con motivo, kardex y su
   costo de referencia.
@@ -111,13 +116,14 @@ database. Flujo para crear una migración:
 
 Nunca editar una migración ya aplicada: crear una nueva.
 
-## Impresión (comanda y soporte de venta)
+## Impresión
 
 Las hojas se imprimen desde el navegador en la impresora térmica instalada
-en la caja (58 u 80 mm): `/[empresa]/imprimir/comanda/[id]` y
-`/[empresa]/imprimir/soporte/[id]`. El POS imprime la comanda al cobrar sin
-salir de la pantalla de venta; el ancho del papel y la comanda automática
-se ajustan en "Impresión" (se guardan en ese navegador).
+en la caja (58 u 80 mm): comanda y soporte de una venta, cierre de turno y
+existencias de una bodega (esta también en carta), en
+`/[empresa]/imprimir/...`. El POS imprime la comanda al cobrar sin salir de
+la pantalla de venta; el ancho del papel y la comanda automática se
+ajustan en "Impresión" (se guardan en ese navegador).
 
 - **Sin diálogo de impresión:** abrir Chrome con `--kiosk-printing` (por
   ejemplo, en el acceso directo: `chrome.exe --kiosk-printing
@@ -134,17 +140,24 @@ src/
   app/                  Rutas (App Router)
     [empresa]/          Rutas por empresa: login, recuperar, restablecer,
                         invitacion, configuracion-inicial (asistente) y
-                        (panel): inicio, catalogo/{productos (con
-                        [id]/receta),categorias},
+                        (panel): inicio, ventas, caja,
+                        catalogo/{productos (con [id]/receta),categorias},
                         inventario/{insumos,bodegas} y
-                        configuracion/{negocio,equipo}
+                        configuracion/{negocio,equipo,pagos};
+                        pos (venta, cierre y turno) e imprimir/{comanda,
+                        soporte,cierre,existencias}
     dev/outbox/         Bandeja de correos (solo desarrollo)
   components/
     ui/                 Componentes shadcn/ui
     shared/             Componentes propios reutilizables
+    cash/               Cierres de caja en el panel
     catalog/            Categorías, productos, fotos, recetas y costos
     company/            Formularios de datos y logo de la empresa
     inventory/          Bodegas, insumos, movimientos y kardex
+    payments/           Métodos de pago
+    pos/                Turno de caja y pantalla de venta
+    printing/           Hojas impresas y ajustes de impresión del equipo
+    sales/              Ventas en el panel y anulación
     team/               Invitaciones y lista del equipo
   lib/                  Cliente Prisma, marca, formatos, roles, imágenes,
                         unidades de medida y utilidades
@@ -153,6 +166,7 @@ src/
     data/               Único acceso a Prisma; filtra siempre por empresa
     services/           Lógica de negocio (auth y permisos, empresas, equipo,
                         catálogo, inventario, recetas y costos,
+                        ventas, caja, métodos de pago, alertas,
                         mensajería, imágenes y almacenamiento)
     http/               Adaptador Next: cookies, cabeceras, sesión actual
     validations/        Esquemas Zod
@@ -171,3 +185,4 @@ docs/decisiones/        Decisiones de arquitectura (ADR)
 - [ADR 0004 — Catálogo de venta](docs/decisiones/0004-catalogo-de-venta.md)
 - [ADR 0005 — Inventario](docs/decisiones/0005-inventario.md)
 - [ADR 0006 — Recetas y costos](docs/decisiones/0006-recetas-y-costos.md)
+- [ADR 0007 — Ventas, POS y caja](docs/decisiones/0007-ventas-pos-y-caja.md)

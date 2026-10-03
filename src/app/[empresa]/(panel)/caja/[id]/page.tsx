@@ -158,6 +158,7 @@ export default async function CashSessionPage({
             companySlug={slug}
             cashSessionId={shift.id}
             cashierName={shift.cashierName}
+            currency={currency}
           />
         )}
       </section>

@@ -5,8 +5,15 @@ import { useState } from "react";
 import { FormField } from "@/components/shared/form-field";
 import { Input } from "@/components/ui/input";
 import { currencyDecimals, formatAmountInput } from "@/lib/company-formats";
+import { cn } from "@/lib/utils";
 
-// Monto en la moneda de la empresa, grande para pantallas táctiles. Muestra
+// lg: grande y táctil (POS); md: del tamaño de los campos del panel.
+const SIZES = {
+  lg: { prefix: "left-4 text-sm", input: "h-14 pl-16 text-xl font-bold" },
+  md: { prefix: "left-3 text-xs", input: "h-10 border-transparent pl-14 text-sm focus-visible:bg-card" },
+} as const;
+
+// Monto en la moneda de la empresa. Muestra
 // los separadores de miles mientras se escribe ("200.000"); el servidor lo
 // interpreta con parseAmountInput (también si llega sin separadores).
 export function MoneyField({
@@ -16,6 +23,8 @@ export function MoneyField({
   defaultValue = "",
   error,
   hint,
+  placeholder,
+  size = "lg",
 }: {
   name: string;
   label: string;
@@ -23,6 +32,8 @@ export function MoneyField({
   defaultValue?: string;
   error?: string;
   hint?: string;
+  placeholder?: string;
+  size?: keyof typeof SIZES;
 }) {
   const decimals = currencyDecimals(currency);
   const [value, setValue] = useState(() => formatAmountInput(defaultValue, decimals));
@@ -30,7 +41,12 @@ export function MoneyField({
   return (
     <FormField name={name} label={label} required error={error}>
       <div className="relative flex items-center">
-        <span className="pointer-events-none absolute left-4 text-sm font-semibold text-muted-foreground">
+        <span
+          className={cn(
+            "pointer-events-none absolute font-semibold text-muted-foreground",
+            SIZES[size].prefix,
+          )}
+        >
           {currency}
         </span>
         <Input
@@ -43,9 +59,10 @@ export function MoneyField({
           maxLength={20}
           required
           autoComplete="off"
+          placeholder={placeholder}
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy || undefined}
-          className="h-14 rounded-lg bg-muted pl-16 text-xl font-bold tabular-nums"
+          className={cn("rounded-lg bg-muted tabular-nums", SIZES[size].input)}
         />
       </div>
       {hint && (

@@ -105,8 +105,8 @@ export async function expectedCash(
   companyId: string,
   cashSessionId: string,
 ) {
-  const session = await tx.cashSession.findUniqueOrThrow({
-    where: { id: cashSessionId },
+  const session = await tx.cashSession.findFirstOrThrow({
+    where: { id: cashSessionId, companyId },
     select: { openingAmount: true },
   });
   const cash = await tx.salePayment.aggregate({

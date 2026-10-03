@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { Loader2, Lock } from "lucide-react";
 
+import { MoneyField } from "@/components/pos/money-field";
 import { FormField } from "@/components/shared/form-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,10 +26,12 @@ export function CloseOthersShiftForm({
   companySlug,
   cashSessionId,
   cashierName,
+  currency,
 }: {
   companySlug: string;
   cashSessionId: string;
   cashierName: string;
+  currency: string;
 }) {
   const [state, formAction, pending] = useActionState(closeShiftFromPanelAction, initialState);
   const { values, fieldErrors } = state;
@@ -59,25 +62,15 @@ export function CloseOthersShiftForm({
         )}
 
         <div className="grid gap-3 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
-          <FormField
-            name="close-counted"
+          <MoneyField
+            name="countedCash"
             label="Efectivo contado"
-            required
+            currency={currency}
+            size="md"
+            defaultValue={values.countedCash}
+            placeholder="150.000"
             error={fieldErrors.countedCash}
-          >
-            <Input
-              id="close-counted"
-              name="countedCash"
-              inputMode="decimal"
-              autoComplete="off"
-              defaultValue={values.countedCash}
-              required
-              placeholder="Ej: 150.000"
-              aria-invalid={fieldErrors.countedCash ? true : undefined}
-              aria-describedby={fieldErrors.countedCash ? "close-counted-error" : undefined}
-              className={fieldClass}
-            />
-          </FormField>
+          />
           <FormField name="close-note" label="Motivo" required error={fieldErrors.closingNote}>
             <Input
               id="close-note"

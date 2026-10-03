@@ -2162,3 +2162,23 @@ escribe a mano; registrarlo en el sistema es la fase 9.
   ajustada. Verificado: typecheck, lint, suite **314/314**, build. Hoja
   renderizada en 80, 58 y Carta con la fuente del build
   (`render-stock.tsx` del scratchpad).
+
+### Componente 8 — Cierre de la fase 7 (aprobado 2026-10-02)
+
+**Fase 7 aprobada** (2026-10-02).
+
+- **Revisión de la fase** (acciones de servidor, páginas, servicios y
+  datos de ventas, caja, métodos de pago, alertas e impresiones): todas
+  las acciones validan sesión y permiso con la empresa enviada; todas las
+  páginas nuevas exigen permiso en el servidor (el layout de `imprimir`
+  solo pone estilos); escrituras y lecturas filtradas por empresa.
+  Correcciones:
+  - `expectedCash` (`data/cash-sessions.ts`) leía el turno solo por id;
+    ahora filtra también por empresa. No era explotable (quienes lo llaman
+    ya validaban el turno con la empresa), pero rompía la regla de la capa
+    de datos.
+  - Pendiente cerrado: "Efectivo contado" del panel ahora usa `MoneyField`
+    (separador de miles mientras se escribe), con el tamaño nuevo `md`.
+- `docs/decisiones/0007-ventas-pos-y-caja.md` y README (estado, POS,
+  menú, impresión, estructura, ADR).
+- Verificado: typecheck, lint, suite **314/314**, build.
