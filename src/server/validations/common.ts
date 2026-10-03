@@ -66,3 +66,14 @@ export function optionalText(max: number, tooLong: string) {
     .max(max, { error: tooLong })
     .transform((value) => value || null);
 }
+
+export const VOID_REASON_MAX = 200;
+
+// Motivo de una anulación (ventas y compras): queda en el documento.
+export const voidReasonSchema = z
+  .string()
+  .trim()
+  .min(3, { error: "Escribe el motivo de la anulación (mínimo 3 caracteres)." })
+  .max(VOID_REASON_MAX, {
+    error: `El motivo no puede superar ${VOID_REASON_MAX} caracteres.`,
+  });

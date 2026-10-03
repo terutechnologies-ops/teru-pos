@@ -56,4 +56,13 @@ export const PURCHASE_LIST_NOTICES = {
 export const PURCHASE_NOTICES = {
   confirmada:
     "Compra confirmada: sus insumos entraron a la bodega y su costo promedio quedó actualizado.",
+  anulada:
+    "Compra anulada: sus insumos salieron de la bodega. El costo promedio no cambió; corrígelo en la ficha del insumo si hace falta.",
 } as const;
+
+export type VoidPurchaseFormState = {
+  status: "idle" | "error";
+  message: string | null;
+  fieldErrors: { reason?: string };
+  reason: string;
+};

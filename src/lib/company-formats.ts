@@ -224,16 +224,20 @@ export function startOfCalendarDay(day: string, timeZone: string) {
 }
 
 // Rango de días de un filtro (desde/hasta de la dirección) en la zona de
-// la empresa: por defecto hoy; inválidos vuelven a hoy; invertidos se
-// ordenan. start/end es el intervalo [start, end) para consultar.
+// la empresa: por defecto los últimos `defaultDays` días hasta hoy (1 =
+// solo hoy); inválidos vuelven al rango por defecto; "desde" solo es ese
+// día; invertidos se ordenan. start/end es el intervalo [start, end) para
+// consultar.
 export function resolveDayRange(
   query: { desde?: string; hasta?: string },
   timeZone: string,
   now = new Date(),
+  defaultDays = 1,
 ) {
   const today = calendarDay(now, timeZone);
-  let from = query.desde && isCalendarDay(query.desde) ? query.desde : today;
-  let to = query.hasta && isCalendarDay(query.hasta) ? query.hasta : from;
+  const hasFrom = Boolean(query.desde && isCalendarDay(query.desde));
+  let from = hasFrom ? query.desde! : addCalendarDays(today, 1 - defaultDays);
+  let to = query.hasta && isCalendarDay(query.hasta) ? query.hasta : hasFrom ? from : today;
   if (to < from) [from, to] = [to, from];
   return {
     from,

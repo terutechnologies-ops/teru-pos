@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { moneySchema } from "@/server/validations/common";
+import { moneySchema, voidReasonSchema } from "@/server/validations/common";
 
 // Venta del POS. El navegador solo envía qué productos y cuántos, y cómo se
 // pagó; precios, recetas y total salen siempre de la base. Los montos llegan
@@ -54,17 +54,7 @@ export function saleSchema(currency: string) {
 
 export type SaleInput = z.input<ReturnType<typeof saleSchema>>;
 
-export const VOID_REASON_MAX = 200;
-
 // Anulación desde el panel: el motivo queda en la venta.
-export const voidSaleSchema = z.object({
-  reason: z
-    .string()
-    .trim()
-    .min(3, { error: "Escribe el motivo de la anulación (mínimo 3 caracteres)." })
-    .max(VOID_REASON_MAX, {
-      error: `El motivo no puede superar ${VOID_REASON_MAX} caracteres.`,
-    }),
-});
+export const voidSaleSchema = z.object({ reason: voidReasonSchema });
 
 export type VoidSaleInput = z.input<typeof voidSaleSchema>;

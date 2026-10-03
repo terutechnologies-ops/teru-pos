@@ -8,6 +8,7 @@ import {
   calendarDay,
   formatDate,
   formatDateTime,
+  resolveDayRange,
 } from "@/lib/company-formats";
 import { convertQuantity, familyUnits, UNIT_INFO } from "@/lib/units";
 import type { StaffSessionDto } from "@/server/dto/auth";
@@ -19,11 +20,16 @@ import {
   createPurchaseDraft,
   deletePurchaseDraft,
   findPurchase,
+  findPurchaseIdByNumber,
   findPurchaseLineSupplyUnit,
   listPurchaseDrafts,
+  listPurchases,
+  listPurchaseSuppliers,
   removePurchaseLine,
+  summarizePurchases,
   updatePurchaseDraft,
   updatePurchaseLine,
+  voidPurchase,
   type LineWriteStatus,
   type PurchaseHeader,
 } from "@/server/data/purchases";
@@ -33,9 +39,11 @@ import {
   purchaseHeaderSchema,
   purchaseItemSchema,
   purchaseLineSchema,
+  voidPurchaseSchema,
   type PurchaseHeaderFormInput,
   type PurchaseItemFormInput,
   type PurchaseLineFormInput,
+  type VoidPurchaseInput,
 } from "@/server/validations/purchases";
 
 // Compras de insumos (ver ADR 0008). Todo con purchases.manage y dentro de
@@ -117,6 +125,109 @@ export async function getPurchaseDrafts(session: StaffSessionDto) {
 
 export type PurchaseDraftRow = Awaited<ReturnType<typeof getPurchaseDrafts>>["drafts"][number];
 
+// --- Confirmadas y anuladas -----------------------------------------------------------
+
+export const PURCHASES_LIST_LIMIT = 200;
+
+// Sin fechas en la dirección, la lista muestra los últimos 30 días: las
+// compras son menos frecuentes que las ventas.
+export const PURCHASES_DEFAULT_DAYS = 30;
+
+const STATUS_FILTERS = { confirmadas: "CONFIRMED", anuladas: "VOIDED" } as const;
+
+type StatusFilter = keyof typeof STATUS_FILTERS;
+
+function isStatusFilter(value: string): value is StatusFilter {
+  return value in STATUS_FILTERS;
+}
+
+export type PurchasesQuery = {
+  desde?: string;
+  hasta?: string;
+  proveedor?: string;
+  bodega?: string;
+  estado?: string;
+};
+
+export async function getPurchasesOverview(session: StaffSessionDto, query: PurchasesQuery) {
+  assertPermission(session, "purchases.manage");
+  const companyId = session.company.id;
+  const formats = await findCompanyFormats(companyId);
+  const now = new Date();
+  const days = resolveDayRange(query, formats.timeZone, now, PURCHASES_DEFAULT_DAYS);
+  const status = query.estado && isStatusFilter(query.estado) ? query.estado : "";
+  // Las fechas de compra son días sin hora (medianoche UTC).
+  const base = {
+    from: new Date(`${days.from}T00:00:00Z`),
+    to: new Date(`${days.to}T00:00:00Z`),
+    supplierId: query.proveedor || undefined,
+    warehouseId: query.bodega || undefined,
+  };
+
+  const [list, summary, suppliers, warehouses] = await Promise.all([
+    listPurchases(
+      companyId,
+      { ...base, status: status ? STATUS_FILTERS[status] : undefined },
+      PURCHASES_LIST_LIMIT,
+    ),
+    summarizePurchases(companyId, base),
+    listPurchaseSuppliers(companyId),
+    listWarehouses(companyId),
+  ]);
+  const branchCount = new Set(warehouses.map((warehouse) => warehouse.branch.id)).size;
+
+  return {
+    ...formats,
+    filters: {
+      from: days.from,
+      to: days.to,
+      supplierId: query.proveedor ?? "",
+      warehouseId: query.bodega ?? "",
+      status,
+    },
+    today: days.today,
+    defaultFrom: resolveDayRange({}, formats.timeZone, now, PURCHASES_DEFAULT_DAYS).from,
+    suppliers,
+    // Solo con varias bodegas tiene sentido filtrar por bodega.
+    warehouses:
+      warehouses.length > 1
+        ? warehouses.map((warehouse) => ({
+            id: warehouse.id,
+            name:
+              branchCount > 1 ? `${warehouse.branch.name} · ${warehouse.name}` : warehouse.name,
+          }))
+        : [],
+    summary: {
+      confirmedCount: summary.confirmed.count,
+      confirmedTotal: summary.confirmed.total.toString(),
+      voidedCount: summary.voided.count,
+      voidedTotal: summary.voided.total.toString(),
+    },
+    purchases: list.purchases.map((purchase) => ({
+      id: purchase.id,
+      number: purchase.number,
+      voided: purchase.status === "VOIDED",
+      purchasedOn: formatDate(purchase.purchasedOn, formats.dateFormat),
+      supplierName: purchase.supplier.name,
+      supplierInvoice: purchase.supplierInvoice,
+      warehouseName: purchase.warehouse.name,
+      lineCount: purchase._count.lines,
+      total: purchase.total.toString(),
+    })),
+    totalCount: list.total,
+  };
+}
+
+export type PurchasesOverview = Awaited<ReturnType<typeof getPurchasesOverview>>;
+
+// "Ir a la compra #N". null = no existe en la empresa.
+export async function findPurchaseByNumber(session: StaffSessionDto, number: string) {
+  assertPermission(session, "purchases.manage");
+  const parsed = Number(number.trim().replace(/^#/, ""));
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 2_147_483_647) return null;
+  return findPurchaseIdByNumber(session.company.id, parsed);
+}
+
 // --- Una compra ---------------------------------------------------------------------
 
 // Costo por unidad del insumo que resulta de la línea (4 decimales, como
@@ -192,6 +303,18 @@ export async function getPurchase(session: StaffSessionDto, purchaseId: string) 
     confirmedAt: purchase.confirmedAt
       ? formatDateTime(purchase.confirmedAt, formats.dateFormat, formats.timeZone)
       : null,
+    voided:
+      purchase.status === "VOIDED" && purchase.voidedAt
+        ? {
+            at: formatDateTime(purchase.voidedAt, formats.dateFormat, formats.timeZone),
+            byName: purchase.voidedBy?.name ?? "—",
+            reason: purchase.voidReason ?? "",
+          }
+        : null,
+    inventory: {
+      entered: inventoryOf(purchase.stockMovements, "PURCHASE"),
+      removed: inventoryOf(purchase.stockMovements, "PURCHASE_VOID"),
+    },
     lines,
     canViewSupplies: hasPermission(session.user.role, "inventory.manage"),
     draft,
@@ -199,6 +322,24 @@ export async function getPurchase(session: StaffSessionDto, purchaseId: string) 
 }
 
 export type PurchaseDetail = NonNullable<Awaited<ReturnType<typeof getPurchase>>>;
+
+type PurchaseMovement = NonNullable<
+  Awaited<ReturnType<typeof findPurchase>>
+>["stockMovements"][number];
+
+// Sin signo: la sección dice si entró o salió. En la unidad del insumo.
+function inventoryOf(movements: PurchaseMovement[], type: "PURCHASE" | "PURCHASE_VOID") {
+  return movements
+    .filter((movement) => movement.type === type)
+    .map((movement) => ({
+      id: movement.id,
+      supplyId: movement.supply.id,
+      supplyName: movement.supply.name,
+      unit: movement.supply.unit,
+      warehouseName: movement.warehouse.name,
+      quantity: movement.quantity.abs().toString(),
+    }));
+}
 
 // --- Encabezado -----------------------------------------------------------------------
 
@@ -408,5 +549,45 @@ export async function confirmPurchaseDraft(
       return { ok: false, error: "La compra ya estaba confirmada." };
     default:
       return { ok: false, error: PURCHASE_GONE };
+  }
+}
+
+// --- Anular ------------------------------------------------------------------------------
+
+export type VoidPurchaseResult =
+  | { ok: true }
+  | { ok: false; fieldErrors: { reason?: string }; error?: string };
+
+// Saca de la bodega lo que la compra entró (puede dejar saldos negativos)
+// y no recalcula el costo promedio (ADR 0008). Sin límite de tiempo: no
+// toca la caja.
+export async function voidConfirmedPurchase(
+  session: StaffSessionDto,
+  purchaseId: string,
+  input: VoidPurchaseInput,
+): Promise<VoidPurchaseResult> {
+  assertPermission(session, "purchases.manage");
+  const parsed = voidPurchaseSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, fieldErrors: firstErrors<"reason">(parsed.error) };
+  }
+  const { status } = await voidPurchase(session.company.id, {
+    purchaseId,
+    userId: session.user.id,
+    reason: parsed.data.reason,
+  });
+  switch (status) {
+    case "OK":
+      return { ok: true };
+    case "ALREADY_VOIDED":
+      return { ok: false, fieldErrors: {}, error: "La compra ya estaba anulada." };
+    case "NOT_CONFIRMED":
+      return {
+        ok: false,
+        fieldErrors: {},
+        error: "Solo se anula una compra confirmada; un borrador se elimina.",
+      };
+    default:
+      return { ok: false, fieldErrors: {}, error: PURCHASE_GONE };
   }
 }

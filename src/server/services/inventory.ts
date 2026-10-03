@@ -26,7 +26,7 @@ import {
   type InventoryWriteStatus,
 } from "@/server/data/inventory";
 import { SUPPLY_EVENTS } from "@/server/services/auth/config";
-import { assertPermission } from "@/server/services/auth/permissions";
+import { assertPermission, hasPermission } from "@/server/services/auth/permissions";
 import {
   stockMovementSchema,
   supplySchema,
@@ -422,7 +422,10 @@ export async function getSupplyDetail(
       createdAt: movement.createdAt,
       warehouseName: movement.warehouse.name,
       userName: movement.user.name,
+      purchase: movement.purchase,
     })),
+    // Para enlazar "Compra #N" con su compra.
+    canViewPurchases: hasPermission(session.user.role, "purchases.manage"),
     ...formats,
   };
 }

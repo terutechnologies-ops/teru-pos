@@ -25,10 +25,12 @@ const isOutflow = (kind: KardexKind) =>
 // filtro por bodega (GET: queda en la dirección y funciona sin JS).
 export function SupplyKardex({
   detail,
+  companySlug,
   basePath,
   warehouseFilter,
 }: {
   detail: SupplyDetail;
+  companySlug: string;
   basePath: string;
   warehouseFilter: string;
 }) {
@@ -101,7 +103,23 @@ export function SupplyKardex({
                     {formatDateTime(movement.createdAt, dateFormat, timeZone)}
                   </td>
                   <td className="py-2.5 pr-3">{movement.warehouseName}</td>
-                  <td className="py-2.5 pr-3 whitespace-nowrap">{KIND_LABELS[movement.kind]}</td>
+                  <td className="py-2.5 pr-3 whitespace-nowrap">
+                    {KIND_LABELS[movement.kind]}
+                    {movement.purchase?.number != null &&
+                      (detail.canViewPurchases ? (
+                        <>
+                          {" "}
+                          <Link
+                            href={`/${companySlug}/compras/${movement.purchase.id}`}
+                            className="font-semibold text-link hover:underline"
+                          >
+                            #{movement.purchase.number}
+                          </Link>
+                        </>
+                      ) : (
+                        ` #${movement.purchase.number}`
+                      ))}
+                  </td>
                   <td
                     className={cn(
                       "py-2.5 pr-3 text-right font-semibold whitespace-nowrap tabular-nums",

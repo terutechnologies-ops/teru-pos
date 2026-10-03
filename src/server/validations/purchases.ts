@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import { isCalendarDay } from "@/lib/company-formats";
 import { STOCK_UNITS } from "@/lib/units";
-import { amountSchema, optionalText } from "@/server/validations/common";
+import { amountSchema, optionalText, voidReasonSchema } from "@/server/validations/common";
 import { quantitySchema } from "@/server/validations/inventory";
 
 // Compras de insumos.
@@ -49,3 +49,8 @@ export type PurchaseItemFormInput = {
   [K in keyof z.input<ReturnType<typeof purchaseItemSchema>>]: string;
 };
 export type PurchaseLineFormInput = Omit<PurchaseItemFormInput, "supplyId">;
+
+// Anulación de una compra confirmada: el motivo queda en la compra.
+export const voidPurchaseSchema = z.object({ reason: voidReasonSchema });
+
+export type VoidPurchaseInput = z.input<typeof voidPurchaseSchema>;

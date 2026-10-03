@@ -2332,3 +2332,45 @@ las líneas de insumos sin carga inicial.
   y el CSS del build en los tres estados.
 - Para el componente 4: lista de confirmadas y anuladas con filtros,
   anulación, y enlace "Compra #N" en el kardex.
+
+### Componente 4 — Lista, detalle y anulación (aprobado 2026-10-03)
+
+Diseño aprobado (2026-10-03) con las recomendaciones: rango por defecto
+de **los últimos 30 días**, anula quien tiene `purchases.manage` (sin
+permiso nuevo), **sin límite de tiempo** para anular. El enlace "Venta #N"
+en el kardex (opcional) **no** se hizo: el usuario no lo confirmó.
+
+- `resolveDayRange(query, timeZone, now, defaultDays = 1)`: sin fechas,
+  los últimos `defaultDays` días hasta hoy (ventas y caja siguen en 1 =
+  hoy, mismo comportamiento). Pruebas en `calendar-days.test.ts`.
+- `voidReasonSchema` y `VOID_REASON_MAX` pasan a `validations/common.ts`
+  (los usan `voidSaleSchema` y el nuevo `voidPurchaseSchema`).
+- **Datos** (`data/purchases.ts`): `listPurchases` (confirmadas y
+  anuladas por `purchasedOn` inclusivo, proveedor, bodega, estado; orden
+  fecha y número desc), `summarizePurchases` (groupBy por estado),
+  `listPurchaseSuppliers` (con compras, aunque estén archivados),
+  `findPurchaseIdByNumber`; `findPurchase` trae anulación (quién, cuándo,
+  motivo) y sus movimientos. `listStockMovements` trae `purchase { id,
+  number }`.
+- **Servicio** (`services/purchases.ts`): `getPurchasesOverview`
+  (`PURCHASES_DEFAULT_DAYS` 30, `PURCHASES_LIST_LIMIT` 200, filtros
+  `desde`/`hasta`/`proveedor`/`bodega`/`estado` = `confirmadas`/`anuladas`;
+  bodegas solo si hay más de una), `findPurchaseByNumber`,
+  `voidConfirmedPurchase` (motivo 3–200; "ya estaba anulada"; un borrador
+  se elimina, no se anula). `getPurchase` suma `voided` e `inventory`
+  (`entered` / `removed`). `getSupplyDetail` suma `purchase` por
+  movimiento y `canViewPurchases`.
+- **UI** `components/purchases/`: `purchases-filters`,
+  `purchases-summary` (Comprado / Anuladas), `purchase-list`,
+  `purchase-inventory` (entró / salió al anular, enlaza la ficha),
+  `void-purchase-form` (`<details>`, advierte que el costo no se
+  recalcula). `/compras`: borradores arriba (si hay), filtros, resumen
+  del rango y lista; "Ir a la compra #N". Detalle: aviso de anulada,
+  sección Inventario y "Anular compra" si está confirmada. Kardex:
+  "Compra #N" / "Anulación de compra #N" con enlace (`SupplyKardex`
+  recibe `companySlug`).
+- Pruebas: `tests/integration/purchases-panel.test.ts` (6: lista,
+  filtros y resumen; número; anular con negativo y sin tocar el costo;
+  borrador y otra empresa; kardex; permisos) y 2 unitarias del rango.
+  Verificado: typecheck, lint, suite **354/354**, build. Revisión visual
+  con sesión: la hace el usuario.

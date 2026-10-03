@@ -4,6 +4,7 @@ import {
   addCalendarDays,
   calendarDay,
   isCalendarDay,
+  resolveDayRange,
   startOfCalendarDay,
 } from "@/lib/company-formats";
 
@@ -41,5 +42,29 @@ describe("días del calendario por zona horaria", () => {
     expect(isCalendarDay("30/09/2026")).toBe(false);
     expect(addCalendarDays("2026-09-30", 1)).toBe("2026-10-01");
     expect(addCalendarDays("2026-12-31", 1)).toBe("2027-01-01");
+  });
+});
+
+describe("resolveDayRange", () => {
+  // 10 de octubre de 2026, 3 p. m. en Bogotá.
+  const now = new Date(Date.UTC(2026, 9, 10, 20));
+  const range = (query: { desde?: string; hasta?: string }, days?: number) => {
+    const { from, to } = resolveDayRange(query, "America/Bogota", now, days);
+    return [from, to];
+  };
+
+  it("por defecto es hoy, o los últimos N días hasta hoy", () => {
+    expect(range({})).toEqual(["2026-10-10", "2026-10-10"]);
+    expect(range({}, 30)).toEqual(["2026-09-11", "2026-10-10"]);
+    expect(range({ desde: "mal" }, 30)).toEqual(["2026-09-11", "2026-10-10"]);
+  });
+
+  it("con solo 'desde' es ese día; invertidos se ordenan", () => {
+    expect(range({ desde: "2026-10-01" }, 30)).toEqual(["2026-10-01", "2026-10-01"]);
+    expect(range({ desde: "2026-10-05", hasta: "2026-10-01" })).toEqual([
+      "2026-10-01",
+      "2026-10-05",
+    ]);
+    expect(range({ hasta: "2026-10-03" }, 30)).toEqual(["2026-09-11", "2026-10-03"]);
   });
 });

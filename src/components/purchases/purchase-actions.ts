@@ -13,6 +13,7 @@ import {
   removePurchaseItem,
   updatePurchaseHeader,
   updatePurchaseItem,
+  voidConfirmedPurchase,
   type ConfirmPurchaseDraftResult,
   type PurchaseResult,
   type SavePurchaseHeaderResult,
@@ -24,6 +25,7 @@ import {
   readLineForm,
   type PurchaseHeaderFormState,
   type PurchaseLineFormState,
+  type VoidPurchaseFormState,
 } from "./purchase-fields";
 
 const UNEXPECTED = "No pudimos completar la acción. Inténtalo de nuevo en un momento.";
@@ -188,4 +190,23 @@ export async function confirmPurchaseAction(
     return { error: result.error };
   }
   redirect(`/${session.company.slug}/compras/${id}?aviso=confirmada`);
+}
+
+// Anulación desde el detalle de la compra. Al terminar vuelve al detalle
+// con el aviso.
+export async function voidPurchaseAction(
+  _prev: VoidPurchaseFormState,
+  formData: FormData,
+): Promise<VoidPurchaseFormState> {
+  const session = await sessionFrom(formData);
+  const id = field(formData, "id");
+  const reason = field(formData, "reason");
+  const result = await run("voidPurchaseAction", () =>
+    voidConfirmedPurchase(session, id, { reason }),
+  );
+  if (!result) return { status: "error", message: UNEXPECTED, fieldErrors: {}, reason };
+  if (!result.ok) {
+    return { status: "error", message: result.error ?? null, fieldErrors: result.fieldErrors, reason };
+  }
+  redirect(`/${session.company.slug}/compras/${encodeURIComponent(id)}?aviso=anulada`);
 }

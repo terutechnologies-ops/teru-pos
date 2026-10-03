@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
-import { Boxes, CircleCheck, FileText, Info, TriangleAlert } from "lucide-react";
+import { Ban, Boxes, CircleCheck, FileText, Info, TriangleAlert, Warehouse } from "lucide-react";
 
 import { AddPurchaseLineForm } from "@/components/purchases/add-purchase-line-form";
 import {
@@ -11,7 +11,9 @@ import {
 } from "@/components/purchases/purchase-draft-actions";
 import { PURCHASE_NOTICES } from "@/components/purchases/purchase-fields";
 import { EditPurchaseHeaderForm } from "@/components/purchases/purchase-header-form";
+import { PurchaseInventory } from "@/components/purchases/purchase-inventory";
 import { PurchaseLines } from "@/components/purchases/purchase-lines";
+import { VoidPurchaseForm } from "@/components/purchases/void-purchase-form";
 import { PageHeader } from "@/components/shared/page-header";
 import { SectionTitle } from "@/components/shared/section-title";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -72,6 +74,16 @@ export default async function PurchasePage({
         <Alert aria-live="polite">
           <CircleCheck className="text-success" />
           <AlertDescription>{notice}</AlertDescription>
+        </Alert>
+      )}
+
+      {purchase.voided && (
+        <Alert variant="destructive">
+          <Ban />
+          <AlertDescription>
+            Anulada por {purchase.voided.byName} el {purchase.voided.at}. Motivo:{" "}
+            {purchase.voided.reason}
+          </AlertDescription>
         </Alert>
       )}
 
@@ -196,6 +208,25 @@ export default async function PurchasePage({
           </span>
         </div>
       </section>
+
+      {!draft && (
+        <section className="flex flex-col gap-5 rounded-xl bg-card p-5 shadow-sm sm:p-6">
+          <SectionTitle
+            icon={<Warehouse className="size-5" aria-hidden />}
+            title="Inventario"
+            description="Lo que la compra movió en la bodega, en la unidad de cada insumo."
+          />
+          <PurchaseInventory purchase={purchase} companySlug={slug} />
+        </section>
+      )}
+
+      {purchase.status === "CONFIRMED" && purchase.number !== null && (
+        <VoidPurchaseForm
+          companySlug={slug}
+          purchaseId={purchase.id}
+          purchaseNumber={purchase.number}
+        />
+      )}
 
       {draft && (
         <div className="flex flex-row-reverse flex-wrap items-start gap-3">

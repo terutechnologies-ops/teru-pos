@@ -451,6 +451,9 @@ export async function findPurchase(companyId: string, purchaseId: string) {
       total: true,
       createdAt: true,
       confirmedAt: true,
+      voidedAt: true,
+      voidReason: true,
+      voidedBy: { select: { name: true } },
       supplier: { select: { id: true, name: true, taxId: true, isArchived: true } },
       warehouse: {
         select: { id: true, name: true, isActive: true, branch: { select: { name: true } } },
@@ -476,6 +479,17 @@ export async function findPurchase(companyId: string, purchaseId: string) {
           },
         },
       },
+      // Lo que entró a la bodega al confirmar y lo que salió al anular.
+      stockMovements: {
+        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+        select: {
+          id: true,
+          type: true,
+          quantity: true,
+          supply: { select: { id: true, name: true, unit: true } },
+          warehouse: { select: { name: true } },
+        },
+      },
     },
   });
 }
@@ -487,4 +501,91 @@ export async function findPurchaseLineSupplyUnit(companyId: string, lineId: stri
     select: { supply: { select: { unit: true } } },
   });
   return line?.supply.unit ?? null;
+}
+
+// --- Compras confirmadas y anuladas -------------------------------------------
+
+export type PurchaseFilters = {
+  // Días de la compra (medianoche UTC), inclusivos.
+  from: Date;
+  to: Date;
+  supplierId?: string;
+  warehouseId?: string;
+  status?: "CONFIRMED" | "VOIDED";
+};
+
+function purchaseWhere(companyId: string, filters: PurchaseFilters) {
+  return {
+    companyId,
+    status: filters.status ?? { in: ["CONFIRMED" as const, "VOIDED" as const] },
+    purchasedOn: { gte: filters.from, lte: filters.to },
+    ...(filters.supplierId && { supplierId: filters.supplierId }),
+    ...(filters.warehouseId && { warehouseId: filters.warehouseId }),
+  } satisfies Prisma.PurchaseWhereInput;
+}
+
+// Las más recientes primero (por número: el orden en que se confirmaron
+// dentro del mismo día).
+export async function listPurchases(companyId: string, filters: PurchaseFilters, take: number) {
+  const where = purchaseWhere(companyId, filters);
+  const [purchases, total] = await Promise.all([
+    db.purchase.findMany({
+      where,
+      orderBy: [{ purchasedOn: "desc" }, { number: "desc" }],
+      take,
+      select: {
+        id: true,
+        number: true,
+        status: true,
+        purchasedOn: true,
+        supplierInvoice: true,
+        total: true,
+        supplier: { select: { name: true } },
+        warehouse: { select: { name: true } },
+        _count: { select: { lines: true } },
+      },
+    }),
+    db.purchase.count({ where }),
+  ]);
+  return { purchases, total };
+}
+
+// Confirmadas y anuladas del rango (sin el filtro de estado): cantidad y
+// total de cada una.
+export async function summarizePurchases(
+  companyId: string,
+  filters: Omit<PurchaseFilters, "status">,
+) {
+  const rows = await db.purchase.groupBy({
+    by: ["status"],
+    where: purchaseWhere(companyId, filters),
+    _count: { _all: true },
+    _sum: { total: true },
+  });
+  const of = (status: "CONFIRMED" | "VOIDED") => {
+    const row = rows.find((candidate) => candidate.status === status);
+    return { count: row?._count._all ?? 0, total: row?._sum.total ?? new Prisma.Decimal(0) };
+  };
+  return { confirmed: of("CONFIRMED"), voided: of("VOIDED") };
+}
+
+// Proveedores con compras confirmadas o anuladas, aunque estén archivados
+// (filtro de la lista).
+export async function listPurchaseSuppliers(companyId: string) {
+  return db.thirdParty.findMany({
+    where: {
+      companyId,
+      purchases: { some: { status: { in: ["CONFIRMED", "VOIDED"] } } },
+    },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, isArchived: true },
+  });
+}
+
+export async function findPurchaseIdByNumber(companyId: string, number: number) {
+  const purchase = await db.purchase.findFirst({
+    where: { companyId, number },
+    select: { id: true },
+  });
+  return purchase?.id ?? null;
 }

@@ -131,7 +131,12 @@ export default async function SupplyDetailPage({
           title="Movimientos"
           description="Historial del insumo: quién hizo cada movimiento, cuándo y el saldo que dejó en la bodega."
         />
-        <SupplyKardex detail={detail} basePath={base} warehouseFilter={warehouseFilter} />
+        <SupplyKardex
+          detail={detail}
+          companySlug={session.company.slug}
+          basePath={base}
+          warehouseFilter={warehouseFilter}
+        />
       </section>
     </div>
   );
