@@ -4,20 +4,24 @@ import { notFound } from "next/navigation";
 import {
   ArrowLeft,
   Ban,
+  ChefHat,
   CircleCheck,
   Lock,
   PackageMinus,
   PackagePlus,
+  Printer,
   Receipt,
   Wallet,
 } from "lucide-react";
 
+import { printSheetHref } from "@/components/printing/print-sheets";
 import { SectionTitle } from "@/components/shared/section-title";
 import { PageHeader } from "@/components/shared/page-header";
 import { SALE_NOTICES } from "@/components/sales/void-sale-fields";
 import { VoidSaleForm } from "@/components/sales/void-sale-form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { formatDateTime, formatMoney } from "@/lib/company-formats";
 import { formatQuantity } from "@/lib/units";
 import { requirePermission } from "@/server/http/staff-session";
@@ -94,16 +98,32 @@ export default async function SaleDetailPage({
         Ventas
       </Link>
 
-      <PageHeader
-        eyebrow="Ventas · Detalle"
-        title={
-          <span className="flex flex-wrap items-center gap-2">
-            Venta #{sale.number}
-            {sale.voided && <Badge variant="destructive">Anulada</Badge>}
-          </span>
-        }
-        description={`${when(sale.createdAt)} · ${sale.branchName} · Cobró ${sale.cashierName}`}
-      />
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <PageHeader
+          eyebrow="Ventas · Detalle"
+          title={
+            <span className="flex flex-wrap items-center gap-2">
+              Venta #{sale.number}
+              {sale.voided && <Badge variant="destructive">Anulada</Badge>}
+            </span>
+          }
+          description={`${when(sale.createdAt)} · ${sale.branchName} · Cobró ${sale.cashierName}`}
+        />
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline" className="gap-2">
+            <Link href={printSheetHref(slug, "soporte", sale.id)}>
+              <Printer aria-hidden />
+              Imprimir soporte
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="gap-2">
+            <Link href={printSheetHref(slug, "comanda", sale.id)}>
+              <ChefHat aria-hidden />
+              Reimprimir comanda
+            </Link>
+          </Button>
+        </div>
+      </div>
 
       {notice && (
         <Alert aria-live="polite">

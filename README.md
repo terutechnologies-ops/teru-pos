@@ -111,6 +111,22 @@ database. Flujo para crear una migración:
 
 Nunca editar una migración ya aplicada: crear una nueva.
 
+## Impresión (comanda y soporte de venta)
+
+Las hojas se imprimen desde el navegador en la impresora térmica instalada
+en la caja (58 u 80 mm): `/[empresa]/imprimir/comanda/[id]` y
+`/[empresa]/imprimir/soporte/[id]`. El POS imprime la comanda al cobrar sin
+salir de la pantalla de venta; el ancho del papel y la comanda automática
+se ajustan en "Impresión" (se guardan en ese navegador).
+
+- **Sin diálogo de impresión:** abrir Chrome con `--kiosk-printing` (por
+  ejemplo, en el acceso directo: `chrome.exe --kiosk-printing
+  https://…/su-arepa/pos`). Imprime en la impresora predeterminada de
+  Windows, que debe ser la térmica, con el rollo de 80 o 58 mm como tamaño
+  de papel en el driver.
+- **Cajón de dinero:** se abre con la opción del driver de la impresora
+  (p. ej. "Abrir cajón al imprimir" / *Cash drawer*).
+
 ## Estructura
 
 ```

@@ -423,6 +423,7 @@ export async function findSaleDetail(companyId: string, saleId: string) {
       voidedAt: true,
       voidReason: true,
       voidedBy: { select: { name: true } },
+      userId: true,
       user: { select: { name: true } },
       branch: { select: { name: true } },
       cashSession: { select: { id: true, openedAt: true, closedAt: true } },

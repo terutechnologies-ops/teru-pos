@@ -144,12 +144,16 @@ export function formatClock(date: Date, timeZone: string) {
   return formattersFor(timeZone).clock.format(date);
 }
 
-// Fecha y hora de un registro en la zona del negocio: "28/09/2026 8:05 p. m.".
-export function formatDateTime(date: Date, format: DateFormat, timeZone: string) {
+// Fecha de un registro en la zona del negocio: "28/09/2026".
+export function formatCalendarDate(date: Date, format: DateFormat, timeZone: string) {
   // en-CA da "AAAA-MM-DD": el día del calendario local, que formatDate
   // (con componentes UTC) escribe en el formato de la empresa.
-  const day = new Date(`${formattersFor(timeZone).day.format(date)}T00:00:00Z`);
-  return `${formatDate(day, format)} ${formatClock(date, timeZone)}`;
+  return formatDate(new Date(`${formattersFor(timeZone).day.format(date)}T00:00:00Z`), format);
+}
+
+// Fecha y hora de un registro en la zona del negocio: "28/09/2026 8:05 p. m.".
+export function formatDateTime(date: Date, format: DateFormat, timeZone: string) {
+  return `${formatCalendarDate(date, format, timeZone)} ${formatClock(date, timeZone)}`;
 }
 
 // Día del calendario en la zona de la empresa, como "AAAA-MM-DD" (el valor

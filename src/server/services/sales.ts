@@ -5,7 +5,11 @@ import { resolveDayRange } from "@/lib/company-formats";
 import { listActiveBranches } from "@/server/data/branches";
 import { findOpenCashSession } from "@/server/data/cash-sessions";
 import { findProduct, listPosCatalog } from "@/server/data/catalog";
-import { findCompanyCurrency, findCompanyFormats } from "@/server/data/companies";
+import {
+  findCompanyCurrency,
+  findCompanyFormats,
+  findCompanySettings,
+} from "@/server/data/companies";
 import { listPaymentMethods } from "@/server/data/payment-methods";
 import {
   createSale,
@@ -18,7 +22,7 @@ import {
   type SaleFilters,
 } from "@/server/data/sales";
 import type { StaffSessionDto } from "@/server/dto/auth";
-import { assertPermission } from "@/server/services/auth/permissions";
+import { assertPermission, hasPermission } from "@/server/services/auth/permissions";
 import { publicFileUrl } from "@/server/services/images";
 import { saleSchema, voidSaleSchema, type VoidSaleInput } from "@/server/validations/sales";
 
@@ -65,7 +69,14 @@ export type PosProduct = PosCatalog["categories"][number]["products"][number];
 
 export type CheckoutResult =
   // alreadyRecorded: el mismo pedido ya se había cobrado (reintento).
-  | { ok: true; number: number; total: string; change: string; alreadyRecorded: boolean }
+  | {
+      ok: true;
+      saleId: string;
+      number: number;
+      total: string;
+      change: string;
+      alreadyRecorded: boolean;
+    }
   // refresh: el catálogo o el turno cambiaron; la pantalla debe recargarse.
   | { ok: false; error: string; refresh: boolean };
 
@@ -97,6 +108,7 @@ export async function checkout(session: StaffSessionDto, input: unknown): Promis
     case "ALREADY_RECORDED":
       return {
         ok: true,
+        saleId: result.saleId,
         number: result.number,
         total: result.total.toString(),
         change: result.change.toString(),
@@ -228,7 +240,11 @@ export async function findSaleByNumber(session: StaffSessionDto, number: string)
 
 export async function getSaleDetail(session: StaffSessionDto, saleId: string) {
   assertPermission(session, "sales.view");
-  const companyId = session.company.id;
+  return loadSaleDetail(session.company.id, saleId);
+}
+
+// Detalle sin revisar permisos: lo comparten el panel y las hojas impresas.
+async function loadSaleDetail(companyId: string, saleId: string) {
   const [sale, formats] = await Promise.all([
     findSaleDetail(companyId, saleId),
     findCompanyFormats(companyId),
@@ -261,6 +277,7 @@ export async function getSaleDetail(session: StaffSessionDto, saleId: string) {
       createdAt: sale.createdAt,
       total: sale.total.toString(),
       change: change.toString(),
+      cashierId: sale.userId,
       cashierName: sale.user.name,
       branchName: sale.branch.name,
       shift: { openedAt: sale.cashSession.openedAt, open: shiftOpen },
@@ -295,6 +312,52 @@ export async function getSaleDetail(session: StaffSessionDto, saleId: string) {
 }
 
 export type SaleDetail = NonNullable<Awaited<ReturnType<typeof getSaleDetail>>>;
+
+// --- Hojas impresas (comanda y soporte) -------------------------------------
+
+// Quien ve las ventas (sales.view) imprime cualquiera; quien solo cobra, las
+// de su turno abierto: reimprimir mientras atiende, no consultar el historial.
+// null = no existe o no le corresponde (la página responde igual en ambos casos).
+export async function getPrintableSale(session: StaffSessionDto, saleId: string) {
+  const viewsAll = hasPermission(session.user.role, "sales.view");
+  if (!viewsAll) assertPermission(session, "sales.charge");
+  const companyId = session.company.id;
+  const [detail, company] = await Promise.all([
+    loadSaleDetail(companyId, saleId),
+    findCompanySettings(companyId),
+  ]);
+  if (!detail || !company) return null;
+  const { sale } = detail;
+  if (!viewsAll && (sale.cashierId !== session.user.id || !sale.shift.open)) return null;
+
+  return {
+    currency: detail.currency,
+    dateFormat: detail.dateFormat,
+    timeZone: detail.timeZone,
+    company: {
+      name: company.name,
+      taxId: company.taxId,
+      address: company.address,
+      phone: company.phone,
+      logoUrl: publicFileUrl(company.logoPath),
+    },
+    sale: {
+      id: sale.id,
+      number: sale.number,
+      createdAt: sale.createdAt,
+      total: sale.total,
+      change: sale.change,
+      cashierName: sale.cashierName,
+      branchName: sale.branchName,
+      voided: sale.voided !== null,
+      lines: sale.lines,
+      payments: sale.payments,
+      itemCount: sale.lines.reduce((sum, line) => sum + line.quantity, 0),
+    },
+  };
+}
+
+export type PrintableSale = NonNullable<Awaited<ReturnType<typeof getPrintableSale>>>;
 
 export type VoidSaleResult =
   | { ok: true }

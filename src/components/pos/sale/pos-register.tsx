@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { CircleCheck, ShoppingBasket } from "lucide-react";
+import { ChefHat, CircleCheck, Printer, ShoppingBasket } from "lucide-react";
 
+import { loadPrintSettings } from "@/components/printing/print-settings";
+import {
+  printInBackground,
+  printSheetHref,
+  type PrintSheet,
+} from "@/components/printing/print-sheets";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -25,7 +31,7 @@ import { checkoutAction } from "./sale-actions";
 type Step =
   | "cart"
   | "pay"
-  | { number: number; total: string; change: string; alreadyRecorded: boolean };
+  | { saleId: string; number: number; total: string; change: string; alreadyRecorded: boolean };
 
 // Pantalla de venta. El pedido vive en el navegador hasta cobrar (por eso
 // necesita JavaScript) y se guarda ahí para sobrevivir a una recarga
@@ -110,6 +116,9 @@ export function PosRegister({
     setStep("cart");
   }
 
+  const print = (sheet: PrintSheet, saleId: string) =>
+    printInBackground(printSheetHref(companySlug, sheet, saleId, { auto: true }));
+
   function confirm() {
     setError(null);
     const payload = {
@@ -126,7 +135,11 @@ export function PosRegister({
         setLines([]);
         setPayments([]);
         setClientKey(newClientKey());
+        // También si ya estaba registrada: la respuesta del primer cobro se
+        // perdió, así que su comanda no salió.
+        if (loadPrintSettings().printTicketOnCheckout) print("comanda", result.saleId);
         setStep({
+          saleId: result.saleId,
           number: result.number,
           total: result.total,
           change: result.change,
@@ -156,6 +169,26 @@ export function PosRegister({
         <Button type="button" className="mt-4 h-14 w-full text-base font-bold" onClick={newSale}>
           Nueva venta
         </Button>
+        <div className="grid w-full grid-cols-2 gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-12 gap-2"
+            onClick={() => print("soporte", step.saleId)}
+          >
+            <Printer aria-hidden />
+            Soporte
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-12 gap-2"
+            onClick={() => print("comanda", step.saleId)}
+          >
+            <ChefHat aria-hidden />
+            Comanda
+          </Button>
+        </div>
       </div>
     ) : step === "pay" ? (
       <PaymentPanel

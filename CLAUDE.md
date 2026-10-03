@@ -2054,3 +2054,48 @@ impresión por el navegador con una impresora en caja.
 
 Implementar el componente a) de impresiones (base, comanda y soporte)
 según el diseño aprobado.
+
+## Sesión 2026-10-02
+
+### Componente a) de impresiones — Base, comanda y soporte (aprobado 2026-10-02)
+
+- **Rutas** `/[empresa]/imprimir/comanda/[id]` y `/soporte/[id]` (layout
+  blanco con `@page { margin: 0 }` y fondo blanco al imprimir).
+  `print-access.ts`: entra quien tiene `sales.view` o `sales.charge`;
+  "Volver" va al detalle de la venta (panel) o al POS. `?auto=1` imprime
+  al cargar y avisa a quien la abrió (`postMessage`).
+- **Servicio** `getPrintableSale` (`services/sales.ts`): con `sales.view`
+  cualquier venta de la empresa; solo `sales.charge`, las de su turno
+  abierto; si no, `null` (404). `getSaleDetail` se separó en
+  `loadSaleDetail` (sin permiso) para reutilizarlo; el detalle trae
+  `cashierId` (`userId` en `findSaleDetail`). `checkout` devuelve `saleId`.
+- **Componentes** `components/printing/`: `PrintFrame` (barra Volver,
+  80/58 mm, Imprimir; espera logo y fuente antes de imprimir),
+  `KitchenTicket`, `SaleReceipt` (en 58 mm fecha/hora en columnas y el
+  valor baja a la fila del detalle; logo en gris con `loading="eager"`),
+  `sheet-parts` (reglas, filas, "ANULADA", `taxIdText`: antepone "NIT"
+  salvo que ya venga el tipo), `print-settings.ts` (localStorage
+  `teru-pos:impresion`: ancho 80 por defecto, comanda al cobrar activada),
+  `print-sheets.ts` (`printSheetHref`, `printInBackground`: iframe de
+  tamaño 0 que se quita al imprimir o a los 2 min), `PaperWidthToggle`.
+  Ancho útil: 72 mm / 48 mm; texto en `em` (11 pt / 8,5 pt).
+- **POS:** comanda automática al cobrar (también con `alreadyRecorded`:
+  la primera respuesta se perdió); en "Venta #N" botones "Soporte" y
+  "Comanda" (reimprimir, agregado por si falla el papel o la comanda
+  automática está apagada); botón "Impresión" (Sheet) en la barra del
+  turno. **Panel:** "Imprimir soporte" y "Reimprimir comanda" en el
+  detalle de la venta. `formatCalendarDate` en `lib/company-formats.ts`.
+- README: sección "Impresión" (Chrome `--kiosk-printing`, cajón por el
+  driver).
+- Pruebas: `printing.test.ts` (5: contenido, cajero propio/otro, otra
+  empresa, STAFF, anulada, turno cerrado), `print-settings.test.ts` (3),
+  `pos-sales.test.ts` ajustado. Verificado: typecheck, lint, suite
+  **305/305**, build. Hojas renderizadas con datos de ejemplo y Chrome
+  headless (script `render-sheets.tsx` del scratchpad): 80 y 58 mm
+  coinciden con la maqueta; al imprimir se ocultan barra y sombra.
+- **Sin probar:** en el navegador con sesión y en una impresora real
+  (comanda automática por iframe, `--kiosk-printing`, cajón).
+- Aprobado por el usuario el 2026-10-02 (revisión en el navegador a su cargo).
+- `npm run dev` fijo en el puerto 3000 (`next dev -p 3000`): si está ocupado
+  falla en vez de saltar a otro. El 3005 lo usa otro proyecto del usuario
+  (`05.TERU-RRHH`).

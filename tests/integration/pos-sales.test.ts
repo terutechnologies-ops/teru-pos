@@ -124,8 +124,10 @@ describe("cobro", () => {
         { paymentMethodId: card, amount: "13000", tendered: null },
       ],
     });
+    const sale = await db.sale.findFirstOrThrow({ where: { companyId: a.id } });
     expect(result).toEqual({
       ok: true,
+      saleId: sale.id,
       number: 1,
       total: "33000",
       change: "30000",

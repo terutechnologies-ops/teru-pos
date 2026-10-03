@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Lock, TriangleAlert } from "lucide-react";
 
 import { OpenShiftForm } from "@/components/pos/open-shift-form";
+import { PrintSettingsButton } from "@/components/pos/print-settings-button";
 import { cartStorageKey } from "@/components/pos/sale/cart-storage";
 import { PosRegister } from "@/components/pos/sale/pos-register";
 import { ShiftSummary } from "@/components/pos/shift-summary";
@@ -85,7 +86,10 @@ export default async function PosPage({ params }: PageProps<"/[empresa]/pos">) {
           desde {formatClock(shift.openedAt, pos.timeZone)} ·{" "}
           {shift.salesCount === 1 ? "1 venta" : `${shift.salesCount} ventas`}
         </p>
-        {closeButton}
+        <div className="flex gap-2">
+          <PrintSettingsButton />
+          {closeButton}
+        </div>
       </div>
       <PosRegister
         companySlug={slug}
