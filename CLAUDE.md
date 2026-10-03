@@ -2135,3 +2135,30 @@ imprime. Sin migración.
   se reducen el resultado del cierre (1,4 em), el TOTAL del soporte
   (1,55 em) y "PEDIDO #N" de la comanda (1,9 em). Probado con montos de
   millones y la fuente del build (`app-fonts.css` del scratchpad).
+
+### Componente c) de impresiones — Existencias y conteo (aprobado 2026-10-02)
+
+Diseño aprobado el 2026-10-02 (hoja 5 de la maqueta). Lo contado se
+escribe a mano; registrarlo en el sistema es la fase 9.
+- Ruta `/[empresa]/imprimir/existencias/[id]` (`inventory.manage`;
+  `?desde=insumos` cambia "Volver"). `stockSheetHref` en `print-sheets.ts`.
+- Servicio `getStockSheet` (`services/inventory.ts`): insumos activos por
+  nombre con el saldo en esa bodega (`null` = sin fila en `stock_levels`,
+  se imprime "—"; negativo con "−") y `belowMinimum` del DTO (mínimo por
+  insumo, total de todas las bodegas: con varias bodegas no es por bodega).
+  Encabezado: empresa, bodega, fecha y hora, "Imprimió". Datos:
+  `findMainWarehouseId` (principal de la sucursal principal);
+  `getSupplyList` devuelve `mainWarehouseId`.
+- **Papel Carta** solo en esta hoja: `PrintFrame` con `allowLetter` (186 mm
+  y `@page { size: letter; margin: 15mm }`); no se guarda como papel del
+  equipo. `PaperWidthToggle` ahora recibe `options`
+  (`PAPER_WIDTH_OPTIONS`).
+- UI: `components/printing/stock-count-sheet.tsx` (columnas Insumo /
+  Sistema / Contado en blanco, "BAJO MÍN.", leyenda, firmas Contó /
+  Revisó; filas que no se parten entre páginas). Botón "Imprimir
+  existencias" en cada bodega activa (Bodegas) y en Insumos (bodega
+  principal).
+- Pruebas: `stock-sheet.test.ts` (4) y `inventory-supplies.test.ts`
+  ajustada. Verificado: typecheck, lint, suite **314/314**, build. Hoja
+  renderizada en 80, 58 y Carta con la fuente del build
+  (`render-stock.tsx` del scratchpad).

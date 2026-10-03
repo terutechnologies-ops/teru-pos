@@ -1,7 +1,10 @@
-import { MapPin, Warehouse } from "lucide-react";
+import Link from "next/link";
+import { MapPin, Printer, Warehouse } from "lucide-react";
 
+import { stockSheetHref } from "@/components/printing/print-sheets";
 import { RenameForm } from "@/components/shared/rename-form";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { WarehouseOverview } from "@/server/services/inventory";
 
@@ -75,6 +78,14 @@ export function WarehouseList({
                 </div>
 
                 <div className="flex shrink-0 flex-wrap items-start justify-end gap-2">
+                  {warehouse.isActive && (
+                    <Button asChild variant="outline" size="sm" className="gap-2">
+                      <Link href={stockSheetHref(companySlug, warehouse.id)}>
+                        <Printer aria-hidden />
+                        Imprimir existencias
+                      </Link>
+                    </Button>
+                  )}
                   {!warehouse.isActive ? (
                     <WarehouseRowButton
                       companySlug={companySlug}

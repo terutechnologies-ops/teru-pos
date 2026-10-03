@@ -10,10 +10,17 @@ import { PaperWidthToggle } from "./paper-width-toggle";
 import { PRINTED_MESSAGE } from "./print-sheets";
 import {
   DEFAULT_PRINT_SETTINGS,
+  PAPER_WIDTH_OPTIONS,
   loadPrintSettings,
   savePrintSettings,
   type PaperWidth,
 } from "./print-settings";
+
+// Carta: para hojas largas en una impresora normal (existencias). No se
+// guarda como papel del equipo, que es el rollo de la caja.
+type SheetPaper = PaperWidth | "carta";
+
+const LETTER_OPTIONS = [...PAPER_WIDTH_OPTIONS, { value: "carta" as const, label: "Carta" }];
 
 // Espera el logo y la fuente: imprimir antes deja la hoja incompleta.
 async function sheetLoaded() {
@@ -35,13 +42,15 @@ async function sheetLoaded() {
 export function PrintFrame({
   backHref,
   auto,
+  allowLetter = false,
   children,
 }: {
   backHref: string;
   auto: boolean;
+  allowLetter?: boolean;
   children: ReactNode;
 }) {
-  const [paper, setPaper] = useState<PaperWidth>(DEFAULT_PRINT_SETTINGS.paperWidth);
+  const [paper, setPaper] = useState<SheetPaper>(DEFAULT_PRINT_SETTINGS.paperWidth);
   const [loaded, setLoaded] = useState(false);
 
   // El ancho es de este equipo: solo se conoce en el navegador.
@@ -65,9 +74,9 @@ export function PrintFrame({
     };
   }, [auto, loaded]);
 
-  function changePaper(width: PaperWidth) {
-    setPaper(width);
-    savePrintSettings({ ...loadPrintSettings(), paperWidth: width });
+  function changePaper(next: SheetPaper) {
+    setPaper(next);
+    if (next !== "carta") savePrintSettings({ ...loadPrintSettings(), paperWidth: next });
   }
 
   return (
@@ -80,7 +89,11 @@ export function PrintFrame({
           </Link>
         </Button>
         <div className="flex items-center gap-2">
-          <PaperWidthToggle value={paper} onChange={changePaper} />
+          <PaperWidthToggle
+            value={paper}
+            options={allowLetter ? LETTER_OPTIONS : PAPER_WIDTH_OPTIONS}
+            onChange={changePaper}
+          />
           <Button type="button" className="gap-2" onClick={() => window.print()}>
             <Printer aria-hidden />
             Imprimir
@@ -88,12 +101,17 @@ export function PrintFrame({
         </div>
       </div>
 
-      {/* Ancho útil del rollo: 72 mm en papel de 80 y 48 mm en el de 58. El
-          texto se mide en em: en 58 mm todo se reduce en proporción. */}
+      {/* Carta con márgenes de página (en el rollo no hay: lo define el
+          ancho del papel). */}
+      {paper === "carta" && <style>{"@page { size: letter; margin: 15mm; }"}</style>}
+
+      {/* Ancho útil del rollo: 72 mm en papel de 80 y 48 mm en el de 58; en
+          carta, la hoja menos los márgenes. El texto se mide en em: en 58 mm
+          todo se reduce en proporción. */}
       <div className="bg-white p-[4mm] shadow-md print:p-0 print:shadow-none">
         <div
           data-paper={paper}
-          className="group/sheet w-[72mm] text-[11pt] leading-snug text-black [print-color-adjust:exact] data-[paper=58]:w-[48mm] data-[paper=58]:text-[8.5pt]"
+          className="group/sheet w-[72mm] text-[11pt] leading-snug text-black [print-color-adjust:exact] data-[paper=58]:w-[48mm] data-[paper=58]:text-[8.5pt] data-[paper=carta]:w-[186mm]"
         >
           {children}
         </div>

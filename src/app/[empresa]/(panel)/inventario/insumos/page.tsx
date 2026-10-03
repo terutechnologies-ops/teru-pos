@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CircleCheck, Plus, Search } from "lucide-react";
+import { CircleCheck, Plus, Printer, Search } from "lucide-react";
 
 import { SUPPLY_ALERT_INFO, SUPPLY_NOTICES } from "@/components/inventory/supply-fields";
 import { SupplyList } from "@/components/inventory/supply-list";
+import { stockSheetHref } from "@/components/printing/print-sheets";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FilterChip } from "@/components/shared/filter-chip";
 import { PageHeader } from "@/components/shared/page-header";
@@ -35,7 +36,7 @@ export default async function SuppliesPage({
   const notice = SUPPLY_NOTICES[param(query.aviso) as keyof typeof SUPPLY_NOTICES];
 
   const session = await requirePermission(empresa, "inventory.manage");
-  const { currency, supplies } = await getSupplyList(session, {
+  const { currency, supplies, mainWarehouseId } = await getSupplyList(session, {
     search,
     archived,
     alert: alert ?? undefined,
@@ -58,7 +59,17 @@ export default async function SuppliesPage({
           title="Insumos"
           description="Lo que compras y guardas para preparar o revender, con su existencia en todas las bodegas."
         />
-        {newButton}
+        <div className="flex flex-wrap gap-2">
+          {mainWarehouseId && !archived && (
+            <Button asChild variant="outline" className="h-11 gap-2">
+              <Link href={stockSheetHref(session.company.slug, mainWarehouseId, "insumos")}>
+                <Printer aria-hidden />
+                Imprimir existencias
+              </Link>
+            </Button>
+          )}
+          {newButton}
+        </div>
       </div>
 
       {notice && (

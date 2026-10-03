@@ -74,6 +74,15 @@ export async function listWarehouses(companyId: string) {
   });
 }
 
+// Bodega principal de la sucursal principal (la de la operación diaria).
+export async function findMainWarehouseId(companyId: string) {
+  const warehouse = await db.warehouse.findFirst({
+    where: { companyId, isMain: true, branch: { isMain: true } },
+    select: { id: true },
+  });
+  return warehouse?.id ?? null;
+}
+
 export async function findWarehouse(companyId: string, warehouseId: string) {
   return db.warehouse.findFirst({
     where: { id: warehouseId, companyId },

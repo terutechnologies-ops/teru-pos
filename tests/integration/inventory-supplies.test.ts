@@ -111,6 +111,7 @@ describe("insumos (servicio)", () => {
     await move(harina, "7.25", "INITIAL");
     expect(await getSupplyList(admin(), { search: "HAR" })).toEqual({
       currency: "COP",
+      mainWarehouseId: warehouseA,
       supplies: [
         expect.objectContaining({
           name: "Harina",

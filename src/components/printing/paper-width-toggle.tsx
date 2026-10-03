@@ -2,28 +2,29 @@
 
 import { Button } from "@/components/ui/button";
 
-import { PAPER_WIDTHS, type PaperWidth } from "./print-settings";
-
-// Ancho del rollo de la impresora térmica: 80 mm (el más común) o 58 mm.
-export function PaperWidthToggle({
+// Papel de la hoja: rollo térmico de 80 mm (el más común) o 58 mm y, en
+// las hojas que lo permiten, carta.
+export function PaperWidthToggle<T extends string>({
   value,
+  options,
   onChange,
 }: {
-  value: PaperWidth;
-  onChange: (value: PaperWidth) => void;
+  value: T;
+  options: readonly { value: T; label: string }[];
+  onChange: (value: T) => void;
 }) {
   return (
-    <div role="group" aria-label="Ancho del papel" className="flex gap-1 rounded-lg bg-muted p-1">
-      {PAPER_WIDTHS.map((width) => (
+    <div role="group" aria-label="Papel" className="flex gap-1 rounded-lg bg-muted p-1">
+      {options.map((option) => (
         <Button
-          key={width}
+          key={option.value}
           type="button"
           size="sm"
-          variant={value === width ? "default" : "ghost"}
-          aria-pressed={value === width}
-          onClick={() => onChange(width)}
+          variant={value === option.value ? "default" : "ghost"}
+          aria-pressed={value === option.value}
+          onClick={() => onChange(option.value)}
         >
-          {width} mm
+          {option.label}
         </Button>
       ))}
     </div>

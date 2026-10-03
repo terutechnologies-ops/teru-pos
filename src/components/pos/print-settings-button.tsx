@@ -6,6 +6,7 @@ import { Printer } from "lucide-react";
 import { PaperWidthToggle } from "@/components/printing/paper-width-toggle";
 import {
   DEFAULT_PRINT_SETTINGS,
+  PAPER_WIDTH_OPTIONS,
   loadPrintSettings,
   savePrintSettings,
   type PrintSettings,
@@ -51,7 +52,11 @@ export function PrintSettingsButton() {
         </SheetHeader>
         <div className="flex flex-col gap-2">
           <p className="text-sm font-semibold">Ancho del papel</p>
-          <PaperWidthToggle value={settings.paperWidth} onChange={(paperWidth) => update({ paperWidth })} />
+          <PaperWidthToggle
+            value={settings.paperWidth}
+            options={PAPER_WIDTH_OPTIONS}
+            onChange={(paperWidth) => update({ paperWidth })}
+          />
         </div>
         <label className="flex items-start gap-3 text-sm">
           <Checkbox

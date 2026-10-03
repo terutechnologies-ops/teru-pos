@@ -13,6 +13,12 @@ export function printSheetHref(
   return `/${companySlug}/imprimir/${sheet}/${id}${auto ? "?auto=1" : ""}`;
 }
 
+// Existencias de una bodega para contarlas (desde Insumos, "Volver" regresa
+// allí; si no, a Bodegas).
+export function stockSheetHref(companySlug: string, warehouseId: string, from?: "insumos") {
+  return `/${companySlug}/imprimir/existencias/${warehouseId}${from ? `?desde=${from}` : ""}`;
+}
+
 // Aviso de la hoja a la pantalla que la abrió en segundo plano.
 export const PRINTED_MESSAGE = "teru-pos:impreso";
 

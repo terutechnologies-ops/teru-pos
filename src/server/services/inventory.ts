@@ -12,7 +12,9 @@ import { findCompanyCurrency, findCompanyFormats } from "@/server/data/companies
 import {
   createSupply,
   createWarehouse,
+  findMainWarehouseId,
   findSupply,
+  findWarehouse,
   listStockMovements,
   listSupplies,
   listWarehouses,
@@ -199,16 +201,22 @@ export async function getSupplyList(
   filters: { search?: string; archived?: boolean; alert?: SupplyAlert },
 ) {
   assertPermission(session, "inventory.manage");
-  const [currency, rows] = await Promise.all([
+  const [currency, rows, mainWarehouseId] = await Promise.all([
     findCompanyCurrency(session.company.id),
     listSupplies(session.company.id, {
       search: filters.search?.trim() || undefined,
       archived: filters.archived,
     }),
+    findMainWarehouseId(session.company.id),
   ]);
   const supplies = rows.map(toSupplyDto);
   const test = !filters.archived && filters.alert ? SUPPLY_ALERT_TEST[filters.alert] : null;
-  return { currency, supplies: test ? supplies.filter(test) : supplies };
+  return {
+    currency,
+    supplies: test ? supplies.filter(test) : supplies,
+    // Para "Imprimir existencias" de la lista.
+    mainWarehouseId,
+  };
 }
 
 export async function getSupplyAlertCounts(
@@ -489,3 +497,40 @@ export async function registerStockMovement(
       return { ok: false, fieldErrors: {}, error: MOVEMENT_ERRORS[result.status] };
   }
 }
+
+// --- Hoja de existencias y conteo ------------------------------------------
+
+// Insumos activos de una bodega para contarlos a mano: saldo del sistema en
+// esa bodega (null = sin carga inicial en ella) y la marca de bajo mínimo,
+// con la misma regla de la lista (el mínimo es por insumo, no por bodega).
+// Lo contado no se registra aquí (conteo físico: fase 9). null = la bodega
+// no es de la empresa.
+export async function getStockSheet(session: StaffSessionDto, warehouseId: string) {
+  assertPermission(session, "inventory.manage");
+  const companyId = session.company.id;
+  const [warehouse, rows, formats] = await Promise.all([
+    findWarehouse(companyId, warehouseId),
+    listSupplies(companyId),
+    findCompanyFormats(companyId),
+  ]);
+  if (!warehouse) return null;
+  return {
+    ...formats,
+    companyName: session.company.name,
+    warehouseName: warehouse.name,
+    printedAt: new Date(),
+    printedBy: session.user.name,
+    supplies: rows.map((row) => {
+      const level = row.stockLevels.find((entry) => entry.warehouseId === warehouse.id);
+      return {
+        id: row.id,
+        name: row.name,
+        unit: row.unit,
+        quantity: level ? level.quantity.toString() : null,
+        belowMinimum: toSupplyDto(row).belowMinimum,
+      };
+    }),
+  };
+}
+
+export type StockSheet = NonNullable<Awaited<ReturnType<typeof getStockSheet>>>;

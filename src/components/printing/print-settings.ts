@@ -5,6 +5,11 @@ export const PAPER_WIDTHS = ["80", "58"] as const;
 
 export type PaperWidth = (typeof PAPER_WIDTHS)[number];
 
+export const PAPER_WIDTH_OPTIONS = PAPER_WIDTHS.map((width) => ({
+  value: width,
+  label: `${width} mm`,
+}));
+
 export type PrintSettings = {
   paperWidth: PaperWidth;
   // Comanda automática al cobrar en el POS.
