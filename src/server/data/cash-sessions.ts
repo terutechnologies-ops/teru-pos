@@ -249,6 +249,16 @@ export async function listClosedCashSessions(
   return { sessions, total, shortages, surpluses };
 }
 
+// Último turno que cerró esa persona (el cajero solo reimprime ese).
+export async function findLastClosedCashSessionId(companyId: string, userId: string) {
+  const session = await db.cashSession.findFirst({
+    where: { companyId, userId, closedAt: { not: null } },
+    orderBy: { closedAt: "desc" },
+    select: { id: true },
+  });
+  return session?.id ?? null;
+}
+
 // Quienes han tenido turnos (incluye personas ya desactivadas).
 export async function listCashSessionUsers(companyId: string) {
   return db.user.findMany({

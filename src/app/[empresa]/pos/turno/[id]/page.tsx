@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CircleCheck, LockOpen } from "lucide-react";
+import { CircleCheck, LockOpen, Printer } from "lucide-react";
 
 import { Item, ShiftSummary } from "@/components/pos/shift-summary";
+import { PrintSheetButton } from "@/components/printing/print-sheet-button";
+import { printSheetHref } from "@/components/printing/print-sheets";
 import { Button } from "@/components/ui/button";
 import { formatDateTime, formatMoney } from "@/lib/company-formats";
 import { cn } from "@/lib/utils";
@@ -64,12 +66,25 @@ export default async function ClosedShiftPage({ params }: PageProps<"/[empresa]/
           </p>
         )}
 
-        <Button asChild size="lg" className="h-14 gap-2 text-base font-bold">
-          <Link href={`/${slug}/pos`}>
-            <LockOpen aria-hidden />
-            Abrir un turno nuevo
-          </Link>
-        </Button>
+        <div className="flex flex-col gap-3">
+          {result.printable && (
+            <PrintSheetButton
+              href={printSheetHref(slug, "cierre", shift.id, { auto: true })}
+              variant="outline"
+              size="lg"
+              className="h-14 gap-2 text-base font-bold"
+            >
+              <Printer aria-hidden />
+              Imprimir cierre
+            </PrintSheetButton>
+          )}
+          <Button asChild size="lg" className="h-14 gap-2 text-base font-bold">
+            <Link href={`/${slug}/pos`}>
+              <LockOpen aria-hidden />
+              Abrir un turno nuevo
+            </Link>
+          </Button>
+        </div>
       </section>
     </div>
   );

@@ -10,7 +10,13 @@ import { createDefaultPaymentMethods } from "@/server/data/payment-methods";
 import { addRecipeItem } from "@/server/data/recipes";
 import type { StaffSessionDto } from "@/server/dto/auth";
 import { ForbiddenError } from "@/server/services/auth/permissions";
-import { closeShift, openShift } from "@/server/services/cash-sessions";
+import {
+  closeShift,
+  closeShiftFromPanel,
+  getClosedShift,
+  getPrintableShift,
+  openShift,
+} from "@/server/services/cash-sessions";
 import { checkout, getPrintableSale, voidSaleFromPanel } from "@/server/services/sales";
 
 import {
@@ -31,6 +37,8 @@ let admin: StaffSessionDto;
 let staff: StaffSessionDto;
 let otherAdmin: StaffSessionDto;
 let saleId: string;
+let queso: string;
+let cash: string;
 
 function sessionFor(company: Company, userId: string, role: StaffRole): StaffSessionDto {
   return {
@@ -61,7 +69,7 @@ beforeAll(async () => {
   const { warehouseId } = await createMainBranch(a.id);
   await db.$transaction((tx) => createDefaultPaymentMethods(tx, a.id));
   const methods = await db.paymentMethod.findMany({ where: { companyId: a.id } });
-  const cash = methods.find((m) => m.isCash)!.id;
+  cash = methods.find((m) => m.isCash)!.id;
   const card = methods.find((m) => m.name === "Tarjeta")!.id;
 
   ana = await member(a, "CASHIER", "Ana");
@@ -88,7 +96,7 @@ beforeAll(async () => {
     await addRecipeItem(a.id, id, harina, { quantity: "120", unit: "G" });
     return id;
   };
-  const queso = await product("Arepa de queso", "16500");
+  queso = await product("Arepa de queso", "16500");
   const mixta = await product("Arepa mixta", "20000");
 
   await openShift(ana, { branchId: "", openingAmount: "0" });
@@ -164,5 +172,84 @@ describe("hoja imprimible de una venta", () => {
     expect((await closeShift(ana, { countedCash: "0", closingNote: "" })).ok).toBe(true);
     expect(await getPrintableSale(ana, saleId)).toBeNull();
     expect((await getPrintableSale(admin, saleId))?.sale.id).toBe(saleId);
+  });
+});
+
+describe("cierre de turno impreso", () => {
+  const shiftOf = async (session: StaffSessionDto) =>
+    (await db.cashSession.findFirstOrThrow({
+      where: { userId: session.user.id },
+      orderBy: { openedAt: "desc" },
+    })).id;
+
+  it("un turno abierto no se imprime, ni siquiera desde el panel", async () => {
+    expect(await getPrintableShift(admin, await shiftOf(beto))).toBeNull();
+  });
+
+  it("trae ventas, cuadre y quién cerró", async () => {
+    const sold = await checkout(beto, {
+      clientKey: randomUUID(),
+      lines: [{ productId: queso, quantity: 1 }],
+      payments: [{ paymentMethodId: cash, amount: "16500", tendered: "20000" }],
+    });
+    expect(sold.ok).toBe(true);
+    const id = await shiftOf(beto);
+    expect(
+      (await closeShiftFromPanel(admin, id, { countedCash: "15000", closingNote: "Lo olvidó" })).ok,
+    ).toBe(true);
+
+    const printable = await getPrintableShift(admin, id);
+    expect(printable?.companyName).toBe("Su Arepa");
+    expect(printable?.shift).toMatchObject({
+      cashierName: "Beto",
+      branchName: "Sede principal",
+      closedByName: "Carla",
+      salesCount: 1,
+      voidedCount: 0,
+      voidedTotal: "0",
+      byMethod: [{ name: "Efectivo", amount: "16500" }],
+      soldTotal: "16500",
+      openingAmount: "0",
+      cashSales: "16500",
+      expectedCash: "16500",
+      countedCash: "15000",
+      difference: "-1500",
+      note: "Lo olvidó",
+    });
+  });
+
+  it("cuenta las anuladas aparte y, si cerró su cajero, sale su nombre", async () => {
+    const printable = await getPrintableShift(admin, await shiftOf(ana));
+    expect(printable?.shift).toMatchObject({
+      closedByName: "Ana",
+      salesCount: 0,
+      voidedCount: 1,
+      voidedTotal: "53000",
+      byMethod: [],
+      soldTotal: "0",
+      difference: "0",
+    });
+  });
+
+  it("el cajero imprime solo su último turno cerrado", async () => {
+    const first = await shiftOf(ana);
+    expect((await getPrintableShift(ana, first))?.shift.cashierName).toBe("Ana");
+    expect((await getClosedShift(ana, first))?.printable).toBe(true);
+    expect(await getPrintableShift(ana, await shiftOf(beto))).toBeNull();
+
+    await openShift(ana, { branchId: "", openingAmount: "0" });
+    expect((await closeShift(ana, { countedCash: "0", closingNote: "" })).ok).toBe(true);
+    const second = await shiftOf(ana);
+    expect(await getPrintableShift(ana, first)).toBeNull();
+    expect((await getClosedShift(ana, first))?.printable).toBe(false);
+    expect((await getPrintableShift(ana, second))?.shift.cashierName).toBe("Ana");
+    // El administrador sigue imprimiendo los anteriores.
+    expect(await getPrintableShift(admin, first)).not.toBeNull();
+  });
+
+  it("no cruza empresas ni deja imprimir a quien no cobra", async () => {
+    const id = await shiftOf(ana);
+    expect(await getPrintableShift(otherAdmin, id)).toBeNull();
+    await expect(getPrintableShift(staff, id)).rejects.toBeInstanceOf(ForbiddenError);
   });
 });

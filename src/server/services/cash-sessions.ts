@@ -2,6 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
+import { Prisma } from "@/generated/prisma/client";
 import {
   calendarDay,
   isSameCalendarDay,
@@ -14,13 +15,14 @@ import {
   countOpenCashSessionsBefore,
   findCashSession,
   findCashSessionReview,
+  findLastClosedCashSessionId,
   findOpenCashSession,
   listCashSessionUsers,
   listClosedCashSessions,
   listOpenCashSessions,
   openCashSession,
 } from "@/server/data/cash-sessions";
-import { findCompanyFormats } from "@/server/data/companies";
+import { findCompanyFormats, findCompanySettings } from "@/server/data/companies";
 import { listPaymentMethods } from "@/server/data/payment-methods";
 import type { StaffSessionDto } from "@/server/dto/auth";
 import { assertPermission, hasPermission } from "@/server/services/auth/permissions";
@@ -163,14 +165,18 @@ export async function closeShift(
 export async function getClosedShift(session: StaffSessionDto, cashSessionId: string) {
   assertPermission(session, "sales.charge");
   const companyId = session.company.id;
-  const [formats, row] = await Promise.all([
+  const [formats, row, lastClosedId] = await Promise.all([
     findCompanyFormats(companyId),
     findCashSession(companyId, cashSessionId),
+    findLastClosedCashSessionId(companyId, session.user.id),
   ]);
   if (!row || row.userId !== session.user.id || !row.closedAt) return null;
   if (!row.expectedCash || !row.countedCash) return null;
   return {
     ...formats,
+    // El cajero imprime el cierre de su último turno; los anteriores, el
+    // administrador desde el panel.
+    printable: lastClosedId === row.id,
     shift: {
       ...toShift(row),
       closedAt: row.closedAt,
@@ -207,6 +213,7 @@ function toReviewShift(row: ReviewRow) {
       : null;
   return {
     id: row.id,
+    cashierId: row.userId,
     cashierName: row.user.name,
     branchName: row.branch.name,
     openingAmount: row.openingAmount.toString(),
@@ -280,7 +287,17 @@ export type CashOverview = Awaited<ReturnType<typeof getCashOverview>>;
 
 export async function getCashSessionReview(session: StaffSessionDto, cashSessionId: string) {
   assertPermission(session, "cash.review");
-  const companyId = session.company.id;
+  const review = await loadCashSessionReview(session.company.id, cashSessionId);
+  return (
+    review && {
+      ...review,
+      canClose: review.shift.closed === null && hasPermission(session.user.role, "cash.close"),
+    }
+  );
+}
+
+// Detalle sin revisar permisos: lo comparten el panel y el cierre impreso.
+async function loadCashSessionReview(companyId: string, cashSessionId: string) {
   const [row, formats, methods] = await Promise.all([
     findCashSessionReview(companyId, cashSessionId),
     findCompanyFormats(companyId),
@@ -309,11 +326,62 @@ export async function getCashSessionReview(session: StaffSessionDto, cashSession
         voided: sale.status === "VOIDED",
       })),
     },
-    canClose: row.closedAt === null && hasPermission(session.user.role, "cash.close"),
   };
 }
 
 export type CashSessionReview = NonNullable<Awaited<ReturnType<typeof getCashSessionReview>>>;
+
+// --- Cierre de turno impreso -------------------------------------------------
+
+// Quien revisa cierres (cash.review) imprime cualquier turno cerrado; el
+// cajero, solo su último turno cerrado. Un turno abierto no tiene cuadre.
+// null = no existe o no le corresponde.
+export async function getPrintableShift(session: StaffSessionDto, cashSessionId: string) {
+  const reviewsAll = hasPermission(session.user.role, "cash.review");
+  if (!reviewsAll) assertPermission(session, "sales.charge");
+  const companyId = session.company.id;
+  const [review, company, lastClosedId] = await Promise.all([
+    loadCashSessionReview(companyId, cashSessionId),
+    findCompanySettings(companyId),
+    reviewsAll ? null : findLastClosedCashSessionId(companyId, session.user.id),
+  ]);
+  if (!review || !company) return null;
+  const { shift } = review;
+  if (!shift.closed) return null;
+  if (!reviewsAll && (shift.cashierId !== session.user.id || lastClosedId !== shift.id)) {
+    return null;
+  }
+
+  const sum = (values: string[]) =>
+    values.reduce((total, value) => total.plus(value), new Prisma.Decimal(0)).toString();
+  const voided = shift.sales.filter((sale) => sale.voided);
+  return {
+    currency: review.currency,
+    dateFormat: review.dateFormat,
+    timeZone: review.timeZone,
+    companyName: company.name,
+    shift: {
+      cashierName: shift.cashierName,
+      branchName: shift.branchName,
+      openedAt: shift.openedAt,
+      closedAt: shift.closed.at,
+      closedByName: shift.closed.byOtherName ?? shift.cashierName,
+      salesCount: shift.salesCount,
+      voidedCount: voided.length,
+      voidedTotal: sum(voided.map((sale) => sale.total)),
+      byMethod: shift.byMethod,
+      soldTotal: sum(shift.byMethod.map((method) => method.amount)),
+      openingAmount: shift.openingAmount,
+      cashSales: shift.cashSales,
+      expectedCash: shift.closed.expectedCash,
+      countedCash: shift.closed.countedCash,
+      difference: shift.closed.difference,
+      note: shift.closed.note,
+    },
+  };
+}
+
+export type PrintableShift = NonNullable<Awaited<ReturnType<typeof getPrintableShift>>>;
 
 // Cierra el turno que otra persona dejó abierto: quien cierra cuenta el
 // efectivo y deja el motivo. Sus ventas ya no se pueden anular.

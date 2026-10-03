@@ -15,7 +15,10 @@ export default async function KitchenTicketPage({
 }: PageProps<"/[empresa]/imprimir/comanda/[id]">) {
   const { empresa, id } = await params;
   const { auto } = await searchParams;
-  const { session, backHref } = await requirePrintAccess(empresa, id);
+  const { session, backHref } = await requirePrintAccess(empresa, "sales.view", {
+    panel: `ventas/${id}`,
+    pos: "pos",
+  });
   const printable = await getPrintableSale(session, id);
   if (!printable) notFound();
 

@@ -93,7 +93,7 @@ export function SaleReceipt({ printable }: { printable: PrintableSale }) {
       <SheetRow
         label="TOTAL"
         value={money(sale.total)}
-        className="text-[2em] leading-tight font-extrabold"
+        className="text-[2em] leading-tight font-extrabold group-data-[paper=58]/sheet:text-[1.55em]"
       />
 
       <DashedRule />

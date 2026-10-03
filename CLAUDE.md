@@ -2099,3 +2099,39 @@ según el diseño aprobado.
 - `npm run dev` fijo en el puerto 3000 (`next dev -p 3000`): si está ocupado
   falla en vez de saltar a otro. El 3005 lo usa otro proyecto del usuario
   (`05.TERU-RRHH`).
+
+### Componente b) de impresiones — Cierre de turno impreso (aprobado 2026-10-02)
+
+Diseño aprobado el 2026-10-02: hoja 4 de la maqueta; el cajero imprime
+**solo su último turno cerrado** (desde el resultado del turno); los
+anteriores, el administrador desde el panel. Un turno abierto no se
+imprime. Sin migración.
+- Ruta `/[empresa]/imprimir/cierre/[id]`. `requirePrintAccess(slug,
+  permisoDeRevisión, { panel, pos })` ahora es genérico (ventas:
+  `sales.view`; cierre: `cash.review`, Volver a `caja/[id]` o
+  `pos/turno/[id]`). `printSheetHref` acepta `"cierre"` (parámetro `id`).
+- Servicio `getPrintableShift` (`services/cash-sessions.ts`):
+  `getCashSessionReview` se separó en `loadCashSessionReview` (sin
+  permiso); la revisión trae `cashierId`. Calcula anuladas (cantidad y
+  total), total vendido (suma de métodos) y "Cerró" (quien cerró o el
+  cajero). `getClosedShift` devuelve `printable` (es su último turno).
+  Datos: `findLastClosedCashSessionId`.
+- UI: `components/printing/shift-closing-sheet.tsx` (FALTANTE / SOBRANTE /
+  CUADRADA, nota, firmas Entrega / Recibe) y `print-sheet-button.tsx`
+  (imprime en segundo plano). POS: "Imprimir cierre" en `/pos/turno/[id]`
+  si es su último turno. Panel: "Imprimir cierre" en el detalle del turno
+  cerrado.
+- Pruebas: 5 más en `printing.test.ts` (abierto no, contenido con cierre
+  desde el panel y faltante, anuladas aparte, solo el último para el
+  cajero, otra empresa y STAFF). Verificado: typecheck, lint, suite
+  **310/310**, build. Hoja renderizada con Chrome headless
+  (`render-closing.tsx` del scratchpad): 80 y 58 mm como la maqueta.
+- `next dev` en segundo plano se detiene a los 30 min, pero en Windows el
+  proceso sigue vivo en el 3000; se cerró con `taskkill /PID <pid> /T /F`.
+- Corrección reportada por el usuario (captura en 58 mm): "SOBRANTE
+  $12.000" se salía del papel con la fuente real (más ancha que la del
+  render de prueba). `SheetRow` ahora usa `flex-wrap` y el valor
+  `ml-auto`: si no cabe, baja a la línea siguiente a la derecha. En 58 mm
+  se reducen el resultado del cierre (1,4 em), el TOTAL del soporte
+  (1,55 em) y "PEDIDO #N" de la comanda (1,9 em). Probado con montos de
+  millones y la fuente del build (`app-fonts.css` del scratchpad).

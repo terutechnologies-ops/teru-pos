@@ -12,7 +12,7 @@ export function KitchenTicket({ printable }: { printable: PrintableSale }) {
       <p className="bg-black py-[0.4em] text-center text-[1.15em] font-extrabold tracking-[0.12em] text-white">
         COMANDA · COCINA
       </p>
-      <h1 className="mt-[0.3em] text-center text-[2.6em] leading-tight font-extrabold">
+      <h1 className="mt-[0.3em] text-center text-[2.6em] leading-tight font-extrabold group-data-[paper=58]/sheet:text-[1.9em]">
         PEDIDO #{sale.number}
       </h1>
       {sale.voided && <VoidedMark />}

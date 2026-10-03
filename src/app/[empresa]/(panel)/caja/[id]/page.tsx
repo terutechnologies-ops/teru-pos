@@ -1,15 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Calculator, CircleCheck, Receipt, TriangleAlert, Wallet } from "lucide-react";
+import {
+  ArrowLeft,
+  Calculator,
+  CircleCheck,
+  Printer,
+  Receipt,
+  TriangleAlert,
+  Wallet,
+} from "lucide-react";
 
 import { CashDifference } from "@/components/cash/cash-difference";
 import { CASH_NOTICES } from "@/components/cash/close-others-shift-fields";
 import { CloseOthersShiftForm } from "@/components/cash/close-others-shift-form";
+import { printSheetHref } from "@/components/printing/print-sheets";
 import { PageHeader } from "@/components/shared/page-header";
 import { SectionTitle } from "@/components/shared/section-title";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { formatClock, formatDateTime, formatMoney } from "@/lib/company-formats";
 import { cn } from "@/lib/utils";
 import { requirePermission } from "@/server/http/staff-session";
@@ -54,22 +64,32 @@ export default async function CashSessionPage({
         Cierres de caja
       </Link>
 
-      <PageHeader
-        eyebrow="Cierres de caja · Turno"
-        title={
-          <span className="flex flex-wrap items-center gap-2">
-            Turno de {shift.cashierName}
-            {shift.closed ? (
-              <Badge variant="outline">Cerrado</Badge>
-            ) : (
-              <Badge variant="secondary">Abierto</Badge>
-            )}
-          </span>
-        }
-        description={`${shift.branchName} · Abierto el ${when(shift.openedAt)}${
-          shift.closed ? ` · Cerrado el ${when(shift.closed.at)}` : ""
-        }`}
-      />
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <PageHeader
+          eyebrow="Cierres de caja · Turno"
+          title={
+            <span className="flex flex-wrap items-center gap-2">
+              Turno de {shift.cashierName}
+              {shift.closed ? (
+                <Badge variant="outline">Cerrado</Badge>
+              ) : (
+                <Badge variant="secondary">Abierto</Badge>
+              )}
+            </span>
+          }
+          description={`${shift.branchName} · Abierto el ${when(shift.openedAt)}${
+            shift.closed ? ` · Cerrado el ${when(shift.closed.at)}` : ""
+          }`}
+        />
+        {shift.closed && (
+          <Button asChild variant="outline" className="gap-2">
+            <Link href={printSheetHref(slug, "cierre", shift.id)}>
+              <Printer aria-hidden />
+              Imprimir cierre
+            </Link>
+          </Button>
+        )}
+      </div>
 
       {notice && (
         <Alert aria-live="polite">

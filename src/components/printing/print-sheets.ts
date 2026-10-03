@@ -1,15 +1,16 @@
-// Hojas que se imprimen desde una venta y cómo llegar a ellas.
+// Hojas impresas y cómo llegar a ellas: comanda y soporte (de una venta) y
+// cierre (de un turno de caja).
 
-export type PrintSheet = "comanda" | "soporte";
+export type PrintSheet = "comanda" | "soporte" | "cierre";
 
 // auto: la hoja se imprime sola al cargar (la usa printInBackground).
 export function printSheetHref(
   companySlug: string,
   sheet: PrintSheet,
-  saleId: string,
+  id: string,
   { auto = false } = {},
 ) {
-  return `/${companySlug}/imprimir/${sheet}/${saleId}${auto ? "?auto=1" : ""}`;
+  return `/${companySlug}/imprimir/${sheet}/${id}${auto ? "?auto=1" : ""}`;
 }
 
 // Aviso de la hoja a la pantalla que la abrió en segundo plano.
