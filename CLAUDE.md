@@ -2239,3 +2239,39 @@ WhatsApp.
 - `prisma generate` dio EPERM al reemplazar el motor (el `next dev` del
   usuario lo tenía cargado); el cliente TS sí se generó y el motor es el
   mismo (misma versión), así que no afecta. Se borraron los `.tmp`.
+
+### Componente 2 — Proveedores (aprobado 2026-10-03)
+
+Diseño aprobado (2026-10-02): grupo de menú "Compras" (entre Ventas y
+Catálogo) con "Proveedores" (`/compras/proveedores`, `purchases.manage`);
+lista con búsqueda por nombre o NIT y pestañas Activos/Archivados; crear
+(`/nuevo`) y editar (`/[id]`) con nombre (2–80), NIT, teléfono y correo
+opcionales; errores de nombre o NIT repetido en su campo; vuelve a la lista
+con aviso; archivar siempre (no se elige en compras nuevas); sin
+auditoría; sin JS.
+
+- `validations/third-parties.ts` (`supplierSchema`: vacíos → null, correo
+  en minúsculas) y `data/third-parties.ts` (`listSuppliers`,
+  `findSupplier`, `createSupplier` / `updateSupplier` con `NAME_TAKEN` /
+  `TAX_ID_TAKEN` según el índice del P2002 — **verificado con prueba**: el
+  `meta` nombra `third_parties_companyId_taxId_key` —,
+  `setSupplierArchived`). Solo filas con `isSupplier`.
+- Servicio `services/third-parties.ts` (todo con `purchases.manage`):
+  `getSupplierList`, `getSupplier`, `createThirdPartySupplier`,
+  `updateThirdPartySupplier`, `setThirdPartySupplierArchived`. Mensajes
+  "Ya existe un proveedor con ese nombre / NIT." (dicen "proveedor"
+  aunque el índice es de terceros: revisarlos cuando lleguen los
+  clientes).
+- Menú: `NavGroup` `purchases` ("Compras") con `purchases-suppliers`
+  (ícono `Truck`); tarjeta en Inicio por la navegación.
+- UI `components/purchases/` (patrón de insumos): `supplier-fields`,
+  `supplier-actions`, `supplier-form`, `supplier-list` (NIT, teléfono y
+  correo en una línea; el nombre y "Editar" van a `/[id]`),
+  `supplier-row-button`. Páginas `compras/proveedores`, `/nuevo`, `/[id]`
+  (404 si no es de la empresa o no es proveedor).
+- Pruebas: `tests/integration/third-parties.test.ts` (7: validación y
+  null, nombre/NIT repetidos al crear y editar, nombre único frente a un
+  tercero solo cliente que no se lista, búsqueda y archivados, editar,
+  otra empresa, STAFF y CASHIER rechazados) y 2 de menú. Verificado:
+  typecheck, lint, suite **337/337**, build; sin sesión la ruta redirige
+  al login. Revisión visual con sesión: la hace el usuario.

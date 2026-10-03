@@ -80,6 +80,20 @@ describe("navigationFor", () => {
     expect(ids("CASHIER")).not.toContain("sales-list");
   });
 
+  it("propietario y administrador ven Proveedores; personal y cajeros no", () => {
+    const ids = (role: StaffRole) => navigationFor(role).map((item) => item.id);
+    expect(ids("OWNER")).toContain("purchases-suppliers");
+    expect(ids("ADMIN")).toContain("purchases-suppliers");
+    expect(ids("STAFF")).not.toContain("purchases-suppliers");
+    expect(ids("CASHIER")).not.toContain("purchases-suppliers");
+  });
+
+  it("el grupo Compras va entre Ventas y Catálogo", () => {
+    const groups = [...new Set(NAV_ITEMS.map((item) => item.group))];
+    expect(groups.indexOf("purchases")).toBe(groups.indexOf("sales") + 1);
+    expect(groups.indexOf("catalog")).toBe(groups.indexOf("purchases") + 1);
+  });
+
   it("el cajero solo ve Vender y entra directo al POS", () => {
     expect(navigationFor("CASHIER").map((item) => item.id)).toEqual(["home", "pos"]);
     expect(startsInPos("CASHIER")).toBe(true);

@@ -6,6 +6,7 @@ import {
   Receipt,
   ShoppingCart,
   Store,
+  Truck,
   Users,
   Vault,
   Wallet,
@@ -24,7 +25,13 @@ import {
 // en el orden de su primera sección. Ocultar un enlace no
 // autoriza nada: cada página vuelve a verificar su permiso.
 
-export type NavGroup = "general" | "sales" | "catalog" | "inventory" | "settings";
+export type NavGroup =
+  | "general"
+  | "sales"
+  | "purchases"
+  | "catalog"
+  | "inventory"
+  | "settings";
 
 export type NavItem = {
   id: string;
@@ -41,6 +48,7 @@ export type NavItem = {
 export const NAV_GROUP_LABELS: Record<NavGroup, string> = {
   general: "General",
   sales: "Ventas",
+  purchases: "Compras",
   catalog: "Catálogo",
   inventory: "Inventario",
   settings: "Configuración",
@@ -83,6 +91,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: Vault,
     group: "sales",
     permission: "cash.review",
+  },
+  {
+    id: "purchases-suppliers",
+    label: "Proveedores",
+    description: "A quién le compras, con su NIT y contacto.",
+    path: "compras/proveedores",
+    icon: Truck,
+    group: "purchases",
+    permission: "purchases.manage",
   },
   {
     id: "catalog-products",
