@@ -418,3 +418,73 @@ export async function voidPurchase(
     return { status: "OK" };
   }, PURCHASE_TX_OPTIONS);
 }
+
+// --- Lectura ------------------------------------------------------------------
+
+export async function listPurchaseDrafts(companyId: string) {
+  return db.purchase.findMany({
+    where: { companyId, status: "DRAFT" },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      purchasedOn: true,
+      supplierInvoice: true,
+      total: true,
+      createdAt: true,
+      supplier: { select: { name: true } },
+      warehouse: { select: { name: true } },
+      createdBy: { select: { name: true } },
+      _count: { select: { lines: true } },
+    },
+  });
+}
+
+export async function findPurchase(companyId: string, purchaseId: string) {
+  return db.purchase.findFirst({
+    where: { id: purchaseId, companyId },
+    select: {
+      id: true,
+      number: true,
+      status: true,
+      supplierInvoice: true,
+      purchasedOn: true,
+      total: true,
+      createdAt: true,
+      confirmedAt: true,
+      supplier: { select: { id: true, name: true, taxId: true, isArchived: true } },
+      warehouse: {
+        select: { id: true, name: true, isActive: true, branch: { select: { name: true } } },
+      },
+      createdBy: { select: { name: true } },
+      confirmedBy: { select: { name: true } },
+      lines: {
+        orderBy: { position: "asc" },
+        select: {
+          id: true,
+          quantity: true,
+          unit: true,
+          lineTotal: true,
+          supply: {
+            select: {
+              id: true,
+              name: true,
+              unit: true,
+              isArchived: true,
+              // Sin movimientos = sin carga inicial.
+              _count: { select: { stockMovements: true } },
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+// Unidad del insumo de una línea (mensaje de unidad equivocada).
+export async function findPurchaseLineSupplyUnit(companyId: string, lineId: string) {
+  const line = await db.purchaseLine.findFirst({
+    where: { id: lineId, companyId },
+    select: { supply: { select: { unit: true } } },
+  });
+  return line?.supply.unit ?? null;
+}

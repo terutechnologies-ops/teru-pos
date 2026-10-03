@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { currencyDecimals } from "@/lib/company-formats";
+import { currencyDecimals, parseAmountInput } from "@/lib/company-formats";
 
 // Validaciones compartidas entre módulos.
 
@@ -50,4 +50,19 @@ export function moneySchema(currency: string, noun: string) {
       const digits = fraction.replace(/0+$/, "").padEnd(decimals, "0").slice(0, decimals);
       return decimals > 0 ? `${BigInt(integer)}.${digits}` : `${BigInt(integer)}`;
     });
+}
+
+// Monto de un MoneyField: llega como se ve en el campo ("200.000",
+// formatAmountInput) o sin separadores ("200000", sin JS).
+export function amountSchema(currency: string, noun: string) {
+  return z.string().transform(parseAmountInput).pipe(moneySchema(currency, noun));
+}
+
+// Texto opcional: vacío o solo espacios se guarda como null.
+export function optionalText(max: number, tooLong: string) {
+  return z
+    .string()
+    .trim()
+    .max(max, { error: tooLong })
+    .transform((value) => value || null);
 }

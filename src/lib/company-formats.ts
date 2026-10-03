@@ -58,6 +58,11 @@ export function formatAmountInput(raw: string, decimals: number) {
   return `${grouped || "0"},${fraction}`;
 }
 
+// Monto guardado ("16500.00") como se escribe en el campo ("16.500").
+export function amountInputValue(amount: string, currency: string) {
+  return formatAmountInput(amount.replace(".", ","), currencyDecimals(currency));
+}
+
 // Inverso de formatAmountInput: "200.000" → "200000", "1.234,5" → "1234.5"
 // (texto decimal con punto, el que validan los esquemas de dinero).
 export function parseAmountInput(text: string) {

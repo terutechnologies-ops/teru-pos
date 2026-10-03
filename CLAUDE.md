@@ -2275,3 +2275,60 @@ auditoría; sin JS.
   otra empresa, STAFF y CASHIER rechazados) y 2 de menú. Verificado:
   typecheck, lint, suite **337/337**, build; sin sesión la ruta redirige
   al login. Revisión visual con sesión: la hace el usuario.
+
+### Componente 3 — Compra en borrador y confirmación (aprobado 2026-10-03)
+
+Diseño aprobado (2026-10-03) con las tres recomendaciones: **sin
+auditoría aparte** del cambio de costo (la compra guarda quién y cuándo, y
+el kardex la enlaza), **sin fechas futuras**, y **aviso** (no bloqueo) en
+las líneas de insumos sin carga inicial.
+
+- **Menú:** `purchases-list` ("Compras", `compras`, ícono `PackagePlus`)
+  antes de Proveedores. `activeNavItemId` (`navigation.ts`): el menú marca
+  solo la sección de ruta más específica (en `/compras/proveedores` ya no
+  se marcan las dos).
+- **Validación** `validations/purchases.ts`: `purchaseHeaderSchema(today)`
+  (proveedor, bodega, fecha válida y no futura comparando "AAAA-MM-DD",
+  factura opcional ≤ 40), `purchaseLineSchema(currency)` /
+  `purchaseItemSchema` (cantidad > 0 con `quantitySchema`, unidad, total
+  pagado con `amountSchema`). Refactor: `amountSchema` (antes privado de
+  `validations/cash.ts`) y `optionalText` (antes de terceros) pasan a
+  `validations/common.ts`.
+- **Datos** (`data/purchases.ts`): `listPurchaseDrafts`, `findPurchase`
+  (encabezado, quién creó/confirmó, líneas con el insumo y su conteo de
+  movimientos), `findPurchaseLineSupplyUnit`.
+- **Servicio** `services/purchases.ts` (`purchases.manage`):
+  `getPurchaseFormOptions` (proveedores activos, bodegas activas, principal
+  propuesta, hoy en la zona de la empresa), `getPurchaseDrafts`,
+  `getPurchase` (costo por unidad del insumo de cada línea a 4 decimales,
+  `uninitialized`; en borrador, opciones del encabezado — incluye el
+  proveedor actual aunque esté archivado — e insumos activos que faltan),
+  `createPurchase`, `updatePurchaseHeader`, `deletePurchase`,
+  `addPurchaseItem`, `updatePurchaseItem`, `removePurchaseItem`,
+  `confirmPurchaseDraft` (mensajes con el nombre del insumo archivado o de
+  unidad cambiada). Borradores compartidos por la empresa.
+- **UI** `components/purchases/`: `purchase-fields`, `purchase-actions`
+  (crear abre el borrador; líneas y encabezado con `refresh()`; eliminar
+  vuelve a la lista con aviso; confirmar abre la compra con
+  `?aviso=confirmada`), `purchase-header-form` (`NewPurchaseForm` y
+  `EditPurchaseHeaderForm` en `<details>`; con una sola bodega no se
+  pregunta), `add-purchase-line-form` (unidad preseleccionada con JS, como
+  recetas), `purchase-line-form`, `purchase-line-row-button`,
+  `purchase-lines`, `purchase-draft-actions` (confirmar y eliminar en dos
+  pasos), `purchase-draft-list`. `MoneyField` acepta `id` (uno por línea);
+  `amountInputValue` en `lib/company-formats.ts` ("16500.00" → "16.500").
+- **Páginas:** `/compras` (borradores), `/compras/nueva` (estado vacío si
+  no hay proveedores o bodegas activas), `/compras/[id]` (borrador
+  editable; confirmada o anulada, solo lectura).
+- Pruebas: `tests/integration/purchases.test.ts` (8) y menú (Compras,
+  sección activa). Verificado: typecheck, lint, suite **346/346**, build;
+  sin sesión las rutas redirigen al login. Revisión visual con sesión: la
+  hace el usuario.
+- Ajuste pedido por el usuario (captura): "Eliminar borrador" se partía en
+  dos líneas y el recuadro de confirmar quedaba angosto a su lado. Ahora
+  van en una fila `flex-row-reverse flex-wrap` (Confirmar primero, a la
+  derecha); el `<details>` abierto ocupa todo el ancho
+  (`open:basis-full`) con su recuadro debajo. Revisado con Chrome headless
+  y el CSS del build en los tres estados.
+- Para el componente 4: lista de confirmadas y anuladas con filtros,
+  anulación, y enlace "Compra #N" en el kardex.

@@ -21,6 +21,7 @@ import {
 
 import { logoutAction } from "./actions";
 import {
+  activeNavItemId,
   NAV_GROUP_LABELS,
   NAV_ITEMS,
   navHref,
@@ -47,6 +48,7 @@ export function AppSidebar({
   const pathname = usePathname();
   const items = NAV_ITEMS.filter((item) => itemIds.includes(item.id));
   const groups = [...new Set(items.map((item) => item.group))] as NavGroup[];
+  const activeId = activeNavItemId(companySlug, pathname, items);
 
   return (
     <Sidebar>
@@ -72,9 +74,7 @@ export function AppSidebar({
                   .filter((item) => item.group === group)
                   .map((item) => {
                     const href = navHref(companySlug, item);
-                    const active =
-                      pathname === href ||
-                      (item.path !== "" && pathname.startsWith(`${href}/`));
+                    const active = item.id === activeId;
                     const Icon = item.icon;
                     return (
                       <SidebarMenuItem key={item.id}>

@@ -3,6 +3,7 @@ import {
   FolderTree,
   House,
   Package,
+  PackagePlus,
   Receipt,
   ShoppingCart,
   Store,
@@ -93,6 +94,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     permission: "cash.review",
   },
   {
+    id: "purchases-list",
+    label: "Compras",
+    description: "Lo que compras entra al inventario con su costo real.",
+    path: "compras",
+    icon: PackagePlus,
+    group: "purchases",
+    permission: "purchases.manage",
+  },
+  {
     id: "purchases-suppliers",
     label: "Proveedores",
     description: "A quién le compras, con su NIT y contacto.",
@@ -181,4 +191,22 @@ export function startsInPos(role: StaffRole) {
 
 export function navHref(companySlug: string, item: Pick<NavItem, "path">) {
   return item.path ? `/${companySlug}/${item.path}` : `/${companySlug}`;
+}
+
+// Sección activa: la de ruta más específica que contiene la actual (en
+// /compras/proveedores/x gana Proveedores, no Compras).
+export function activeNavItemId(
+  companySlug: string,
+  pathname: string,
+  items: readonly Pick<NavItem, "id" | "path">[],
+) {
+  let active: { id: string; length: number } | null = null;
+  for (const item of items) {
+    const href = navHref(companySlug, item);
+    const matches = pathname === href || (item.path !== "" && pathname.startsWith(`${href}/`));
+    if (matches && (!active || href.length > active.length)) {
+      active = { id: item.id, length: href.length };
+    }
+  }
+  return active?.id ?? null;
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  activeNavItemId,
   NAV_ITEMS,
   navHref,
   navigationFor,
@@ -80,8 +81,12 @@ describe("navigationFor", () => {
     expect(ids("CASHIER")).not.toContain("sales-list");
   });
 
-  it("propietario y administrador ven Proveedores; personal y cajeros no", () => {
+  it("propietario y administrador ven Compras y Proveedores; personal y cajeros no", () => {
     const ids = (role: StaffRole) => navigationFor(role).map((item) => item.id);
+    expect(ids("OWNER")).toContain("purchases-list");
+    expect(ids("ADMIN")).toContain("purchases-list");
+    expect(ids("STAFF")).not.toContain("purchases-list");
+    expect(ids("CASHIER")).not.toContain("purchases-list");
     expect(ids("OWNER")).toContain("purchases-suppliers");
     expect(ids("ADMIN")).toContain("purchases-suppliers");
     expect(ids("STAFF")).not.toContain("purchases-suppliers");
@@ -107,6 +112,18 @@ describe("navigationFor", () => {
   it("los ids de las secciones no se repiten", () => {
     const ids = NAV_ITEMS.map((item) => item.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe("activeNavItemId", () => {
+  it("marca la sección de ruta más específica", () => {
+    const active = (pathname: string) => activeNavItemId("su-arepa", pathname, NAV_ITEMS);
+    expect(active("/su-arepa")).toBe("home");
+    expect(active("/su-arepa/compras")).toBe("purchases-list");
+    expect(active("/su-arepa/compras/abc123")).toBe("purchases-list");
+    expect(active("/su-arepa/compras/proveedores")).toBe("purchases-suppliers");
+    expect(active("/su-arepa/compras/proveedores/nuevo")).toBe("purchases-suppliers");
+    expect(active("/su-arepa/comprasx")).toBeNull();
   });
 });
 

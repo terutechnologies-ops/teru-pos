@@ -1,16 +1,7 @@
 import { z } from "zod";
 
 import { emailSchema } from "@/server/validations/auth";
-import { displayNameSchema } from "@/server/validations/common";
-
-// Texto opcional: vacío o solo espacios se guarda como null.
-function optionalText(max: number, tooLong: string) {
-  return z
-    .string()
-    .trim()
-    .max(max, { error: tooLong })
-    .transform((value) => value || null);
-}
+import { displayNameSchema, optionalText } from "@/server/validations/common";
 
 // Proveedor (tercero con el papel de proveedor).
 export const supplierSchema = z.object({

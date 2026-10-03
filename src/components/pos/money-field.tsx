@@ -18,6 +18,7 @@ const SIZES = {
 // interpreta con parseAmountInput (también si llega sin separadores).
 export function MoneyField({
   name,
+  id = name,
   label,
   currency,
   defaultValue = "",
@@ -27,6 +28,8 @@ export function MoneyField({
   size = "lg",
 }: {
   name: string;
+  // Con varios campos del mismo nombre en la página (uno por línea).
+  id?: string;
   label: string;
   currency: string;
   defaultValue?: string;
@@ -37,9 +40,9 @@ export function MoneyField({
 }) {
   const decimals = currencyDecimals(currency);
   const [value, setValue] = useState(() => formatAmountInput(defaultValue, decimals));
-  const describedBy = [error && `${name}-error`, hint && `${name}-hint`].filter(Boolean).join(" ");
+  const describedBy = [error && `${id}-error`, hint && `${id}-hint`].filter(Boolean).join(" ");
   return (
-    <FormField name={name} label={label} required error={error}>
+    <FormField name={id} label={label} required error={error}>
       <div className="relative flex items-center">
         <span
           className={cn(
@@ -50,7 +53,7 @@ export function MoneyField({
           {currency}
         </span>
         <Input
-          id={name}
+          id={id}
           name={name}
           type="text"
           inputMode={decimals > 0 ? "decimal" : "numeric"}
@@ -66,7 +69,7 @@ export function MoneyField({
         />
       </div>
       {hint && (
-        <p id={`${name}-hint`} className="text-xs text-muted-foreground">
+        <p id={`${id}-hint`} className="text-xs text-muted-foreground">
           {hint}
         </p>
       )}

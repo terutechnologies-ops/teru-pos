@@ -1,14 +1,8 @@
 import { z } from "zod";
 
-import { parseAmountInput } from "@/lib/company-formats";
-import { moneySchema } from "@/server/validations/common";
+import { amountSchema } from "@/server/validations/common";
 
-// Turnos de caja. Los montos llegan como se ven en el campo ("200.000",
-// formatAmountInput) o sin separadores ("200000", sin JS).
-
-function amountSchema(currency: string, noun: string) {
-  return z.string().transform(parseAmountInput).pipe(moneySchema(currency, noun));
-}
+// Turnos de caja. Los montos llegan como se ven en el campo (amountSchema).
 
 const NOTE_MAX = 200;
 
