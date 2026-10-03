@@ -14,9 +14,12 @@ const KIND_LABELS: Record<KardexKind, string> = {
   OUT: "Salida",
   SALE: "Venta",
   SALE_VOID: "Anulación de venta",
+  PURCHASE: "Compra",
+  PURCHASE_VOID: "Anulación de compra",
 };
 
-const isOutflow = (kind: KardexKind) => kind === "OUT" || kind === "SALE";
+const isOutflow = (kind: KardexKind) =>
+  kind === "OUT" || kind === "SALE" || kind === "PURCHASE_VOID";
 
 // Historial de movimientos del insumo, del más reciente al más antiguo, con
 // filtro por bodega (GET: queda en la dirección y funciona sin JS).

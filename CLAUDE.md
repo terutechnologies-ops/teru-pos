@@ -2182,3 +2182,60 @@ escribe a mano; registrarlo en el sistema es la fase 9.
 - `docs/decisiones/0007-ventas-pos-y-caja.md` y README (estado, POS,
   menú, impresión, estructura, ADR).
 - Verificado: typecheck, lint, suite **314/314**, build.
+
+## Fase 8 — Compras
+
+Decisiones del usuario (2026-10-02): **terceros unificados** (proveedor
+ahora, cliente después en la misma tabla), **costo promedio ponderado** al
+confirmar, **sin pagos** en esta fase (cartera y gastos de caja aparte),
+**borrador y confirmar**. Reglas aceptadas: la línea registra lo pagado
+con impuestos; anular una compra no recalcula el costo (riesgo en el ADR).
+
+Alcance aprobado (2026-10-02). Componentes: 1) modelo de datos y permiso;
+2) proveedores; 3) compra en borrador y confirmación; 4) lista, detalle y
+anulación (kardex con "Compra #N"); 5) cierre (ADR 0008, README). Fuera:
+pagos y cuentas por pagar, gastos de caja, impuestos desglosados,
+devoluciones parciales, órdenes de compra, clientes en terceros, aviso por
+WhatsApp.
+
+### Componente 1 — Modelo de datos y permiso (aprobado 2026-10-02)
+
+- Migración `20261002120000_add_purchases` (**aplicada en test y dev**;
+  diff vacío; RLS verificado en dev): `third_parties` (nombre, NIT,
+  teléfono, correo, `isSupplier`, `isCustomer`, `isArchived`), `purchases`
+  (`number` nulo en borrador, proveedor, bodega, factura del proveedor,
+  `purchasedOn` DATE, estado `DRAFT/CONFIRMED/VOIDED`, `total`, quién y
+  cuándo creó, confirmó y anuló), `purchase_lines` (insumo único por
+  compra, cantidad `Decimal(14,3)`, unidad de la familia, `lineTotal`),
+  `companies.lastPurchaseNumber`, `StockMovementType` `PURCHASE` /
+  `PURCHASE_VOID` y `stock_movements.purchaseId`. Todo con FK compuestas
+  por empresa. Solo en SQL: nombre único (lower) y NIT único por empresa,
+  al menos un papel, enlace y signo de los movimientos de compra (por
+  texto, como ventas), número solo al confirmar, confirmación y anulación
+  completas, montos y cantidades válidos.
+- Permiso `purchases.manage` (OWNER, ADMIN).
+- `data/purchases.ts`: borrador (`createPurchaseDraft`,
+  `updatePurchaseDraft`, `deletePurchaseDraft` — borra con sus líneas),
+  líneas (`addPurchaseLine`, `updatePurchaseLine`, `removePurchaseLine`;
+  unidad de la familia con el insumo bloqueado; total sincronizado),
+  `confirmPurchase` (bloquea compra, bodega `FOR SHARE` e insumos en orden;
+  **valida todo antes de escribir**; movimiento `PURCHASE`, costo
+  promedio con `weightedUnitCost` y consecutivo al final) y `voidPurchase`
+  (`PURCHASE_VOID`, puede dejar negativo, no toca el costo).
+  `weightedUnitCost`: sin costo previo o con existencia total ≤ 0 toma el
+  de la compra; 4 decimales. Existencia total = todas las bodegas.
+- `data/inventory.ts`: `lockWarehouse` exportado; `writeStockMovement`
+  acepta `saleId` / `purchaseId` opcionales. Kardex: "Compra" y
+  "Anulación de compra" (el enlace a la compra llega en el componente 4).
+- **Error hallado por las pruebas y corregido:** devolver un error dentro
+  de `$transaction` **confirma** lo ya escrito. La primera versión de
+  `confirmPurchase` escribía cada línea antes de validar la siguiente; con
+  un insumo archivado dejaba entrar las anteriores. Ahora valida todo
+  primero.
+- Pruebas: `purchases-data.test.ts` (14: costo, borrador, líneas, otra
+  empresa, confirmar, consecutivo sin huecos, confirmación simultánea,
+  nada a medias, anular con negativo, reglas de la BD) y permisos.
+  Verificado: typecheck, lint, suite **328/328**, build.
+- `prisma generate` dio EPERM al reemplazar el motor (el `next dev` del
+  usuario lo tenía cargado); el cliente TS sí se generó y el motor es el
+  mismo (misma versión), así que no afecta. Se borraron los `.tmp`.

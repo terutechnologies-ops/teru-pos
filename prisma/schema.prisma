@@ -37,18 +37,21 @@ model Company {
 
   // Datos del asistente de configuración; opcionales y sin formato de un
   // país en particular.
-  taxId            String?
-  phone            String?
-  email            String?
-  address          String?
+  taxId              String?
+  phone              String?
+  email              String?
+  address            String?
   // null = el propietario aún no completa el asistente de configuración.
-  setupCompletedAt DateTime?
+  setupCompletedAt   DateTime?
   // Ruta del logo en el almacenamiento de archivos (no la URL: la URL
   // pública depende del proveedor configurado). null = sin logo.
-  logoPath         String?
+  logoPath           String?
   // Último número de venta usado. Se incrementa dentro de la transacción de
   // la venta: el consecutivo queda sin huecos.
-  lastSaleNumber   Int       @default(0)
+  lastSaleNumber     Int       @default(0)
+  // Último número de compra confirmada (se asigna al confirmar, no al
+  // crear el borrador: borrar un borrador no deja huecos).
+  lastPurchaseNumber Int       @default(0)
 
   users             User[]
   userSessions      UserSession[]
@@ -67,6 +70,9 @@ model Company {
   sales             Sale[]
   saleLines         SaleLine[]
   salePayments      SalePayment[]
+  thirdParties      ThirdParty[]
+  purchases         Purchase[]
+  purchaseLines     PurchaseLine[]
 
   @@map("companies")
 }
@@ -169,6 +175,10 @@ enum StockMovementType {
   SALE
   // Devolución al anular una venta.
   SALE_VOID
+  // Entrada por una compra confirmada.
+  PURCHASE
+  // Salida al anular una compra.
+  PURCHASE_VOID
 }
 
 // Bodega de una sucursal. La sucursal se enlaza por (companyId, branchId),
@@ -189,6 +199,7 @@ model Warehouse {
 
   stockLevels    StockLevel[]
   stockMovements StockMovement[]
+  purchases      Purchase[]
 
   @@unique([companyId, id])
   @@index([companyId, branchId])
@@ -218,6 +229,7 @@ model Supply {
   stockLevels    StockLevel[]
   stockMovements StockMovement[]
   recipeItems    ProductRecipeItem[]
+  purchaseLines  PurchaseLine[]
 
   @@unique([companyId, id])
   @@index([companyId])
@@ -264,10 +276,13 @@ model StockMovement {
   user         User              @relation(fields: [userId], references: [id], onDelete: Restrict)
   saleId       String?
   sale         Sale?             @relation(fields: [companyId, saleId], references: [companyId, id], onDelete: Restrict)
+  purchaseId   String?
+  purchase     Purchase?         @relation(fields: [companyId, purchaseId], references: [companyId, id], onDelete: Restrict)
   createdAt    DateTime          @default(now())
 
   @@index([companyId, supplyId, createdAt])
   @@index([saleId])
+  @@index([purchaseId])
   @@index([warehouseId, supplyId, createdAt])
   @@map("stock_movements")
 }
@@ -434,6 +449,104 @@ model SalePayment {
   @@map("sale_payments")
 }
 
+// --- Terceros y compras -----------------------------------------------------
+
+// Tercero: persona o empresa con la que el negocio trata. Por ahora solo
+// proveedores; los clientes usarán la misma tabla (isCustomer) cuando
+// lleguen. No se borra: se archiva. La migración agrega: nombre único por
+// empresa sobre lower(name), NIT único por empresa si se escribe y al
+// menos un papel (proveedor o cliente).
+model ThirdParty {
+  id         String   @id @default(cuid())
+  companyId  String
+  company    Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  name       String
+  taxId      String?
+  phone      String?
+  email      String?
+  isSupplier Boolean  @default(false)
+  isCustomer Boolean  @default(false)
+  isArchived Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  purchases Purchase[]
+
+  @@unique([companyId, id])
+  @@index([companyId])
+  @@map("third_parties")
+}
+
+enum PurchaseStatus {
+  DRAFT
+  CONFIRMED
+  VOIDED
+}
+
+// Compra de insumos a un proveedor. Se arma en borrador (se edita o se
+// borra) y al confirmarse entra al inventario de su bodega y actualiza el
+// costo promedio de cada insumo; confirmada ya no cambia: se anula (ver
+// ADR 0008). total = suma de las líneas.
+model Purchase {
+  id              String         @id @default(cuid())
+  companyId       String
+  company         Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  // Consecutivo por empresa al confirmar (companies.lastPurchaseNumber);
+  // null en borrador.
+  number          Int?
+  supplierId      String
+  supplier        ThirdParty     @relation(fields: [companyId, supplierId], references: [companyId, id], onDelete: Restrict)
+  warehouseId     String
+  warehouse       Warehouse      @relation(fields: [companyId, warehouseId], references: [companyId, id], onDelete: Restrict)
+  // Número de la factura o remisión del proveedor.
+  supplierInvoice String?
+  // Día de la compra según la factura (calendario, sin hora).
+  purchasedOn     DateTime       @db.Date
+  status          PurchaseStatus @default(DRAFT)
+  total           Decimal        @default(0) @db.Decimal(14, 2)
+  createdById     String
+  createdBy       User           @relation("PurchaseCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  confirmedAt     DateTime?
+  confirmedById   String?
+  confirmedBy     User?          @relation("PurchaseConfirmedBy", fields: [confirmedById], references: [id], onDelete: Restrict)
+  voidedAt        DateTime?
+  voidedById      String?
+  voidedBy        User?          @relation("PurchaseVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+  voidReason      String?
+
+  lines          PurchaseLine[]
+  stockMovements StockMovement[]
+
+  @@unique([companyId, number])
+  @@unique([companyId, id])
+  @@index([companyId, purchasedOn])
+  @@index([companyId, supplierId])
+  @@map("purchases")
+}
+
+// Línea de la compra: cuánto entra de un insumo y lo que se pagó por esa
+// línea (con impuestos). La unidad es de la familia del insumo, como en las
+// recetas. Un insumo aparece una vez por compra.
+model PurchaseLine {
+  id         String    @id @default(cuid())
+  companyId  String
+  company    Company   @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  purchaseId String
+  purchase   Purchase  @relation(fields: [companyId, purchaseId], references: [companyId, id], onDelete: Restrict)
+  supplyId   String
+  supply     Supply    @relation(fields: [companyId, supplyId], references: [companyId, id], onDelete: Restrict)
+  position   Int
+  quantity   Decimal   @db.Decimal(14, 3)
+  unit       StockUnit
+  lineTotal  Decimal   @db.Decimal(14, 2)
+
+  @@unique([purchaseId, supplyId])
+  @@index([companyId, supplyId])
+  @@map("purchase_lines")
+}
+
 // --- Personal interno (login "panel operativo") -----------------------
 
 enum StaffRole {
@@ -465,6 +578,9 @@ model User {
   closedCashSessions  CashSession[]            @relation("CashSessionClosedBy")
   sales               Sale[]                   @relation("SaleCashier")
   voidedSales         Sale[]                   @relation("SaleVoidedBy")
+  createdPurchases    Purchase[]               @relation("PurchaseCreatedBy")
+  confirmedPurchases  Purchase[]               @relation("PurchaseConfirmedBy")
+  voidedPurchases     Purchase[]               @relation("PurchaseVoidedBy")
 
   @@unique([companyId, email])
   @@index([companyId])

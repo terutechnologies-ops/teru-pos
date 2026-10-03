@@ -15,7 +15,9 @@ export type Permission =
   | "cash.review"
   // Cerrar el turno que otra persona dejó abierto.
   | "cash.close"
-  | "payments.manage";
+  | "payments.manage"
+  // Proveedores y compras de insumos.
+  | "purchases.manage";
 
 // Lo que comparten OWNER y ADMIN: administración del negocio y ventas.
 const MANAGEMENT: readonly Permission[] = [
@@ -28,6 +30,7 @@ const MANAGEMENT: readonly Permission[] = [
   "cash.review",
   "cash.close",
   "payments.manage",
+  "purchases.manage",
 ];
 
 const ROLE_PERMISSIONS = {

@@ -110,7 +110,7 @@ export async function renameWarehouse(companyId: string, warehouseId: string, na
 // Bloquea la fila de la bodega hasta el fin de la transacción. Los
 // movimientos la toman compartida (FOR SHARE): corren en paralelo entre sí,
 // pero no mientras se desactiva (FOR UPDATE).
-async function lockWarehouse(
+export async function lockWarehouse(
   tx: Prisma.TransactionClient,
   companyId: string,
   warehouseId: string,
@@ -351,7 +351,6 @@ export async function recordStockMovement(
       balanceAfter: balance,
       reason: input.reason,
       userId: input.userId,
-      saleId: null,
     });
     return { status: "OK", movementId, balance };
   }, MOVEMENT_TX_OPTIONS);
@@ -370,8 +369,8 @@ export async function stockBalance(tx: Prisma.TransactionClient, key: StockKey) 
 }
 
 // Escribe el saldo y su movimiento. No valida nada: quien llama bloquea el
-// insumo y decide si acepta el saldo resultante (las ventas aceptan
-// negativos, los ajustes no).
+// insumo y decide si acepta el saldo resultante (las ventas y las
+// anulaciones de compras aceptan negativos, los ajustes no).
 export async function writeStockMovement(
   tx: Prisma.TransactionClient,
   companyId: string,
@@ -381,7 +380,9 @@ export async function writeStockMovement(
     balanceAfter: Prisma.Decimal;
     reason: string | null;
     userId: string;
-    saleId: string | null;
+    // El documento que lo causó (la BD exige el enlace según el tipo).
+    saleId?: string | null;
+    purchaseId?: string | null;
   },
 ) {
   const { warehouseId, supplyId, balanceAfter } = input;

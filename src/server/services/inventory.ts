@@ -429,8 +429,9 @@ export async function getSupplyDetail(
 
 export type SupplyDetail = NonNullable<Awaited<ReturnType<typeof getSupplyDetail>>>;
 
-// Tipo para el kardex: los que registra una persona y los de las ventas.
-export type KardexKind = MovementKind | "SALE" | "SALE_VOID";
+// Tipo para el kardex: los que registra una persona y los de ventas y
+// compras.
+export type KardexKind = MovementKind | "SALE" | "SALE_VOID" | "PURCHASE" | "PURCHASE_VOID";
 
 function movementKind(type: StockMovementType, quantity: Prisma.Decimal): KardexKind {
   if (type === "ADJUSTMENT") return quantity.isNegative() ? "OUT" : "IN";
