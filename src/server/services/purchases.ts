@@ -581,6 +581,12 @@ export async function voidConfirmedPurchase(
       return { ok: true };
     case "ALREADY_VOIDED":
       return { ok: false, fieldErrors: {}, error: "La compra ya estaba anulada." };
+    case "WAREHOUSE_INACTIVE":
+      return {
+        ok: false,
+        fieldErrors: {},
+        error: "La bodega de la compra está inactiva: actívala en Bodegas para poder anularla.",
+      };
     case "NOT_CONFIRMED":
       return {
         ok: false,

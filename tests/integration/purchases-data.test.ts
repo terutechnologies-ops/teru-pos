@@ -315,6 +315,60 @@ describe("anular", () => {
     });
   });
 
+  // Compra confirmada en una bodega aparte cuya existencia ya se consumió
+  // toda (saldo 0: la bodega se puede desactivar).
+  async function consumedPurchaseIn(warehouseName: string) {
+    await createWarehouse(companyId, branchId, warehouseName);
+    const warehouseId = (
+      await db.warehouse.findFirstOrThrow({ where: { companyId, name: warehouseName } })
+    ).id;
+    const id = await draft({ warehouseId });
+    await addPurchaseLine(companyId, id, line(gaseosa, "12", "UNIT", "24000"));
+    await confirmPurchase(companyId, { purchaseId: id, userId });
+    await recordStockMovement(companyId, {
+      warehouseId,
+      supplyId: gaseosa,
+      type: "ADJUSTMENT",
+      quantity: "-12",
+      reason: "Consumo",
+      userId,
+    });
+    return { id, warehouseId };
+  }
+
+  it("no anula si su bodega quedó inactiva, y no deja nada a medias", async () => {
+    const { id, warehouseId } = await consumedPurchaseIn("Cuarto frío");
+    expect(await setWarehouseActive(companyId, warehouseId, false)).toBe("OK");
+
+    expect(await voidPurchase(companyId, { purchaseId: id, userId, reason: "Repetida" })).toEqual({
+      status: "WAREHOUSE_INACTIVE",
+    });
+    expect(await stock(gaseosa, warehouseId)).toBe("0");
+    expect(await db.stockMovement.count({ where: { purchaseId: id, type: "PURCHASE_VOID" } })).toBe(0);
+    expect((await db.purchase.findUniqueOrThrow({ where: { id } })).status).toBe("CONFIRMED");
+  });
+
+  it("anular y desactivar la bodega a la vez nunca deja una bodega inactiva con saldo", async () => {
+    for (let round = 0; round < 3; round++) {
+      const { id, warehouseId } = await consumedPurchaseIn(`Bodega carrera ${round}`);
+      const [voided, deactivated] = await Promise.all([
+        voidPurchase(companyId, { purchaseId: id, userId, reason: "Carrera" }),
+        setWarehouseActive(companyId, warehouseId, false),
+      ]);
+      const warehouse = await db.warehouse.findUniqueOrThrow({ where: { id: warehouseId } });
+      const balance = await stock(gaseosa, warehouseId);
+      // Uno de los dos gana; el otro se entera.
+      if (warehouse.isActive) {
+        expect(voided.status).toBe("OK");
+        expect(deactivated).toBe("HAS_STOCK");
+        expect(balance).toBe("-12");
+      } else {
+        expect(voided.status).toBe("WAREHOUSE_INACTIVE");
+        expect(balance).toBe("0");
+      }
+    }
+  });
+
   it("un borrador no se anula y otra empresa no anula", async () => {
     const id = await draft();
     expect(await voidPurchase(companyId, { purchaseId: id, userId, reason: "x" })).toEqual({

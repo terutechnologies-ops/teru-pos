@@ -369,12 +369,14 @@ export async function confirmPurchase(
 // --- Anular -------------------------------------------------------------------
 
 export type VoidPurchaseResult = {
-  status: "OK" | "NOT_FOUND" | "NOT_CONFIRMED" | "ALREADY_VOIDED";
+  status: "OK" | "NOT_FOUND" | "NOT_CONFIRMED" | "ALREADY_VOIDED" | "WAREHOUSE_INACTIVE";
 };
 
 // Saca de cada bodega lo que la compra había entrado (PURCHASE_VOID). Puede
 // dejar saldos negativos si ya se consumió (se permite y se avisa, como en
-// las ventas). El costo promedio no se recalcula (ver ADR 0008).
+// las ventas). El costo promedio no se recalcula (ver ADR 0008). La bodega
+// se toma FOR SHARE y debe estar activa: una bodega inactiva no puede
+// quedar con saldo (y desactivarla exige saldo 0 con FOR UPDATE).
 export async function voidPurchase(
   companyId: string,
   input: { purchaseId: string; userId: string; reason: string },
@@ -390,6 +392,11 @@ export async function voidPurchase(
       orderBy: { supplyId: "asc" },
       select: { warehouseId: true, supplyId: true, quantity: true },
     });
+    // Antes de escribir nada (devolver un error no deshace lo escrito).
+    for (const warehouseId of new Set(movements.map((movement) => movement.warehouseId))) {
+      const warehouse = await lockWarehouse(tx, companyId, warehouseId, "SHARE");
+      if (!warehouse?.isActive) return { status: "WAREHOUSE_INACTIVE" };
+    }
     for (const movement of movements) {
       await lockSupply(tx, companyId, movement.supplyId);
       const key = { warehouseId: movement.warehouseId, supplyId: movement.supplyId };

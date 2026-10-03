@@ -4,13 +4,15 @@ Plataforma de gestión multiempresa de TERU (ventas, inventario, caja, etc.).
 Cada negocio es una empresa cliente con su propia URL; la arepería
 **Su Arepa** es la primera, no el modelo del sistema.
 
-**Estado:** fase 7 cerrada (autenticación del personal, configuración
+**Estado:** fase 8 cerrada (autenticación del personal, configuración
 inicial de la empresa, panel con menú por rol, configuración de negocio y
 equipo, logo, catálogo de venta con categorías y productos con precio y
 foto, inventario con insumos, bodegas, carga inicial, ajustes y kardex,
 recetas con costo y margen, y ventas de mostrador: POS con turno de caja,
 pago mixto y descuento de inventario por receta, ventas y cierres de caja
-en el panel, alertas y hojas impresas).
+en el panel, alertas y hojas impresas, y compras: proveedores, compra en
+borrador que al confirmarse entra al inventario con costo promedio
+ponderado, y anulación).
 
 ## Stack
 
@@ -38,8 +40,9 @@ npm run dev
   asistente `/<slug-empresa>/configuracion-inicial` (Negocio → Equipo →
   Confirmar).
 - Panel `/<slug-empresa>`: menú lateral según el rol. Ventas > Vender,
-  Ventas y Cierres de caja, Catálogo > Productos y Categorías, Inventario >
-  Insumos y Bodegas (propietario y administrador), Configuración > Negocio
+  Ventas y Cierres de caja, Compras > Compras y Proveedores, Catálogo >
+  Productos y Categorías, Inventario > Insumos y Bodegas (propietario y
+  administrador), Configuración > Negocio
   (propietario), Equipo y Métodos de pago (propietario y administrador).
   El inicio muestra los pendientes (alertas).
 - POS `/<slug-empresa>/pos` (pantalla oscura, requiere JavaScript): abrir
@@ -48,6 +51,11 @@ npm run dev
 - Inventario: cada insumo tiene su ficha (`/inventario/insumos/<id>`) con
   existencias por bodega, carga inicial, ajustes con motivo, kardex y su
   costo de referencia.
+- Compras (`/compras`): la compra se arma en borrador (proveedor, bodega,
+  fecha, factura e insumos con lo pagado) y al confirmarse entra a la
+  bodega y actualiza el costo promedio de cada insumo. Confirmada no
+  cambia: se anula con motivo (no recalcula el costo). El kardex enlaza
+  "Compra #N".
 - Recetas: cada producto tiene la pestaña Receta
   (`/catalogo/productos/<id>/receta`) con los insumos que lleva una unidad
   vendida, su costo y el margen sobre el precio.
@@ -141,6 +149,7 @@ src/
     [empresa]/          Rutas por empresa: login, recuperar, restablecer,
                         invitacion, configuracion-inicial (asistente) y
                         (panel): inicio, ventas, caja,
+                        compras (con proveedores),
                         catalogo/{productos (con [id]/receta),categorias},
                         inventario/{insumos,bodegas} y
                         configuracion/{negocio,equipo,pagos};
@@ -157,6 +166,7 @@ src/
     payments/           Métodos de pago
     pos/                Turno de caja y pantalla de venta
     printing/           Hojas impresas y ajustes de impresión del equipo
+    purchases/          Proveedores y compras (borrador, lista, anulación)
     sales/              Ventas en el panel y anulación
     team/               Invitaciones y lista del equipo
   lib/                  Cliente Prisma, marca, formatos, roles, imágenes,
@@ -167,6 +177,7 @@ src/
     services/           Lógica de negocio (auth y permisos, empresas, equipo,
                         catálogo, inventario, recetas y costos,
                         ventas, caja, métodos de pago, alertas,
+                        compras y terceros,
                         mensajería, imágenes y almacenamiento)
     http/               Adaptador Next: cookies, cabeceras, sesión actual
     validations/        Esquemas Zod
@@ -186,3 +197,4 @@ docs/decisiones/        Decisiones de arquitectura (ADR)
 - [ADR 0005 — Inventario](docs/decisiones/0005-inventario.md)
 - [ADR 0006 — Recetas y costos](docs/decisiones/0006-recetas-y-costos.md)
 - [ADR 0007 — Ventas, POS y caja](docs/decisiones/0007-ventas-pos-y-caja.md)
+- [ADR 0008 — Compras](docs/decisiones/0008-compras.md)

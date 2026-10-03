@@ -2374,3 +2374,64 @@ en el kardex (opcional) **no** se hizo: el usuario no lo confirmó.
   borrador y otra empresa; kardex; permisos) y 2 unitarias del rango.
   Verificado: typecheck, lint, suite **354/354**, build. Revisión visual
   con sesión: la hace el usuario.
+
+### Componente 5 — Cierre de la fase 8 (aprobado 2026-10-03)
+
+**Fase 8 aprobada** (2026-10-03).
+
+- **Revisión de la fase** (terceros, compras: datos, servicios, acciones,
+  páginas, kardex y menú): acciones con sesión y permiso de la empresa
+  enviada, páginas con permiso en el servidor, datos filtrados por empresa.
+  **Hallazgo corregido:** `voidPurchase` no tomaba la bodega ni revisaba
+  que estuviera activa; con la existencia de una compra en una bodega
+  secundaria consumida hasta 0, la bodega se podía desactivar y la
+  anulación la dejaba **inactiva con saldo negativo** (también en carrera).
+  Ahora la toma `FOR SHARE` y devuelve `WAREHOUSE_INACTIVE` antes de
+  escribir; el servicio pide activarla en Bodegas. Dos pruebas nuevas en
+  `purchases-data.test.ts` (inactiva y carrera ×3) fallaban antes del
+  arreglo y pasan 3/3 después.
+- `docs/decisiones/0008-compras.md` y README (estado, menú, compras,
+  estructura, ADR).
+- Verificado: typecheck, lint, suite **356/356**, build.
+
+## Cierre de la sesión 2026-10-03
+
+**Implementado hoy (con commit y subido, salvo el componente 5):**
+- Fase 8, componente 2 — proveedores (`0948504`).
+- Componente 3 — compra en borrador y confirmación (`7045a7f`), con el
+  ajuste visual de los botones Confirmar / Eliminar pedido por el usuario.
+- Componente 4 — lista, detalle y anulación, kardex con "Compra #N"
+  (`c601dbe`).
+- Componente 5 — revisión, corrección de la anulación con bodega inactiva,
+  ADR 0008 y README (aprobado; último commit de la sesión). **Fase 8
+  cerrada.**
+
+**Pendiente:**
+- Siguiente fase según la hoja de ruta: **fase 9, conteo físico y consumo
+  teórico vs. real** (analizar primero con el usuario).
+- Opcional ofrecido y no confirmado: "Venta #N" con enlace en el kardex.
+- Ideas anotadas: aviso por WhatsApp de insumos que faltan; mensajes de
+  duplicado de terceros cuando lleguen los clientes.
+- Siguen abiertos: despliegue en Vercel (en pausa), proveedor de correo,
+  clave de Storage y bucket por entorno.
+
+**Decisiones técnicas de hoy:** borradores compartidos por la empresa;
+sin auditoría aparte del costo (la compra y el kardex son el registro);
+fechas de compra sin futuro; aviso (no bloqueo) para insumos sin carga
+inicial; `purchases.manage` también anula, sin límite de tiempo; lista por
+defecto de 30 días (`resolveDayRange` con `defaultDays`); menú con la
+sección más específica activa (`activeNavItemId`); `amountSchema`,
+`optionalText` y `voidReasonSchema` compartidos en `validations/common.ts`;
+`MoneyField` con `id`; anular exige bodega activa (`FOR SHARE`).
+
+**Errores conocidos:**
+- La revisión visual con sesión la hace el usuario (no se probó con sesión
+  ninguna página de compras).
+- Los heredoc largos en Bash siguen fallando ("unexpected EOF"): usar
+  scripts en el scratchpad o la herramienta Write.
+- Siguen los de sesiones anteriores (latencia a Supabase en dev, `next
+  dev` en Windows deja el proceso en el 3000, `prisma generate` con EPERM
+  si `next dev` corre).
+
+**Próximo paso recomendado:** análisis de la fase 9 (conteo físico y
+consumo teórico vs. real) con el usuario.
