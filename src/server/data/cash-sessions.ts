@@ -199,6 +199,12 @@ export async function listOpenCashSessions(companyId: string) {
   });
 }
 
+// Turnos abiertos de una sucursal (sus ventas mueven el inventario de sus
+// bodegas).
+export async function countOpenCashSessionsInBranch(companyId: string, branchId: string) {
+  return db.cashSession.count({ where: { companyId, branchId, closedAt: null } });
+}
+
 // Abiertos antes de ese instante (turnos olvidados de días anteriores).
 export async function countOpenCashSessionsBefore(companyId: string, before: Date) {
   return db.cashSession.count({

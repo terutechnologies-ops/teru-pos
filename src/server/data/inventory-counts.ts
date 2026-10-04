@@ -90,14 +90,17 @@ export async function deleteInventoryCountDraft(
 
 export type CountEntry = {
   supplyId: string;
-  // Lo contado (>= 0) en la unidad del insumo; null = en blanco (se quita
-  // la línea: ese insumo no se cuenta).
+  // Lo contado (>= 0) en `unit`; null = en blanco (se quita la línea: ese
+  // insumo no se cuenta).
   countedQuantity: string | null;
+  // La unidad que vio quien contó. Si el insumo ya tiene otra, lo contado
+  // no se guarda: estaría expresado en otra unidad.
+  unit: StockUnit;
 };
 
 export type SaveCountLinesResult =
   | { status: CountDraftStatus }
-  | { status: "SUPPLY_NOT_FOUND" | "SUPPLY_ARCHIVED"; supplyId: string };
+  | { status: "SUPPLY_NOT_FOUND" | "SUPPLY_ARCHIVED" | "UNIT_CHANGED"; supplyId: string };
 
 // Guarda lo escrito en el formulario: crea o cambia las líneas con valor y
 // quita las que quedaron en blanco. Los insumos que no vienen no se tocan.
@@ -118,10 +121,11 @@ export async function saveInventoryCountLines(
     });
     const byId = new Map(supplies.map((supply) => [supply.id, supply]));
     // Todo se valida antes de escribir (devolver un error no deshace).
-    for (const { supplyId } of filled) {
+    for (const { supplyId, unit } of filled) {
       const supply = byId.get(supplyId);
       if (!supply) return { status: "SUPPLY_NOT_FOUND", supplyId };
       if (supply.isArchived) return { status: "SUPPLY_ARCHIVED", supplyId };
+      if (supply.unit !== unit) return { status: "UNIT_CHANGED", supplyId };
     }
 
     const blank = entries.filter((entry) => entry.countedQuantity === null);
@@ -132,9 +136,8 @@ export async function saveInventoryCountLines(
     }
     for (const entry of filled) {
       const countedQuantity = new Prisma.Decimal(entry.countedQuantity!);
-      // La unidad vigente del insumo: si cambia antes de confirmar, la
-      // confirmación lo detecta.
-      const unit = byId.get(entry.supplyId)!.unit;
+      // Si la unidad cambia antes de confirmar, la confirmación lo detecta.
+      const { unit } = entry;
       await tx.inventoryCountLine.upsert({
         where: { countId_supplyId: { countId, supplyId: entry.supplyId } },
         create: { companyId, countId, supplyId: entry.supplyId, unit, countedQuantity },
@@ -330,6 +333,21 @@ export async function confirmInventoryCount(
 
 // --- Lectura ------------------------------------------------------------------
 
+// Conteos en curso, el más reciente primero.
+export async function listInventoryCountDrafts(companyId: string) {
+  return db.inventoryCount.findMany({
+    where: { companyId, status: "DRAFT" },
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      createdAt: true,
+      createdBy: { select: { name: true } },
+      warehouse: { select: { name: true, branch: { select: { name: true } } } },
+      _count: { select: { lines: true } },
+    },
+  });
+}
+
 export async function findInventoryCount(companyId: string, countId: string) {
   return db.inventoryCount.findFirst({
     where: { id: countId, companyId },
@@ -342,7 +360,12 @@ export async function findInventoryCount(companyId: string, countId: string) {
       createdBy: { select: { name: true } },
       confirmedBy: { select: { name: true } },
       warehouse: {
-        select: { id: true, name: true, isActive: true, branch: { select: { name: true } } },
+        select: {
+          id: true,
+          name: true,
+          isActive: true,
+          branch: { select: { id: true, name: true } },
+        },
       },
       lines: {
         orderBy: { supply: { name: "asc" } },

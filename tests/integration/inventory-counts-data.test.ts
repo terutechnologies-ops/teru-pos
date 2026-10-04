@@ -69,10 +69,17 @@ async function draft(warehouseId = mainId) {
   return result.countId;
 }
 
+// Con la unidad vigente de cada insumo (la que vería quien cuenta).
 async function save(countId: string, entries: Record<string, string | null>) {
+  const supplies = await db.supply.findMany({
+    where: { id: { in: Object.keys(entries) } },
+    select: { id: true, unit: true },
+  });
+  const units = new Map(supplies.map((s) => [s.id, s.unit]));
   const list: CountEntry[] = Object.entries(entries).map(([supplyId, countedQuantity]) => ({
     supplyId,
     countedQuantity,
+    unit: units.get(supplyId) ?? "KG",
   }));
   return saveInventoryCountLines(companyId, countId, list);
 }
@@ -170,6 +177,13 @@ describe("borrador", () => {
       supplyId: archivado,
     });
     // El rechazo no deja nada a medias.
+    expect((await lineOf(countId, harina)).counted).toBe("9.25");
+    // La unidad que vio quien contó ya no es la del insumo.
+    expect(
+      await saveInventoryCountLines(companyId, countId, [
+        { supplyId: harina, countedQuantity: "9000", unit: "G" },
+      ]),
+    ).toEqual({ status: "UNIT_CHANGED", supplyId: harina });
     expect((await lineOf(countId, harina)).counted).toBe("9.25");
 
     // Otra empresa no ve el borrador.

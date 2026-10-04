@@ -13,10 +13,20 @@ export function printSheetHref(
   return `/${companySlug}/imprimir/${sheet}/${id}${auto ? "?auto=1" : ""}`;
 }
 
-// Existencias de una bodega para contarlas (desde Insumos, "Volver" regresa
-// allí; si no, a Bodegas).
-export function stockSheetHref(companySlug: string, warehouseId: string, from?: "insumos") {
-  return `/${companySlug}/imprimir/existencias/${warehouseId}${from ? `?desde=${from}` : ""}`;
+// Existencias de una bodega para contarlas. "Volver" regresa a Insumos, al
+// conteo desde el que se abrió o, si no, a Bodegas.
+export function stockSheetHref(
+  companySlug: string,
+  warehouseId: string,
+  from?: "insumos" | { countId: string },
+) {
+  const query =
+    from === undefined
+      ? ""
+      : from === "insumos"
+        ? "?desde=insumos"
+        : `?conteo=${encodeURIComponent(from.countId)}`;
+  return `/${companySlug}/imprimir/existencias/${warehouseId}${query}`;
 }
 
 // Aviso de la hoja a la pantalla que la abrió en segundo plano.

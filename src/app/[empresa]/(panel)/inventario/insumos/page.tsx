@@ -4,6 +4,7 @@ import { CircleCheck, Plus, Printer, Search } from "lucide-react";
 
 import { SUPPLY_ALERT_INFO, SUPPLY_NOTICES } from "@/components/inventory/supply-fields";
 import { SupplyList } from "@/components/inventory/supply-list";
+import { RegisterCountButton } from "@/components/inventory/start-count-form";
 import { stockSheetHref } from "@/components/printing/print-sheets";
 import { EmptyState } from "@/components/shared/empty-state";
 import { FilterChip } from "@/components/shared/filter-chip";
@@ -67,6 +68,13 @@ export default async function SuppliesPage({
                 Imprimir existencias
               </Link>
             </Button>
+          )}
+          {mainWarehouseId && !archived && (
+            <RegisterCountButton
+              companySlug={session.company.slug}
+              warehouseId={mainWarehouseId}
+              size="lg"
+            />
           )}
           {newButton}
         </div>

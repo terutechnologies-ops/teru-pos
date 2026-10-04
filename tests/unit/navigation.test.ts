@@ -63,6 +63,9 @@ describe("navigationFor", () => {
     expect(ids("STAFF")).not.toContain("inventory-supplies");
     expect(ids("ADMIN")).toContain("inventory-warehouses");
     expect(ids("STAFF")).not.toContain("inventory-warehouses");
+    expect(ids("OWNER")).toContain("inventory-counts");
+    expect(ids("ADMIN")).toContain("inventory-counts");
+    expect(ids("STAFF")).not.toContain("inventory-counts");
   });
 
   it("propietario y administrador ven Métodos de pago; personal y cajeros no", () => {

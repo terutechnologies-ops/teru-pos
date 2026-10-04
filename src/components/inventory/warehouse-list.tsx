@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { WarehouseOverview } from "@/server/services/inventory";
 
+import { RegisterCountButton } from "./start-count-form";
 import { renameWarehouseAction } from "./warehouse-actions";
 import { WarehouseRowButton } from "./warehouse-row-button";
 
@@ -79,12 +80,15 @@ export function WarehouseList({
 
                 <div className="flex shrink-0 flex-wrap items-start justify-end gap-2">
                   {warehouse.isActive && (
-                    <Button asChild variant="outline" size="sm" className="gap-2">
-                      <Link href={stockSheetHref(companySlug, warehouse.id)}>
-                        <Printer aria-hidden />
-                        Imprimir existencias
-                      </Link>
-                    </Button>
+                    <>
+                      <Button asChild variant="outline" size="sm" className="gap-2">
+                        <Link href={stockSheetHref(companySlug, warehouse.id)}>
+                          <Printer aria-hidden />
+                          Imprimir existencias
+                        </Link>
+                      </Button>
+                      <RegisterCountButton companySlug={companySlug} warehouseId={warehouse.id} />
+                    </>
                   )}
                   {!warehouse.isActive ? (
                     <WarehouseRowButton

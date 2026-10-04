@@ -2506,3 +2506,94 @@ conteos por categoría o programados, gráficas, aviso por WhatsApp.
   desactivada, doble confirmación, consecutivo simultáneo, reglas de la
   BD); 3/3 seguidas. `tests/helpers.ts` limpia conteos. Verificado:
   typecheck, lint, suite **367/367**, build.
+
+### Componente 2 — Borrador y confirmación (aprobado 2026-10-03)
+
+- **Menú:** "Conteos" (`inventory-counts`, `inventario/conteos`, ícono
+  `ClipboardCheck`) después de Bodegas.
+- **`/inventario/conteos`:** "Nuevo conteo" (`StartCountForm`: con una
+  bodega activa, botón "Contar <bodega>"; con varias, selector) y "En
+  curso" (`CountDraftList`). "Registrar conteo" (`RegisterCountButton`)
+  junto a "Imprimir existencias" en Bodegas (cada bodega activa) e Insumos
+  (principal). Empezar = crear o retomar el borrador de la bodega.
+- **`/inventario/conteos/[id]`:** encabezado (bodega, empezó, confirmó) e
+  "Imprimir hoja" (`stockSheetHref(slug, bodega, { countId })`: "Volver"
+  de la hoja regresa al conteo con `?conteo=`). Borrador: aviso de contar
+  sin ventas (con el número de turnos abiertos en la sucursal,
+  `countOpenCashSessionsInBranch`), aviso de bodega inactiva y
+  `CountForm`: filas por insumo activo (más archivados con algo contado,
+  marcados) con Sistema ("—" sin carga inicial, negativo en rojo),
+  Contado (texto `inputMode="decimal"`, controlado) y Diferencia en vivo;
+  buscador sin `name` (oculta filas con `hidden`, siguen enviándose);
+  "Contaste N de M"; "Guardar avance" y, fuera del formulario,
+  "Confirmar conteo" (`ExternalFormStep`: su botón envía el formulario
+  con `form=` e `intent=confirm`) y "Eliminar borrador". Confirmado:
+  `CountLines` (sistema, contado, diferencia; enlaza la ficha del insumo).
+- **Compartido nuevo:** `components/shared/draft-step.tsx` (`DraftStep`,
+  extraído de compras con `id` en lugar de `purchaseId`, y
+  `ExternalFormStep`). `purchase-draft-actions.tsx` ya lo usa.
+- **Validación** `countedQuantitySchema`: ≥ 0, 3 decimales, vacío = null,
+  **acepta coma decimal** (el borrador muestra lo guardado con coma).
+- **Datos:** `CountEntry.unit` = unidad mostrada; si el insumo ya tiene
+  otra, `UNIT_CHANGED` sin guardar. `listInventoryCountDrafts`;
+  `findInventoryCount` trae `branch.id`.
+- **Servicio** `services/inventory-counts.ts` (`inventory.manage`):
+  `getCountStartOptions`, `startCount`, `getCountDrafts`, `getCount`,
+  `saveCount` (nada se guarda si alguna cantidad es inválida; errores por
+  insumo), `confirmCount` (guarda y confirma), `deleteCount`. Mensajes con
+  el nombre del insumo archivado o de unidad cambiada.
+- Acciones `components/inventory/count-actions.ts` (`startCountAction`,
+  `saveCountAction` con `intent`, `deleteCountAction`); campos en
+  `count-fields.ts`. Funciona sin JS salvo la diferencia en vivo y el
+  buscador.
+- Pruebas: `inventory-counts.test.ts` (9: coma y cero, empezar/retomar,
+  bodega ajena e inactiva, filas del borrador, nada guardado con error,
+  unidad cambiada, confirmar guardando lo escrito, vacío, archivado,
+  turnos abiertos, otra empresa, STAFF y CASHIER), datos actualizados y
+  menú. Verificado: typecheck, lint, suite **376/376**, build; sin sesión
+  las rutas redirigen al login. Revisión visual con sesión: la hace el
+  usuario.
+
+## Cierre de la sesión 2026-10-03 (noche)
+
+**Implementado (con commit y subido a `origin/master`):**
+- Fase 9 — análisis y decisiones (saldo al confirmar, conteo parcial, sin
+  anulación, saldo visible).
+- Componente 1 — modelo de datos del conteo físico (`dfcc809`).
+- Componente 2 — borrador y confirmación en pantalla (último commit de la
+  sesión).
+
+**Pendiente:**
+- **Componente 3 — lista, detalle con el resultado y kardex** (siguiente;
+  diseñar y aprobar antes de implementar): lista de conteos confirmados
+  (filtros por bodega y fechas, "Ir al conteo #N"), resultado teórico vs.
+  real por insumo con lo guardado en cada línea (`previousCounted`,
+  `soldQuantity`, `purchasedQuantity`, `adjustedQuantity`, `difference`,
+  `unitCost`): consumo real, % de desviación sobre lo vendido y diferencia
+  valorizada con total; "Conteo #N" con enlace en el kardex
+  (`listStockMovements` tendrá que traer `inventoryCount { id, number }`).
+- Componente 4 — cierre de la fase 9 (revisión, ADR 0009 con el riesgo del
+  desglose por milisegundos y la decisión de escribir por lotes, README).
+- Siguen abiertos: "Venta #N" con enlace en el kardex (opcional, sin
+  confirmar), aviso por WhatsApp, mensajes de duplicado de terceros,
+  despliegue en Vercel (en pausa), proveedor de correo, clave de Storage y
+  bucket por entorno.
+
+**Decisiones técnicas de hoy:** confirmación del conteo por lotes (pocas
+consultas sin importar el número de líneas) en lugar de
+`writeStockMovement`; la confirmación y sus movimientos comparten la hora
+(`confirmedAt`), que marca el inicio del período siguiente; el guardado
+recibe la unidad mostrada y rechaza si cambió; contar 0 sin carga inicial
+no crea saldo; lo contado acepta coma decimal; `DraftStep` /
+`ExternalFormStep` compartidos; "Volver" de la hoja de existencias puede
+regresar al conteo (`?conteo=`).
+
+**Errores conocidos:**
+- No se probó con sesión ninguna página de conteos (revisión visual a
+  cargo del usuario). Confirmar un conteo en dev cambia el inventario real
+  de Su Arepa en esa base.
+- Riesgo del desglose del período (venta que cruza la confirmación).
+- Siguen los de sesiones anteriores (latencia a Supabase en dev, `next
+  dev` en Windows deja el proceso en el 3000, heredoc largos en Bash).
+
+**Próximo paso recomendado:** diseño del componente 3 de la fase 9.

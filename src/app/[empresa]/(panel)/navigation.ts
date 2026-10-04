@@ -1,5 +1,6 @@
 import {
   Boxes,
+  ClipboardCheck,
   FolderTree,
   House,
   Package,
@@ -144,6 +145,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     description: "Dónde guardas tus insumos, por sucursal.",
     path: "inventario/bodegas",
     icon: Warehouse,
+    group: "inventory",
+    permission: "inventory.manage",
+  },
+  {
+    id: "inventory-counts",
+    label: "Conteos",
+    description: "Cuenta una bodega y corrige el inventario.",
+    path: "inventario/conteos",
+    icon: ClipboardCheck,
     group: "inventory",
     permission: "inventory.manage",
   },
