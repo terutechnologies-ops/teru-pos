@@ -121,6 +121,17 @@ export function SupplyKardex({
                       ) : (
                         ` #${movement.purchase.number}`
                       ))}
+                    {movement.inventoryCount?.number != null && (
+                      <>
+                        {" "}
+                        <Link
+                          href={`/${companySlug}/inventario/conteos/${movement.inventoryCount.id}`}
+                          className="font-semibold text-link hover:underline"
+                        >
+                          #{movement.inventoryCount.number}
+                        </Link>
+                      </>
+                    )}
                   </td>
                   <td
                     className={cn(

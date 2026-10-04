@@ -387,3 +387,71 @@ export async function findInventoryCount(companyId: string, countId: string) {
     },
   });
 }
+
+export type InventoryCountFilters = {
+  // Intervalo [start, end) de la confirmación.
+  start: Date;
+  end: Date;
+  warehouseId?: string;
+};
+
+export type InventoryCountRow = {
+  id: string;
+  number: number;
+  confirmedAt: Date;
+  warehouseName: string;
+  branchName: string;
+  confirmedBy: string;
+  lineCount: number;
+  changedCount: number;
+  // Suma de diferencia × costo de las líneas con costo (texto decimal).
+  netValue: string;
+  // Líneas con diferencia y sin costo: no entran en netValue.
+  missingCostCount: number;
+};
+
+// Conteos confirmados del rango, el más reciente primero, con lo que suma
+// cada uno. Una sola consulta: sumar con Prisma obligaría a traer todas
+// las líneas de cada conteo.
+export async function listInventoryCounts(
+  companyId: string,
+  filters: InventoryCountFilters,
+  take: number,
+) {
+  // total: conteos del rango sin el límite.
+  const rows = await db.$queryRaw<(InventoryCountRow & { total: number })[]>`
+    SELECT c."id", c."number", c."confirmedAt",
+      w."name" AS "warehouseName", b."name" AS "branchName", u."name" AS "confirmedBy",
+      COUNT(l."id")::int AS "lineCount",
+      COUNT(l."id") FILTER (WHERE l."difference" <> 0)::int AS "changedCount",
+      COALESCE(SUM(l."difference" * l."unitCost"), 0)::text AS "netValue",
+      COUNT(l."id") FILTER (WHERE l."difference" <> 0 AND l."unitCost" IS NULL)::int AS "missingCostCount",
+      (COUNT(*) OVER ())::int AS "total"
+    FROM "inventory_counts" c
+    JOIN "warehouses" w ON w."id" = c."warehouseId" AND w."companyId" = c."companyId"
+    JOIN "branches" b ON b."id" = w."branchId" AND b."companyId" = w."companyId"
+    JOIN "users" u ON u."id" = c."confirmedById"
+    LEFT JOIN "inventory_count_lines" l ON l."countId" = c."id" AND l."companyId" = c."companyId"
+    WHERE c."companyId" = ${companyId}
+      AND c."status" = 'CONFIRMED'
+      AND c."confirmedAt" >= ${filters.start}
+      AND c."confirmedAt" < ${filters.end}
+      ${filters.warehouseId ? Prisma.sql`AND c."warehouseId" = ${filters.warehouseId}` : Prisma.empty}
+    GROUP BY c."id", w."name", b."name", u."name"
+    ORDER BY c."confirmedAt" DESC, c."number" DESC
+    LIMIT ${take}`;
+  return {
+    // La suma llega con 10 decimales ("-2000.0000000000").
+    counts: rows.map((row) => ({ ...row, netValue: new Prisma.Decimal(row.netValue).toString() })),
+    total: rows[0]?.total ?? 0,
+  };
+}
+
+// "Ir al conteo #N": solo los confirmados tienen número.
+export async function findInventoryCountIdByNumber(companyId: string, number: number) {
+  const count = await db.inventoryCount.findFirst({
+    where: { companyId, number },
+    select: { id: true },
+  });
+  return count?.id ?? null;
+}

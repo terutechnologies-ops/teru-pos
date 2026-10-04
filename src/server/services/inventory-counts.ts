@@ -1,6 +1,6 @@
 import "server-only";
 
-import { formatDateTime } from "@/lib/company-formats";
+import { formatDateTime, resolveDayRange } from "@/lib/company-formats";
 import { isStockUnit, UNIT_INFO } from "@/lib/units";
 import type { StaffSessionDto } from "@/server/dto/auth";
 import { countOpenCashSessionsInBranch } from "@/server/data/cash-sessions";
@@ -10,12 +10,15 @@ import {
   createInventoryCountDraft,
   deleteInventoryCountDraft,
   findInventoryCount,
+  findInventoryCountIdByNumber,
   listInventoryCountDrafts,
+  listInventoryCounts,
   saveInventoryCountLines,
   type CountEntry,
 } from "@/server/data/inventory-counts";
 import { findSupply, listSupplies, listWarehouses } from "@/server/data/inventory";
 import { assertPermission } from "@/server/services/auth/permissions";
+import { countLineResult, countTotals } from "@/server/services/count-results";
 import { countedQuantitySchema } from "@/server/validations/inventory-counts";
 
 // Conteo físico por bodega (ver ADR 0009). Todo con inventory.manage y
@@ -87,6 +90,73 @@ export async function getCountDrafts(session: StaffSessionDto) {
 
 export type CountDraftRow = Awaited<ReturnType<typeof getCountDrafts>>[number];
 
+// --- Confirmados -----------------------------------------------------------------
+
+export const COUNTS_LIST_LIMIT = 200;
+
+// Sin fechas en la dirección, la lista muestra los últimos 90 días: los
+// conteos suelen ser mensuales.
+export const COUNTS_DEFAULT_DAYS = 90;
+
+export type CountsQuery = { desde?: string; hasta?: string; bodega?: string };
+
+export async function getCountsOverview(session: StaffSessionDto, query: CountsQuery) {
+  assertPermission(session, "inventory.manage");
+  const companyId = session.company.id;
+  const formats = await findCompanyFormats(companyId);
+  const now = new Date();
+  const days = resolveDayRange(query, formats.timeZone, now, COUNTS_DEFAULT_DAYS);
+  const [list, warehouses] = await Promise.all([
+    listInventoryCounts(
+      companyId,
+      { start: days.start, end: days.end, warehouseId: query.bodega || undefined },
+      COUNTS_LIST_LIMIT,
+    ),
+    listWarehouses(companyId),
+  ]);
+  const showBranch = new Set(warehouses.map((warehouse) => warehouse.branch.id)).size > 1;
+  const label = (warehouse: { name: string; branchName: string }) =>
+    showBranch ? `${warehouse.branchName} · ${warehouse.name}` : warehouse.name;
+
+  return {
+    currency: formats.currency,
+    dateFormat: formats.dateFormat,
+    filters: { from: days.from, to: days.to, warehouseId: query.bodega ?? "" },
+    today: days.today,
+    defaultFrom: resolveDayRange({}, formats.timeZone, now, COUNTS_DEFAULT_DAYS).from,
+    // Solo con varias bodegas tiene sentido filtrar por bodega.
+    warehouses:
+      warehouses.length > 1
+        ? warehouses.map((warehouse) => ({
+            id: warehouse.id,
+            name: label({ name: warehouse.name, branchName: warehouse.branch.name }),
+          }))
+        : [],
+    counts: list.counts.map((count) => ({
+      id: count.id,
+      number: count.number,
+      warehouseName: label({ name: count.warehouseName, branchName: count.branchName }),
+      confirmedBy: count.confirmedBy,
+      confirmedAt: formatDateTime(count.confirmedAt, formats.dateFormat, formats.timeZone),
+      lineCount: count.lineCount,
+      changedCount: count.changedCount,
+      netValue: count.netValue,
+      missingCostCount: count.missingCostCount,
+    })),
+    totalCount: list.total,
+  };
+}
+
+export type CountsOverview = Awaited<ReturnType<typeof getCountsOverview>>;
+
+// "Ir al conteo #N". null = no existe en la empresa.
+export async function findCountByNumber(session: StaffSessionDto, number: string) {
+  assertPermission(session, "inventory.manage");
+  const parsed = Number(number.trim().replace(/^#/, ""));
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 2_147_483_647) return null;
+  return findInventoryCountIdByNumber(session.company.id, parsed);
+}
+
 // --- Conteo -------------------------------------------------------------------
 
 // Texto decimal con coma, como se escribe en el formulario ("9.25" → "9,25").
@@ -131,17 +201,29 @@ export async function getCount(session: StaffSessionDto, countId: string) {
   };
 
   if (count.status === "CONFIRMED") {
+    // Una línea confirmada tiene todos sus datos (lo exige la base).
+    const lines = count.lines.map((line) => ({
+      supplyId: line.supply.id,
+      name: line.supply.name,
+      unit: line.unit,
+      counted: line.countedQuantity.toString(),
+      system: line.systemQuantity!.toString(),
+      difference: line.difference!.toString(),
+      ...countLineResult({
+        difference: line.difference!,
+        unitCost: line.unitCost,
+        previousCounted: line.previousCounted,
+        soldQuantity: line.soldQuantity!,
+        purchasedQuantity: line.purchasedQuantity!,
+        adjustedQuantity: line.adjustedQuantity!,
+      }),
+    }));
     return {
       ...header,
+      currency: formats.currency,
       draft: null,
-      lines: count.lines.map((line) => ({
-        supplyId: line.supply.id,
-        name: line.supply.name,
-        unit: line.unit,
-        counted: line.countedQuantity.toString(),
-        system: line.systemQuantity!.toString(),
-        difference: line.difference!.toString(),
-      })),
+      lines,
+      totals: countTotals(lines),
     };
   }
 
@@ -172,8 +254,10 @@ export async function getCount(session: StaffSessionDto, countId: string) {
 
   return {
     ...header,
+    currency: formats.currency,
     draft: { rows, openShifts, countedCount: count.lines.length },
     lines: [],
+    totals: null,
   };
 }
 

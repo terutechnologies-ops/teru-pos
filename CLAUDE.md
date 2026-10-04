@@ -2597,3 +2597,50 @@ regresar al conteo (`?conteo=`).
   dev` en Windows deja el proceso en el 3000, heredoc largos en Bash).
 
 **Próximo paso recomendado:** diseño del componente 3 de la fase 9.
+
+## Sesión 2026-10-04
+
+### Componente 3 — Lista, detalle con el resultado y kardex (aprobado 2026-10-04)
+
+Diseño aprobado el 2026-10-04 con las recomendaciones: lista por defecto
+de **los últimos 90 días** y **% sobre lo vendido**. Sin migración.
+- **Cálculo** `services/count-results.ts` (puro, como `costing.ts`):
+  `countLineResult` (inicio = conteo anterior o 0, consumo real = vendido −
+  diferencia guardada — cuadra con el kardex aunque una venta cruce la
+  confirmación —, % = diferencia ÷ vendido con 1 decimal y null si vendido
+  ≤ 0, valor = diferencia × costo o null sin costo) y `countTotals`
+  (faltante, sobrante, neto y líneas con diferencia sin costo, que no
+  suman).
+- **Datos** (`data/inventory-counts.ts`): `listInventoryCounts` (una
+  consulta SQL con las sumas por conteo y `COUNT(*) OVER ()` para el total;
+  `confirmedAt` en [inicio, fin) del rango en la zona de la empresa;
+  `netValue` normalizado, la suma llega con 10 decimales) y
+  `findInventoryCountIdByNumber`. `listStockMovements` trae
+  `inventoryCount { id, number }`.
+- **Servicio** (`services/inventory-counts.ts`, `inventory.manage`):
+  `getCountsOverview` (`COUNTS_DEFAULT_DAYS` 90, `COUNTS_LIST_LIMIT` 200,
+  filtros `desde`/`hasta`/`bodega`; bodegas solo si hay más de una),
+  `findCountByNumber`; `getCount` suma `currency`, el resultado en cada
+  línea confirmada y `totals` (null en borrador).
+- **UI:** en `/inventario/conteos`, sección de confirmados con
+  `CountsFilters` (fechas, bodega, "Ir al conteo #N" con aviso si no
+  existe) y `CountList` (número, fecha, bodega, contados, con diferencia,
+  quién confirmó, valor neto y "N sin costo"). Detalle confirmado
+  (`max-w-6xl`): `CountSummary` (contados, faltante, sobrante, neto, aviso
+  de insumos sin costo) y `CountLines` ampliada (Inicio · Compras · Ajustes
+  · Vendido · Consumo real · Sistema · Contado · Diferencia · % s/ vendido ·
+  Valor; se agregó "Consumo real", que estaba en las fórmulas del diseño).
+  `CountValue` (monto con signo, faltante en rojo). Kardex: "Conteo #N"
+  con enlace.
+- Pruebas: `tests/unit/count-results.test.ts` (5) e
+  `inventory-counts.test.ts` (+4: lista con sumas, borradores fuera,
+  filtros de bodega y fechas, detalle y totales, conteo siguiente desde lo
+  contado, número, kardex, otra empresa; permisos). Verificado:
+  typecheck, lint, suite **385/385**, build; sin sesión las rutas
+  redirigen al login. Revisión visual con sesión: la hace el usuario.
+- Aprobado por el usuario el 2026-10-04 (revisión en el navegador a su cargo).
+
+**Próximo paso recomendado:** revisión del componente 3 en el navegador
+→ commit y push → componente 4 (cierre de la fase 9: revisión, ADR 0009,
+README).
+

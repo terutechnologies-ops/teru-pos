@@ -7,6 +7,7 @@ import { Boxes, CircleCheck, ClipboardCheck, Info, Printer, TriangleAlert } from
 import { COUNT_NOTICES } from "@/components/inventory/count-fields";
 import { CountForm } from "@/components/inventory/count-form";
 import { CountLines } from "@/components/inventory/count-lines";
+import { CountSummary } from "@/components/inventory/count-summary";
 import { stockSheetHref } from "@/components/printing/print-sheets";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
@@ -15,6 +16,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { requirePermission } from "@/server/http/staff-session";
+import { cn } from "@/lib/utils";
 import { getCount } from "@/server/services/inventory-counts";
 
 export const metadata: Metadata = { title: "Inventario · Conteo" };
@@ -45,10 +47,14 @@ export default async function CountPage({
   if (!count) notFound();
   const slug = session.company.slug;
   const { draft } = count;
-  const changed = count.lines.filter((line) => Number(line.difference) !== 0).length;
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6">
+    <div
+      className={cn(
+        "mx-auto flex w-full flex-1 flex-col gap-6",
+        draft ? "max-w-4xl" : "max-w-6xl",
+      )}
+    >
       <PageHeader
         eyebrow="Inventario"
         title={count.number === null ? "Conteo en curso" : `Conteo #${count.number}`}
@@ -137,16 +143,19 @@ export default async function CountPage({
           )}
         </>
       ) : (
-        <section className="flex flex-col gap-5 rounded-xl bg-card p-5 shadow-sm sm:p-6">
-          <SectionTitle
-            icon={<Boxes className="size-5" aria-hidden />}
-            title="Insumos contados"
-            description={`${count.lines.length} ${
-              count.lines.length === 1 ? "insumo contado" : "insumos contados"
-            }, ${changed === 1 ? "1 con diferencia" : `${changed} con diferencia`}. El sistema es el saldo al confirmar.`}
-          />
-          <CountLines lines={count.lines} companySlug={slug} />
-        </section>
+        <>
+          {count.totals && (
+            <CountSummary lines={count.lines} totals={count.totals} currency={count.currency} />
+          )}
+          <section className="flex flex-col gap-5 rounded-xl bg-card p-5 shadow-sm sm:p-6">
+            <SectionTitle
+              icon={<Boxes className="size-5" aria-hidden />}
+              title="Resultado por insumo"
+              description="Desde el conteo anterior de cada insumo en esta bodega. Vendido es el consumo teórico de las recetas; consumo real = vendido − diferencia. El sistema es el saldo al confirmar y el valor usa el costo del insumo en ese momento."
+            />
+            <CountLines lines={count.lines} currency={count.currency} companySlug={slug} />
+          </section>
+        </>
       )}
     </div>
   );

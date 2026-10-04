@@ -423,6 +423,7 @@ export async function getSupplyDetail(
       warehouseName: movement.warehouse.name,
       userName: movement.user.name,
       purchase: movement.purchase,
+      inventoryCount: movement.inventoryCount,
     })),
     // Para enlazar "Compra #N" con su compra.
     canViewPurchases: hasPermission(session.user.role, "purchases.manage"),

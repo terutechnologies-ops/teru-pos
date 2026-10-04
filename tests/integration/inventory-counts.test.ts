@@ -11,12 +11,15 @@ import {
   setSupplyArchived,
   setWarehouseActive,
 } from "@/server/data/inventory";
+import { getSupplyDetail } from "@/server/services/inventory";
 import { ForbiddenError } from "@/server/services/auth/permissions";
 import {
   confirmCount,
   deleteCount,
+  findCountByNumber,
   getCount,
   getCountDrafts,
+  getCountsOverview,
   getCountStartOptions,
   saveCount,
   startCount,
@@ -208,6 +211,105 @@ describe("conteos", () => {
   });
 });
 
+describe("confirmados", () => {
+  let arroz: string;
+  let aceite: string;
+  let countId: string;
+  let number: number;
+
+  beforeAll(async () => {
+    arroz = (await createSupply(a.id, { name: "Arroz", unit: "KG", minStock: null, unitCost: "2000" })).id!;
+    aceite = (await createSupply(a.id, { name: "Aceite", unit: "KG", minStock: null, unitCost: null })).id!;
+    for (const [supplyId, quantity] of [[arroz, "10"], [aceite, "5"]]) {
+      await recordStockMovement(a.id, {
+        warehouseId: mainA,
+        supplyId,
+        type: "INITIAL",
+        quantity,
+        reason: null,
+        userId: userA,
+      });
+    }
+    countId = await start();
+    // Falta 1 kg de arroz ($ 2.000) y sobra 1 kg de aceite (sin costo).
+    const result = await confirmCount(admin(), countId, [entry(arroz, "9"), entry(aceite, "6")]);
+    if (!result.ok) throw new Error(result.error);
+    number = result.number;
+  });
+
+  it("la lista trae los del rango con lo que suma cada uno", async () => {
+    await createWarehouse(a.id, branchA, "Cocina");
+    const cocina = (await db.warehouse.findFirstOrThrow({ where: { companyId: a.id, name: "Cocina" } })).id;
+    const draft = await start(cocina);
+
+    const overview = await getCountsOverview(admin(), {});
+    expect(overview.counts.find((count) => count.id === countId)).toMatchObject({
+      number,
+      warehouseName: (await db.warehouse.findUniqueOrThrow({ where: { id: mainA } })).name,
+      lineCount: 2,
+      changedCount: 2,
+      netValue: "-2000",
+      missingCostCount: 1,
+    });
+    // Los borradores no se listan; con varias bodegas se puede filtrar.
+    expect(overview.counts.some((count) => count.id === draft)).toBe(false);
+    expect(overview.warehouses.map((warehouse) => warehouse.id)).toContain(cocina);
+    expect((await getCountsOverview(admin(), { bodega: cocina })).counts).toEqual([]);
+    expect(
+      (await getCountsOverview(admin(), { desde: "2020-01-01", hasta: "2020-01-31" })).counts,
+    ).toEqual([]);
+    expect(overview.filters.to).toBe(overview.today);
+    expect(overview.totalCount).toBe(overview.counts.length);
+    await deleteCount(admin(), draft);
+  });
+
+  it("el detalle trae el resultado por insumo y los totales", async () => {
+    const count = await getCount(admin(), countId);
+    expect(count?.lines.find((line) => line.supplyId === arroz)).toMatchObject({
+      start: "0",
+      hasPrevious: false,
+      adjusted: "10",
+      sold: "0",
+      realConsumption: "1",
+      differencePercent: null,
+      value: "-2000",
+    });
+    expect(count?.lines.find((line) => line.supplyId === aceite)).toMatchObject({
+      difference: "1",
+      value: null,
+    });
+    expect(count?.totals).toEqual({ shortage: "-2000", surplus: "0", net: "-2000", missingCost: 1 });
+
+    // El siguiente conteo empieza en lo contado.
+    const next = await start();
+    const result = await confirmCount(admin(), next, [entry(arroz, "9")]);
+    expect(result.ok).toBe(true);
+    expect((await getCount(admin(), next))?.lines[0]).toMatchObject({
+      start: "9",
+      hasPrevious: true,
+      difference: "0",
+    });
+  });
+
+  it("se busca por número y el kardex lo enlaza", async () => {
+    expect(await findCountByNumber(admin(), String(number))).toBe(countId);
+    expect(await findCountByNumber(admin(), `#${number}`)).toBe(countId);
+    expect(await findCountByNumber(admin(), "abc")).toBeNull();
+    expect(await findCountByNumber(admin(), "999999")).toBeNull();
+    expect(await findCountByNumber(sessionFor(b, userB), String(number))).toBeNull();
+
+    const detail = await getSupplyDetail(admin(), arroz);
+    expect(detail?.movements.find((movement) => movement.kind === "COUNT_OUT")?.inventoryCount).toEqual({
+      id: countId,
+      number,
+    });
+  });
+
+  it("otra empresa no ve los conteos", async () => {
+    expect((await getCountsOverview(sessionFor(b, userB), {})).counts).toEqual([]);
+  });
+});
+
 describe("aislamiento y permisos", () => {
   it("otra empresa no ve ni cambia el conteo", async () => {
     const countId = await start();
@@ -224,6 +326,8 @@ describe("aislamiento y permisos", () => {
     for (const role of ["STAFF", "CASHIER"] as const) {
       const session = sessionFor(a, userA, role);
       await expect(getCountDrafts(session)).rejects.toThrow(ForbiddenError);
+      await expect(getCountsOverview(session, {})).rejects.toThrow(ForbiddenError);
+      await expect(findCountByNumber(session, "1")).rejects.toThrow(ForbiddenError);
       await expect(startCount(session, mainA)).rejects.toThrow(ForbiddenError);
       await expect(saveCount(session, "x", [])).rejects.toThrow(ForbiddenError);
       await expect(confirmCount(session, "x", [])).rejects.toThrow(ForbiddenError);
