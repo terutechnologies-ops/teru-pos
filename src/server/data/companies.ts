@@ -6,6 +6,7 @@ import {
   type DateFormat,
 } from "@/lib/company-formats";
 import { db } from "@/lib/db";
+import { createDefaultExpenseCategories } from "@/server/data/cash-movements";
 import { createMainWarehouse } from "@/server/data/inventory";
 import { createDefaultPaymentMethods } from "@/server/data/payment-methods";
 
@@ -133,6 +134,7 @@ export async function createCompanyWithOwnerInvitation(params: {
     });
     await createMainWarehouse(tx, company.id, branch.id);
     await createDefaultPaymentMethods(tx, company.id);
+    await createDefaultExpenseCategories(tx, company.id);
     const invitation = await tx.staffInvitation.create({
       data: {
         companyId: company.id,

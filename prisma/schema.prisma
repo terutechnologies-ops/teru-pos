@@ -77,6 +77,8 @@ model Company {
   purchaseLines       PurchaseLine[]
   inventoryCounts     InventoryCount[]
   inventoryCountLines InventoryCountLine[]
+  expenseCategories   ExpenseCategory[]
+  cashMovements       CashMovement[]
 
   @@map("companies")
 }
@@ -370,11 +372,78 @@ model CashSession {
   countedCash   Decimal?  @db.Decimal(12, 2)
   closingNote   String?
 
-  sales Sale[]
+  sales     Sale[]
+  movements CashMovement[]
 
   @@unique([companyId, id])
   @@index([companyId, openedAt])
   @@map("cash_sessions")
+}
+
+// Categorías de gasto de cada empresa (configurables; unas por defecto al
+// crear la empresa). Nombre único por empresa sin distinguir mayúsculas
+// (índice en la migración).
+model ExpenseCategory {
+  id        String   @id @default(cuid())
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  name      String
+  position  Int
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  movements CashMovement[]
+
+  @@unique([companyId, id])
+  @@index([companyId, position])
+  @@map("expense_categories")
+}
+
+enum CashMovementType {
+  // Sale de la caja y es gasto del negocio (con categoría).
+  EXPENSE
+  // Sale de la caja sin ser gasto (p. ej. a la caja fuerte).
+  WITHDRAWAL
+  // Entra a la caja sin ser venta (p. ej. sencillo).
+  DEPOSIT
+}
+
+enum CashMovementStatus {
+  RECORDED
+  VOIDED
+}
+
+// Gasto, retiro o ingreso de efectivo en un turno abierto. No se borra: se
+// anula (quién, cuándo y por qué) mientras el turno siga abierto. Reglas
+// de categoría, foto y anulación en la migración.
+model CashMovement {
+  id            String             @id @default(cuid())
+  companyId     String
+  company       Company            @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  cashSessionId String
+  cashSession   CashSession        @relation(fields: [companyId, cashSessionId], references: [companyId, id], onDelete: Restrict)
+  type          CashMovementType
+  amount        Decimal            @db.Decimal(12, 2)
+  // Solo en gastos.
+  categoryId    String?
+  category      ExpenseCategory?   @relation(fields: [companyId, categoryId], references: [companyId, id], onDelete: Restrict)
+  note          String?
+  // Foto del recibo en el almacenamiento privado (solo en gastos).
+  receiptPath   String?
+  userId        String
+  user          User               @relation("CashMovementRecordedBy", fields: [userId], references: [id], onDelete: Restrict)
+  createdAt     DateTime           @default(now())
+  status        CashMovementStatus @default(RECORDED)
+  voidedAt      DateTime?
+  voidedById    String?
+  voidedBy      User?              @relation("CashMovementVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+  voidReason    String?
+
+  @@unique([companyId, id])
+  @@index([cashSessionId])
+  @@index([companyId, createdAt])
+  @@map("cash_movements")
 }
 
 enum SaleStatus {
@@ -669,6 +738,8 @@ model User {
   voidedPurchases          Purchase[]               @relation("PurchaseVoidedBy")
   createdInventoryCounts   InventoryCount[]         @relation("InventoryCountCreatedBy")
   confirmedInventoryCounts InventoryCount[]         @relation("InventoryCountConfirmedBy")
+  recordedCashMovements    CashMovement[]           @relation("CashMovementRecordedBy")
+  voidedCashMovements      CashMovement[]           @relation("CashMovementVoidedBy")
 
   @@unique([companyId, email])
   @@index([companyId])

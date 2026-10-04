@@ -2701,3 +2701,69 @@ como `timestamp(3)` en UTC (`utcTimestamp`).
 
 **Próximo paso recomendado:** análisis de la siguiente fase con el
 usuario.
+
+## Hoja de ruta antes de desplegar (aprobada 2026-10-04)
+
+Decisiones del usuario:
+- **Misma base de Supabase para producción** (no se crea otra): antes de
+  desplegar se reinicia por completo (migraciones de nuevo, sin datos de
+  prueba, fotos y logos de prueba borrados del almacenamiento) y se crea
+  Su Arepa real con `company:create` (no el seed). Desde ahí el
+  **desarrollo pasa a PostgreSQL local** (ya instalado), nunca contra
+  producción. Acción destructiva: confirmar con el usuario justo antes.
+  Revisar el plan de Supabase (el gratuito pausa y no tiene copias
+  diarias): decisión del usuario.
+- "Todo aplicado" antes de desplegar; cambios del cliente después.
+
+Orden: 1) fase 10 gastos de caja; 2) pendientes que pidió el cliente,
+**todos**: "Venta #N" con enlace en el kardex, precio de productos con
+separador de miles, cambiar la propia contraseña; 3) preparación para
+producción (dev local, `postinstall: prisma generate`, región `gru1`,
+bucket por entorno, revisión de seguridad, reinicio de la base y alta de
+Su Arepa); 4) correo con Resend (lo último); 5) despliegue en Vercel.
+Fuera hasta que el uso real lo pida: WhatsApp, cartera, traslados.
+
+## Fase 10 — Movimientos de caja (gastos, retiros e ingresos)
+
+Decisiones del usuario (2026-10-04), todas las recomendadas:
+**categorías de gasto configurables** (con unas por defecto), **retiros e
+ingresos** además de gastos (no cuentan como gasto), **anulan solo
+OWNER/ADMIN** (con motivo y turno abierto), **foto opcional del recibo**
+(bucket privado con enlaces temporales). Fuera, para más adelante (el
+usuario aceptó): compras pagadas desde la caja (van con cuentas por pagar;
+mientras tanto, gasto "Compras menores" con el número en la nota), cuentas
+por pagar, presupuestos, gráficas y que un administrador registre en el
+turno de otro.
+
+Componentes: 1) modelo de datos y permisos; 2) categorías en
+Configuración; 3) movimientos en el POS (registrar, foto, lista del turno,
+esperado nuevo en el cierre); 4) panel (revisión del turno con anulación,
+cierre impreso, lista de gastos con totales); 5) cierre (ADR 0010, README).
+
+### Componente 1 — Modelo de datos y permisos (aprobado 2026-10-04)
+
+- Migración `20261004120000_add_cash_movements` (**aplicada en test y
+  dev**; diff vacío; RLS verificado en dev): `expense_categories` (nombre,
+  posición, activa; único por empresa sobre `lower(name)`), enums
+  `CashMovementType` (`EXPENSE`/`WITHDRAWAL`/`DEPOSIT`) y
+  `CashMovementStatus` (`RECORDED`/`VOIDED`), `cash_movements` (turno, tipo,
+  monto, categoría, nota ≤ 200, `receiptPath`, quién y cuándo, anulación).
+  FK compuestas por empresa. Solo en SQL: monto > 0, categoría ⇔ gasto,
+  foto solo en gastos, anulación completa, nota ≤ 200. Crea las 5
+  categorías por defecto de las empresas existentes (Su Arepa: 5).
+- Categorías por defecto (`DEFAULT_EXPENSE_CATEGORIES`): Domicilios y
+  transporte, Gas y servicios, Aseo, Compras menores, Otros. Las crea el
+  alta de empresa (`createDefaultExpenseCategories`) y el seed.
+- Permisos nuevos `cash.void` y `expenses.manage` (OWNER, ADMIN).
+  Registrar usa `sales.charge` en el propio turno abierto.
+- `data/cash-movements.ts`: `recordCashMovement` (turno `FOR SHARE` como
+  una venta; `SESSION_NOT_FOUND` si es de otra persona o empresa,
+  `SESSION_CLOSED`, `CATEGORY_NOT_FOUND`/`CATEGORY_INACTIVE`; la categoría
+  se ignora en retiros e ingresos), `voidCashMovement` (`updateMany` sobre
+  `RECORDED`: dos anulaciones a la vez, solo una; `SESSION_CLOSED`),
+  `listSessionCashMovements`. `expectedCash` (`data/cash-sessions.ts`) =
+  fondo + efectivo de ventas + ingresos − gastos − retiros no anulados; lo
+  usan el cierre del POS y el del panel.
+- Pruebas: `cash-movements-data.test.ts` (7) y permisos. Verificado:
+  typecheck, lint, suite **394/394**, build.
+

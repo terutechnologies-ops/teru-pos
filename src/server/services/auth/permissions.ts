@@ -15,6 +15,10 @@ export type Permission =
   | "cash.review"
   // Cerrar el turno que otra persona dejó abierto.
   | "cash.close"
+  // Anular un gasto, retiro o ingreso de caja (turno abierto).
+  | "cash.void"
+  // Categorías de gasto.
+  | "expenses.manage"
   | "payments.manage"
   // Proveedores y compras de insumos.
   | "purchases.manage";
@@ -29,6 +33,8 @@ const MANAGEMENT: readonly Permission[] = [
   "sales.void",
   "cash.review",
   "cash.close",
+  "cash.void",
+  "expenses.manage",
   "payments.manage",
   "purchases.manage",
 ];

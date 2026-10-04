@@ -7,6 +7,7 @@
 import "dotenv/config";
 
 import { db } from "@/lib/db";
+import { createDefaultExpenseCategories } from "@/server/data/cash-movements";
 import { MAIN_BRANCH_NAME } from "@/server/data/companies";
 import { MAIN_WAREHOUSE_NAME } from "@/server/data/inventory";
 import { createDefaultPaymentMethods } from "@/server/data/payment-methods";
@@ -62,6 +63,10 @@ async function main() {
 
   if ((await db.paymentMethod.count({ where: { companyId: company.id } })) === 0) {
     await db.$transaction((tx) => createDefaultPaymentMethods(tx, company.id));
+  }
+
+  if ((await db.expenseCategory.count({ where: { companyId: company.id } })) === 0) {
+    await db.$transaction((tx) => createDefaultExpenseCategories(tx, company.id));
   }
 
   const existing = await db.user.findUnique({
