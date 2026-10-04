@@ -2435,3 +2435,74 @@ sección más específica activa (`activeNavItemId`); `amountSchema`,
 
 **Próximo paso recomendado:** análisis de la fase 9 (conteo físico y
 consumo teórico vs. real) con el usuario.
+
+## Fase 9 — Conteo físico y consumo teórico vs. real
+
+Decisiones del usuario (2026-10-03), todas las recomendadas:
+- **Saldo del sistema al confirmar** (no a una hora indicada): se cuenta
+  sin ventas en curso y la pantalla lo advierte.
+- **Conteo parcial permitido:** se listan todos los insumos activos; los
+  que quedan en blanco no se ajustan. El resultado de cada insumo se mide
+  desde su último conteo en esa bodega.
+- **Sin anulación:** un conteo confirmado es definitivo; se corrige con
+  otro conteo o con un ajuste.
+- **Saldo visible** mientras se registra (no es conteo ciego).
+
+Alcance propuesto: conteo por bodega (borrador → confirmar, "Conteo #N");
+al confirmar guarda sistema, contado, diferencia y costo unitario por
+línea y genera el movimiento `COUNT` por la diferencia (no cambia el costo
+promedio; sirve también de carga inicial); resultado teórico vs. real por
+insumo y valorizado; "Conteo #N" en el kardex; botón "Registrar conteo"
+junto a "Imprimir existencias"; permiso `inventory.manage`. Componentes:
+1) modelo de datos; 2) borrador y confirmación; 3) lista, detalle con el
+resultado y kardex; 4) cierre (ADR 0009, README). Fuera: traslados,
+conteos por categoría o programados, gráficas, aviso por WhatsApp.
+
+### Componente 1 — Modelo de datos (aprobado 2026-10-03)
+
+- Migración `20261003120000_add_inventory_counts` (**aplicada en test y
+  dev**; diff vacío; RLS verificado en dev): enum `InventoryCountStatus`
+  (`DRAFT`/`CONFIRMED`), `inventory_counts` (`number` nulo en borrador,
+  bodega, quién y cuándo creó y confirmó), `inventory_count_lines`
+  (insumo único por conteo, `unit` del insumo al escribir,
+  `countedQuantity` 14,3; al confirmar: `systemQuantity`, `difference`,
+  `unitCost`, `periodStart`, `previousCounted`, `soldQuantity`,
+  `purchasedQuantity`, `adjustedQuantity`), `companies.lastInventoryCountNumber`,
+  `StockMovementType.COUNT` y `stock_movements.inventoryCountId`. FK
+  compuestas por empresa. Solo en SQL: enlace `COUNT` ⇔ conteo (por texto),
+  un borrador por bodega (índice parcial), número solo al confirmar,
+  confirmación completa, contado ≥ 0, datos de confirmación todos o ninguno,
+  `difference = contado − sistema`, `periodStart` ⇔ `previousCounted`.
+- `data/inventory-counts.ts`: `createInventoryCountDraft` (`DRAFT_EXISTS`
+  con el id del existente, `WAREHOUSE_NOT_FOUND`, `WAREHOUSE_INACTIVE`),
+  `findWarehouseDraftCount`, `saveInventoryCountLines` (con valor:
+  crea/cambia; null: quita; insumo ajeno o archivado se rechaza sin
+  escribir), `deleteInventoryCountDraft`, `confirmInventoryCount` y
+  `findInventoryCount`.
+- **Confirmación por lotes** (decisión de implementación): bloquea todos
+  los insumos en una consulta `FOR UPDATE` ordenada, lee saldos, conteo
+  anterior (`DISTINCT ON`) y sumas del período en pocas consultas, y
+  escribe saldos (`INSERT … ON CONFLICT`), movimientos (`createMany`) y
+  líneas (`UPDATE … FROM unnest`) de una vez. Motivo: con ~0,8 s por
+  consulta a Supabase, una consulta por línea agotaba la transacción con
+  decenas de insumos. Por eso **no** usa `writeStockMovement` (se descartó
+  agregarle `inventoryCountId`). Arreglos a SQL como `text[]` (uno con
+  solo null llega como `integer[]`).
+- **Período:** la confirmación y sus movimientos llevan la misma hora
+  (`confirmedAt`, del servidor de la app, como el resto de `createdAt`);
+  el siguiente conteo suma los movimientos con `createdAt >` esa hora.
+  Vendido = −(SALE + SALE_VOID), comprado = PURCHASE + PURCHASE_VOID,
+  ajustado = INITIAL + ADJUSTMENT. Riesgo (al ADR): una venta que empieza
+  antes de una confirmación y termina después queda fuera del desglose.
+- Contar 0 de un insumo sin carga inicial no crea saldo (diferencia 0, sin
+  movimiento): sigue "sin carga inicial".
+- Kardex: `COUNT_IN` / `COUNT_OUT` con la etiqueta "Conteo" (el "#N" con
+  enlace llega en el componente 3).
+- Pruebas: `inventory-counts-data.test.ts` (11: borrador único, bodega
+  ajena o inactiva, guardar y quitar, insumo ajeno/archivado, otra
+  empresa, vacío, diferencia ±/0 y carga inicial, hora de los movimientos,
+  confirmado inmutable, período con ventas — incluida una anulada —,
+  compra y ajuste, nada a medias con archivado o unidad cambiada, bodega
+  desactivada, doble confirmación, consecutivo simultáneo, reglas de la
+  BD); 3/3 seguidas. `tests/helpers.ts` limpia conteos. Verificado:
+  typecheck, lint, suite **367/367**, build.

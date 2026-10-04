@@ -432,12 +432,20 @@ export async function getSupplyDetail(
 
 export type SupplyDetail = NonNullable<Awaited<ReturnType<typeof getSupplyDetail>>>;
 
-// Tipo para el kardex: los que registra una persona y los de ventas y
-// compras.
-export type KardexKind = MovementKind | "SALE" | "SALE_VOID" | "PURCHASE" | "PURCHASE_VOID";
+// Tipo para el kardex: los que registra una persona, los de ventas y
+// compras, y la diferencia de un conteo físico (entra o sale).
+export type KardexKind =
+  | MovementKind
+  | "SALE"
+  | "SALE_VOID"
+  | "PURCHASE"
+  | "PURCHASE_VOID"
+  | "COUNT_IN"
+  | "COUNT_OUT";
 
 function movementKind(type: StockMovementType, quantity: Prisma.Decimal): KardexKind {
   if (type === "ADJUSTMENT") return quantity.isNegative() ? "OUT" : "IN";
+  if (type === "COUNT") return quantity.isNegative() ? "COUNT_OUT" : "COUNT_IN";
   return type;
 }
 

@@ -37,42 +37,46 @@ model Company {
 
   // Datos del asistente de configuración; opcionales y sin formato de un
   // país en particular.
-  taxId              String?
-  phone              String?
-  email              String?
-  address            String?
+  taxId                    String?
+  phone                    String?
+  email                    String?
+  address                  String?
   // null = el propietario aún no completa el asistente de configuración.
-  setupCompletedAt   DateTime?
+  setupCompletedAt         DateTime?
   // Ruta del logo en el almacenamiento de archivos (no la URL: la URL
   // pública depende del proveedor configurado). null = sin logo.
-  logoPath           String?
+  logoPath                 String?
   // Último número de venta usado. Se incrementa dentro de la transacción de
   // la venta: el consecutivo queda sin huecos.
-  lastSaleNumber     Int       @default(0)
+  lastSaleNumber           Int       @default(0)
   // Último número de compra confirmada (se asigna al confirmar, no al
   // crear el borrador: borrar un borrador no deja huecos).
-  lastPurchaseNumber Int       @default(0)
+  lastPurchaseNumber       Int       @default(0)
+  // Último número de conteo físico confirmado (se asigna al confirmar).
+  lastInventoryCountNumber Int       @default(0)
 
-  users             User[]
-  userSessions      UserSession[]
-  customers         Customer[]
-  branches          Branch[]
-  staffInvitations  StaffInvitation[]
-  productCategories ProductCategory[]
-  products          Product[]
-  warehouses        Warehouse[]
-  supplies          Supply[]
-  stockLevels       StockLevel[]
-  stockMovements    StockMovement[]
-  recipeItems       ProductRecipeItem[]
-  paymentMethods    PaymentMethod[]
-  cashSessions      CashSession[]
-  sales             Sale[]
-  saleLines         SaleLine[]
-  salePayments      SalePayment[]
-  thirdParties      ThirdParty[]
-  purchases         Purchase[]
-  purchaseLines     PurchaseLine[]
+  users               User[]
+  userSessions        UserSession[]
+  customers           Customer[]
+  branches            Branch[]
+  staffInvitations    StaffInvitation[]
+  productCategories   ProductCategory[]
+  products            Product[]
+  warehouses          Warehouse[]
+  supplies            Supply[]
+  stockLevels         StockLevel[]
+  stockMovements      StockMovement[]
+  recipeItems         ProductRecipeItem[]
+  paymentMethods      PaymentMethod[]
+  cashSessions        CashSession[]
+  sales               Sale[]
+  saleLines           SaleLine[]
+  salePayments        SalePayment[]
+  thirdParties        ThirdParty[]
+  purchases           Purchase[]
+  purchaseLines       PurchaseLine[]
+  inventoryCounts     InventoryCount[]
+  inventoryCountLines InventoryCountLine[]
 
   @@map("companies")
 }
@@ -179,6 +183,8 @@ enum StockMovementType {
   PURCHASE
   // Salida al anular una compra.
   PURCHASE_VOID
+  // Diferencia de un conteo físico confirmado (entrada o salida).
+  COUNT
 }
 
 // Bodega de una sucursal. La sucursal se enlaza por (companyId, branchId),
@@ -197,9 +203,10 @@ model Warehouse {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  stockLevels    StockLevel[]
-  stockMovements StockMovement[]
-  purchases      Purchase[]
+  stockLevels     StockLevel[]
+  stockMovements  StockMovement[]
+  purchases       Purchase[]
+  inventoryCounts InventoryCount[]
 
   @@unique([companyId, id])
   @@index([companyId, branchId])
@@ -230,6 +237,7 @@ model Supply {
   stockMovements StockMovement[]
   recipeItems    ProductRecipeItem[]
   purchaseLines  PurchaseLine[]
+  countLines     InventoryCountLine[]
 
   @@unique([companyId, id])
   @@index([companyId])
@@ -261,28 +269,31 @@ model StockLevel {
 // Cantidades con 6 decimales: una receta en g de un insumo en kg se
 // convierte sin redondear (0,5 g = 0,0005 kg).
 model StockMovement {
-  id           String            @id @default(cuid())
-  companyId    String
-  company      Company           @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  warehouseId  String
-  warehouse    Warehouse         @relation(fields: [companyId, warehouseId], references: [companyId, id], onDelete: Restrict)
-  supplyId     String
-  supply       Supply            @relation(fields: [companyId, supplyId], references: [companyId, id], onDelete: Restrict)
-  type         StockMovementType
-  quantity     Decimal           @db.Decimal(17, 6)
-  balanceAfter Decimal           @db.Decimal(17, 6)
-  reason       String?
-  userId       String
-  user         User              @relation(fields: [userId], references: [id], onDelete: Restrict)
-  saleId       String?
-  sale         Sale?             @relation(fields: [companyId, saleId], references: [companyId, id], onDelete: Restrict)
-  purchaseId   String?
-  purchase     Purchase?         @relation(fields: [companyId, purchaseId], references: [companyId, id], onDelete: Restrict)
-  createdAt    DateTime          @default(now())
+  id               String            @id @default(cuid())
+  companyId        String
+  company          Company           @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  warehouseId      String
+  warehouse        Warehouse         @relation(fields: [companyId, warehouseId], references: [companyId, id], onDelete: Restrict)
+  supplyId         String
+  supply           Supply            @relation(fields: [companyId, supplyId], references: [companyId, id], onDelete: Restrict)
+  type             StockMovementType
+  quantity         Decimal           @db.Decimal(17, 6)
+  balanceAfter     Decimal           @db.Decimal(17, 6)
+  reason           String?
+  userId           String
+  user             User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  saleId           String?
+  sale             Sale?             @relation(fields: [companyId, saleId], references: [companyId, id], onDelete: Restrict)
+  purchaseId       String?
+  purchase         Purchase?         @relation(fields: [companyId, purchaseId], references: [companyId, id], onDelete: Restrict)
+  inventoryCountId String?
+  inventoryCount   InventoryCount?   @relation(fields: [companyId, inventoryCountId], references: [companyId, id], onDelete: Restrict)
+  createdAt        DateTime          @default(now())
 
   @@index([companyId, supplyId, createdAt])
   @@index([saleId])
   @@index([purchaseId])
+  @@index([inventoryCountId])
   @@index([warehouseId, supplyId, createdAt])
   @@map("stock_movements")
 }
@@ -547,6 +558,81 @@ model PurchaseLine {
   @@map("purchase_lines")
 }
 
+// --- Conteo físico ----------------------------------------------------------
+
+enum InventoryCountStatus {
+  DRAFT
+  // Definitivo: no se anula (un error se corrige con otro conteo o un
+  // ajuste). Ver ADR 0009.
+  CONFIRMED
+}
+
+// Conteo físico de una bodega. Se arma en borrador; al confirmar, cada
+// línea se compara con el saldo del sistema de ese momento y la diferencia
+// entra al kardex (movimiento COUNT).
+model InventoryCount {
+  id            String               @id @default(cuid())
+  companyId     String
+  company       Company              @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  // Consecutivo por empresa al confirmar (companies.lastInventoryCountNumber);
+  // null en borrador.
+  number        Int?
+  warehouseId   String
+  warehouse     Warehouse            @relation(fields: [companyId, warehouseId], references: [companyId, id], onDelete: Restrict)
+  status        InventoryCountStatus @default(DRAFT)
+  createdById   String
+  createdBy     User                 @relation("InventoryCountCreatedBy", fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+  // Hora de la base al confirmar (la misma de sus movimientos): marca el
+  // inicio del período del siguiente conteo.
+  confirmedAt   DateTime?
+  confirmedById String?
+  confirmedBy   User?                @relation("InventoryCountConfirmedBy", fields: [confirmedById], references: [id], onDelete: Restrict)
+
+  lines          InventoryCountLine[]
+  stockMovements StockMovement[]
+
+  @@unique([companyId, number])
+  @@unique([companyId, id])
+  @@index([companyId, warehouseId])
+  @@map("inventory_counts")
+}
+
+// Lo contado de un insumo. Los campos de confirmación quedan null en
+// borrador; al confirmar se guardan para que el conteo no cambie después.
+model InventoryCountLine {
+  id                String         @id @default(cuid())
+  companyId         String
+  company           Company        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  countId           String
+  count             InventoryCount @relation(fields: [companyId, countId], references: [companyId, id], onDelete: Restrict)
+  supplyId          String
+  supply            Supply         @relation(fields: [companyId, supplyId], references: [companyId, id], onDelete: Restrict)
+  // Unidad del insumo cuando se escribió lo contado (si cambia, no se
+  // confirma).
+  unit              StockUnit
+  countedQuantity   Decimal        @db.Decimal(14, 3)
+  // Saldo del sistema al confirmar y contado − sistema.
+  systemQuantity    Decimal?       @db.Decimal(17, 6)
+  difference        Decimal?       @db.Decimal(17, 6)
+  // Costo por unidad del insumo al confirmar; null = sin costo.
+  unitCost          Decimal?       @db.Decimal(14, 4)
+  // Período desde el conteo anterior del insumo en la bodega (null = sin
+  // conteo anterior: desde su primer movimiento) y lo contado entonces.
+  periodStart       DateTime?
+  previousCounted   Decimal?       @db.Decimal(14, 3)
+  // Movimientos netos del período: vendido (consumo teórico, positivo =
+  // salió), comprado y cargas iniciales/ajustes (con signo).
+  soldQuantity      Decimal?       @db.Decimal(17, 6)
+  purchasedQuantity Decimal?       @db.Decimal(17, 6)
+  adjustedQuantity  Decimal?       @db.Decimal(17, 6)
+
+  @@unique([countId, supplyId])
+  @@index([companyId, supplyId])
+  @@map("inventory_count_lines")
+}
+
 // --- Personal interno (login "panel operativo") -----------------------
 
 enum StaffRole {
@@ -569,18 +655,20 @@ model User {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  passwordResetTokens UserPasswordResetToken[]
-  sessions            UserSession[]
-  sentInvitations     StaffInvitation[]        @relation("InvitationSender")
-  acceptedInvitation  StaffInvitation?         @relation("InvitationAcceptedUser")
-  stockMovements      StockMovement[]
-  cashSessions        CashSession[]            @relation("CashSessionOwner")
-  closedCashSessions  CashSession[]            @relation("CashSessionClosedBy")
-  sales               Sale[]                   @relation("SaleCashier")
-  voidedSales         Sale[]                   @relation("SaleVoidedBy")
-  createdPurchases    Purchase[]               @relation("PurchaseCreatedBy")
-  confirmedPurchases  Purchase[]               @relation("PurchaseConfirmedBy")
-  voidedPurchases     Purchase[]               @relation("PurchaseVoidedBy")
+  passwordResetTokens      UserPasswordResetToken[]
+  sessions                 UserSession[]
+  sentInvitations          StaffInvitation[]        @relation("InvitationSender")
+  acceptedInvitation       StaffInvitation?         @relation("InvitationAcceptedUser")
+  stockMovements           StockMovement[]
+  cashSessions             CashSession[]            @relation("CashSessionOwner")
+  closedCashSessions       CashSession[]            @relation("CashSessionClosedBy")
+  sales                    Sale[]                   @relation("SaleCashier")
+  voidedSales              Sale[]                   @relation("SaleVoidedBy")
+  createdPurchases         Purchase[]               @relation("PurchaseCreatedBy")
+  confirmedPurchases       Purchase[]               @relation("PurchaseConfirmedBy")
+  voidedPurchases          Purchase[]               @relation("PurchaseVoidedBy")
+  createdInventoryCounts   InventoryCount[]         @relation("InventoryCountCreatedBy")
+  confirmedInventoryCounts InventoryCount[]         @relation("InventoryCountConfirmedBy")
 
   @@unique([companyId, email])
   @@index([companyId])
