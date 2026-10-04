@@ -1,9 +1,10 @@
-import type { FileStorage } from "./types";
+import type { FileStorage, PrivateFileStorage } from "./types";
 
-// Solo para pruebas: guarda los archivos en memoria.
+// Solo para pruebas: guarda los archivos en memoria. Sirve como
+// almacenamiento público y como privado.
 export function createMemoryStorage() {
   const files = new Map<string, { bytes: Uint8Array; contentType: string }>();
-  const storage: FileStorage = {
+  const storage: FileStorage & PrivateFileStorage = {
     async upload(path, bytes, contentType) {
       files.set(path, { bytes, contentType });
     },
@@ -12,6 +13,9 @@ export function createMemoryStorage() {
     },
     publicUrl(path) {
       return `memory://${path}`;
+    },
+    async signedUrl(path, expiresIn) {
+      return `memory-signed://${path}?expiresIn=${expiresIn}`;
     },
   };
   return { storage, files };

@@ -10,6 +10,7 @@ import {
   startOfCalendarDay,
 } from "@/lib/company-formats";
 import { listActiveBranches } from "@/server/data/branches";
+import { sumSessionCashMovements } from "@/server/data/cash-movements";
 import {
   closeCashSession,
   countOpenCashSessionsBefore,
@@ -165,13 +166,15 @@ export async function closeShift(
 export async function getClosedShift(session: StaffSessionDto, cashSessionId: string) {
   assertPermission(session, "sales.charge");
   const companyId = session.company.id;
-  const [formats, row, lastClosedId] = await Promise.all([
+  const [formats, row, lastClosedId, movements] = await Promise.all([
     findCompanyFormats(companyId),
     findCashSession(companyId, cashSessionId),
     findLastClosedCashSessionId(companyId, session.user.id),
+    sumSessionCashMovements(companyId, cashSessionId),
   ]);
   if (!row || row.userId !== session.user.id || !row.closedAt) return null;
   if (!row.expectedCash || !row.countedCash) return null;
+  const { expenses, withdrawals, deposits } = movements;
   return {
     ...formats,
     // El cajero imprime el cierre de su último turno; los anteriores, el
@@ -185,6 +188,20 @@ export async function getClosedShift(session: StaffSessionDto, cashSessionId: st
       // contado − esperado: negativo = faltante, positivo = sobrante.
       difference: row.countedCash.minus(row.expectedCash).toString(),
       closingNote: row.closingNote,
+      // Cuadre: fondo + efectivo de ventas + ingresos − gastos − retiros =
+      // esperado. El efectivo de ventas sale del esperado guardado: cerrado,
+      // ya nada lo cambia.
+      cash: {
+        sales: row.expectedCash
+          .minus(row.openingAmount)
+          .minus(deposits)
+          .plus(expenses)
+          .plus(withdrawals)
+          .toString(),
+        deposits: deposits.toString(),
+        expenses: expenses.toString(),
+        withdrawals: withdrawals.toString(),
+      },
     },
   };
 }

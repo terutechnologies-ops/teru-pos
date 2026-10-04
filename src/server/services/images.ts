@@ -34,14 +34,23 @@ export async function removeFileQuietly(path: string) {
 
 export type ValidImage = { bytes: Uint8Array; type: ImageType };
 
+type ValidImageResult = { ok: true; image: ValidImage } | { ok: false; error: string };
+
+export const NO_STORAGE = {
+  ok: false as const,
+  error: "No hay almacenamiento de archivos configurado.",
+};
+
 // Valida sin subir nada (sirve para rechazar antes de crear el dueño de la
 // imagen, p. ej. un producto nuevo).
-export async function validateImage(
-  file: Blob | null,
-): Promise<{ ok: true; image: ValidImage } | { ok: false; error: string }> {
-  if (!getFileStorage()) {
-    return { ok: false, error: "No hay almacenamiento de archivos configurado." };
-  }
+export async function validateImage(file: Blob | null): Promise<ValidImageResult> {
+  if (!getFileStorage()) return NO_STORAGE;
+  return checkImageFile(file);
+}
+
+// Tamaño y tipo real del archivo, sin mirar el almacenamiento (lo usan
+// también los recibos, que van al privado).
+export async function checkImageFile(file: Blob | null): Promise<ValidImageResult> {
   if (!file || file.size === 0) return { ok: false, error: "Elige una imagen." };
   if (file.size > IMAGE_MAX_BYTES) {
     return { ok: false, error: "La imagen no puede superar 1 MB." };

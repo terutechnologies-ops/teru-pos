@@ -140,3 +140,37 @@ export async function listSessionCashMovements(companyId: string, cashSessionId:
     },
   });
 }
+
+// Guarda la foto del recibo de un gasto recién registrado (solo si aún no
+// tiene). false si no aplica.
+export async function setCashMovementReceipt(
+  companyId: string,
+  movementId: string,
+  receiptPath: string,
+) {
+  const { count } = await db.cashMovement.updateMany({
+    where: { id: movementId, companyId, type: "EXPENSE", receiptPath: null },
+    data: { receiptPath },
+  });
+  return count === 1;
+}
+
+// Recibo de un gasto con el dueño de su turno (para decidir quién lo ve).
+export async function findCashMovementReceipt(companyId: string, movementId: string) {
+  return db.cashMovement.findFirst({
+    where: { id: movementId, companyId },
+    select: { receiptPath: true, cashSession: { select: { userId: true } } },
+  });
+}
+
+// Totales de un turno por tipo, sin los anulados.
+export async function sumSessionCashMovements(companyId: string, cashSessionId: string) {
+  const rows = await db.cashMovement.groupBy({
+    by: ["type"],
+    where: { companyId, cashSessionId, status: "RECORDED" },
+    _sum: { amount: true },
+  });
+  const of = (type: CashMovementType) =>
+    rows.find((row) => row.type === type)?._sum.amount ?? new Prisma.Decimal(0);
+  return { expenses: of("EXPENSE"), withdrawals: of("WITHDRAWAL"), deposits: of("DEPOSIT") };
+}

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CircleCheck, LockOpen, Printer } from "lucide-react";
 
+import { CashBreakdown } from "@/components/pos/cash/cash-breakdown";
 import { Item, ShiftSummary } from "@/components/pos/shift-summary";
 import { PrintSheetButton } from "@/components/printing/print-sheet-button";
 import { printSheetHref } from "@/components/printing/print-sheets";
@@ -54,6 +55,12 @@ export default async function ClosedShiftPage({ params }: PageProps<"/[empresa]/
           </p>
         </div>
 
+        <CashBreakdown
+          openingAmount={shift.openingAmount}
+          cash={shift.cash}
+          expectedCash={shift.expectedCash}
+          currency={currency}
+        />
         <dl className="grid gap-3 sm:grid-cols-2">
           <Item label="Efectivo esperado" value={formatMoney(Number(shift.expectedCash), currency)} />
           <Item label="Efectivo contado" value={formatMoney(Number(shift.countedCash), currency)} />

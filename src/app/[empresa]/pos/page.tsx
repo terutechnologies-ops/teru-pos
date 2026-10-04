@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Lock, TriangleAlert } from "lucide-react";
+import { Banknote, Lock, TriangleAlert } from "lucide-react";
 
 import { OpenShiftForm } from "@/components/pos/open-shift-form";
 import { PrintSettingsButton } from "@/components/pos/print-settings-button";
@@ -48,6 +48,15 @@ export default async function PosPage({ params }: PageProps<"/[empresa]/pos">) {
     </Button>
   );
 
+  const cashButton = (
+    <Button asChild variant="outline" className="h-11 gap-2">
+      <Link href={`/${slug}/pos/caja`}>
+        <Banknote aria-hidden />
+        Gastos y retiros
+      </Link>
+    </Button>
+  );
+
   if (pos.stale) {
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
@@ -62,7 +71,10 @@ export default async function PosPage({ params }: PageProps<"/[empresa]/pos">) {
         <section className="flex flex-col gap-5 rounded-2xl bg-card p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-2xl font-extrabold tracking-tight">Tu caja</h1>
-            {closeButton}
+            <div className="flex flex-wrap gap-2">
+              {cashButton}
+              {closeButton}
+            </div>
           </div>
           <ShiftSummary
             shift={pos.shift}
@@ -86,8 +98,9 @@ export default async function PosPage({ params }: PageProps<"/[empresa]/pos">) {
           desde {formatClock(shift.openedAt, pos.timeZone)} ·{" "}
           {shift.salesCount === 1 ? "1 venta" : `${shift.salesCount} ventas`}
         </p>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <PrintSettingsButton />
+          {cashButton}
           {closeButton}
         </div>
       </div>

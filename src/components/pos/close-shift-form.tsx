@@ -48,7 +48,7 @@ export function CloseShiftForm({
           defaultValue={values.closingNote}
           maxLength={200}
           rows={3}
-          placeholder="Ej: pagué un domicilio con efectivo de la caja"
+          placeholder="Ej: recibí un billete en mal estado"
           aria-invalid={fieldErrors.closingNote ? true : undefined}
           aria-describedby={fieldErrors.closingNote ? "closingNote-error" : undefined}
           className="w-full min-w-0 rounded-lg border border-input bg-muted px-3 py-2 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-3 focus-visible:ring-ring/50"

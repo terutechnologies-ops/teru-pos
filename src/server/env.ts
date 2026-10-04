@@ -11,8 +11,10 @@ export function getAppUrl(): string {
 }
 
 // Almacenamiento de archivos (Supabase Storage). Opcional: sin estas
-// variables no se pueden subir logos, pero la app funciona.
+// variables no se pueden subir logos, pero la app funciona. Un bucket
+// público (logos y fotos de productos) y uno privado (recibos de gastos).
 export const STORAGE_BUCKET = "company-assets";
+export const PRIVATE_STORAGE_BUCKET = "company-private";
 
 export function getStorageConfig() {
   const url = z.url().safeParse(process.env.SUPABASE_URL);
@@ -22,5 +24,6 @@ export function getStorageConfig() {
     url: url.data.replace(/\/+$/, ""),
     secretKey,
     bucket: STORAGE_BUCKET,
+    privateBucket: PRIVATE_STORAGE_BUCKET,
   };
 }

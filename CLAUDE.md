@@ -2794,3 +2794,94 @@ Diseño aprobado el 2026-10-04 (patrón de Métodos de pago).
   Verificado: typecheck, lint, suite **402/402**, build; sin sesión la
   ruta redirige al login. Revisión visual con sesión: la hace el usuario.
 
+### Componente 3 — Movimientos en el POS (aprobado 2026-10-04)
+
+Diseño aprobado el 2026-10-04.
+- **Almacenamiento privado:** `PrivateFileStorage` (`upload`, `remove`,
+  `signedUrl`) en `services/storage/types.ts`;
+  `createSupabasePrivateStorage` (comparte `bucketClient` con el público;
+  firma con `POST /object/sign/{bucket}/{ruta}` → `signedURL` relativo),
+  `getPrivateFileStorage()` / `setPrivateFileStorageForTesting`;
+  `createMemoryStorage` sirve para ambos. `env.ts`:
+  `PRIVATE_STORAGE_BUCKET = "company-private"` (`privateBucket`).
+  `storage:setup` crea los dos buckets; **`company-private` creado en dev**
+  y verificado contra Supabase (firmado 200, público 400, tras borrar 400).
+- `services/images.ts`: `checkImageFile` (tamaño y tipo real, sin mirar el
+  almacenamiento) y `NO_STORAGE`; `validateImage` los usa.
+- **Datos** (`data/cash-movements.ts`): `setCashMovementReceipt` (solo
+  gasto y sin foto previa), `findCashMovementReceipt`,
+  `sumSessionCashMovements`.
+- **Validación** `validations/cash-movements.ts`: `cashMovementSchema`
+  (tipo, monto > 0 con `amountSchema`, categoría obligatoria en gastos y
+  null en lo demás, nota ≤ 200). `CashMovementInput` = todo texto.
+- **Servicio** `services/cash-movements.ts` (`sales.charge`):
+  `getShiftCashMovements` (turno abierto propio, categorías activas,
+  movimientos con `toCashMovement`, `cashMovementTotals`),
+  `registerCashMovement` (valida la foto antes; ruta
+  `companies/{empresa}/receipts/{movimiento}-{uuid}.{ext}`; si solo falla
+  la subida, `receiptFailed`), `getReceiptUrl` (dueño del turno o
+  `cash.review`; enlace de **60 s**, no 10 min como decía el diseño, porque
+  la ruta redirige al instante y así la página no guarda enlaces).
+- **Ruta** `app/[empresa]/recibos/[id]/route.ts` (primera route handler del
+  proyecto): sesión de la empresa → 302 al enlace firmado (`no-store`) o
+  404.
+- **UI POS:** botón "Gastos y retiros" en la barra del turno (y en la
+  vista del turno de otro día) → `/pos/caja`: `CashMovementForm` (tipo en
+  tarjetas, `MoneyField`, categoría y foto solo en gastos con JS; vuelve a
+  montarse vacío con `savedCount`; avisa "registrado sin foto") y lista
+  `CashMovementList` (hora, tipo, categoría, nota, "Ver recibo", anulados
+  tachados con quién y por qué) con totales (`CashMovementTotalItems`).
+  Cierre del POS: totales de gastos, retiros e ingresos (sin esperado).
+  Resultado del turno: `CashBreakdown` (fondo + ventas + ingresos − gastos
+  − retiros = esperado); `getClosedShift` trae `cash` (las ventas en
+  efectivo se derivan del esperado guardado). Ejemplo de la nota del cierre
+  cambiado (el gasto ya tiene su registro).
+- Pruebas: `cash-movements.test.ts` (8: sin turno, tres tipos y totales,
+  validaciones, foto privada y quién la ve, foto inválida, fallo de
+  subida y sin almacenamiento, cuadre del turno cerrado con anulado,
+  STAFF). Verificado: typecheck, lint, suite **410/410**, build; sin sesión
+  `/pos/caja` y `/recibos/[id]` redirigen al login. Revisión visual con
+  sesión: la hace el usuario.
+
+## Cierre de la sesión 2026-10-04
+
+**Implementado hoy (todo con commit y subido a `origin/master`):**
+- Fase 9, componentes 3 (`0f61932`) y 4 (`c00f095`): lista, resultado y
+  kardex del conteo; revisión con dos correcciones (guardado por lotes,
+  fechas en SQL directo como UTC), ADR 0009 y README. **Fase 9 cerrada.**
+- Hoja de ruta antes de desplegar acordada (ver arriba).
+- Fase 10, componentes 1 (`1deb7f9`), 2 (`b61ce6c`) y 3 (último commit de
+  la sesión): modelo y permisos de movimientos de caja, categorías de gasto
+  en Configuración, y gastos/retiros/ingresos en el POS con recibo privado.
+
+**Pendiente:**
+- **Fase 10, componente 4 — panel** (siguiente; diseñar y aprobar antes):
+  revisión del turno con sus movimientos, recibo y anulación (`cash.void`,
+  motivo, turno abierto), hoja impresa del cierre con los movimientos,
+  sección "Gastos" con filtros (fechas, categoría, cajero, sucursal) y
+  totales por categoría, retiros e ingresos aparte. El "Cómo va" del turno
+  abierto en el panel ya usa `expectedCash` (incluye movimientos).
+- Componente 5 — cierre de la fase 10 (revisión, ADR 0010, README: incluir
+  `storage:setup` con dos buckets y la ruta `/recibos/[id]`).
+- Después, la hoja de ruta: pendientes del cliente ("Venta #N" en el
+  kardex, precio con separador de miles, cambiar la propia contraseña),
+  preparación para producción, Resend y despliegue.
+
+**Decisiones técnicas de hoy:** ver fases 9 y 10 arriba. Resumen: escrituras
+por lotes cuando el número de filas crece (latencia ~0,3 s por consulta en
+dev); fechas a SQL directo como `timestamp(3)` en UTC; esperado de caja con
+movimientos en `expectedCash`; recibos en bucket privado con enlace firmado
+de 60 s a través de `/recibos/[id]`; siempre al menos una categoría de
+gasto activa; categorías sin auditoría.
+
+**Errores conocidos:**
+- Ninguna página nueva de hoy se probó con sesión (revisión visual a cargo
+  del usuario): conteos confirmados, categorías de gasto, `/pos/caja`.
+- La reducción de la foto del recibo en el navegador y "Ver recibo" con
+  sesión no se han probado en un navegador real.
+- Siguen los de sesiones anteriores (`next dev` en Windows deja el proceso
+  en el 3000, `prisma generate` con EPERM si `next dev` corre, heredoc
+  largos en Bash).
+
+**Próximo paso recomendado:** diseño del componente 4 de la fase 10 (panel).
+
