@@ -8,6 +8,7 @@ import {
   Receipt,
   ShoppingCart,
   Store,
+  Tags,
   Truck,
   Users,
   Vault,
@@ -174,6 +175,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: Wallet,
     group: "settings",
     permission: "payments.manage",
+  },
+  {
+    id: "settings-expenses",
+    label: "Categorías de gasto",
+    description: "En qué se gasta el efectivo de la caja.",
+    path: "configuracion/gastos",
+    icon: Tags,
+    group: "settings",
+    permission: "expenses.manage",
   },
   {
     id: "settings-team",

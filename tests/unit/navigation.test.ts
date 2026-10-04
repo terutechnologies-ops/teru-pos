@@ -76,6 +76,14 @@ describe("navigationFor", () => {
     expect(ids("CASHIER")).not.toContain("settings-payments");
   });
 
+  it("propietario y administrador ven Categorías de gasto; personal y cajeros no", () => {
+    const ids = (role: StaffRole) => navigationFor(role).map((item) => item.id);
+    expect(ids("OWNER")).toContain("settings-expenses");
+    expect(ids("ADMIN")).toContain("settings-expenses");
+    expect(ids("STAFF")).not.toContain("settings-expenses");
+    expect(ids("CASHIER")).not.toContain("settings-expenses");
+  });
+
   it("propietario y administrador ven Ventas; personal y cajeros no", () => {
     const ids = (role: StaffRole) => navigationFor(role).map((item) => item.id);
     expect(ids("OWNER")).toContain("sales-list");

@@ -2767,3 +2767,30 @@ cierre impreso, lista de gastos con totales); 5) cierre (ADR 0010, README).
 - Pruebas: `cash-movements-data.test.ts` (7) y permisos. Verificado:
   typecheck, lint, suite **394/394**, build.
 
+### Componente 2 — Categorías de gasto en Configuración (aprobado 2026-10-04)
+
+Diseño aprobado el 2026-10-04 (patrón de Métodos de pago).
+- **Menú:** "Categorías de gasto" (`settings-expenses`,
+  `configuracion/gastos`, ícono `Tags`, `expenses.manage`) después de
+  Métodos de pago; tarjeta en Inicio por la navegación.
+- **Datos** `data/expense-categories.ts`: `listExpenseCategories` (con el
+  número de gastos), `createExpenseCategory` (al final),
+  `renameExpenseCategory`, `setExpenseCategoryActive`,
+  `deleteExpenseCategory` (solo sin gastos; P2003 también da `IN_USE`),
+  `moveExpenseCategory` (renumera con un solo `UPDATE … FROM unnest`: una
+  consulta por fila rozaba el límite de 5 s con la latencia de dev).
+  **Al menos una activa:** desactivar y eliminar bloquean todas las
+  categorías de la empresa (`FOR UPDATE`) y devuelven `LAST_ACTIVE`.
+- Validación `validations/expenses.ts` (`expenseCategoryNameSchema`, 2–40).
+  Servicio `services/expense-categories.ts` (`expenses.manage`, sin
+  auditoría): `getExpenseCategories` (`expenseCount`, `canDelete`),
+  crear, renombrar, activar, eliminar, mover.
+- UI `components/expenses/` (`expense-category-fields`, `-actions`,
+  `-row-button`, `-list`) con `NewNameForm`, `RenameForm`,
+  `RowActionButton` y `EmptyState`; página `configuracion/gastos`. Sin JS.
+- Pruebas: `expense-categories.test.ts` (7: crear y repetidos, renombrar y
+  ordenar, eliminar solo sin gastos, siempre una activa, desactivar dos a
+  la vez, otra empresa, cajero y personal) y menú. 3/3 seguidas.
+  Verificado: typecheck, lint, suite **402/402**, build; sin sesión la
+  ruta redirige al login. Revisión visual con sesión: la hace el usuario.
+
