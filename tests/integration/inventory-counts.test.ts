@@ -308,6 +308,18 @@ describe("confirmados", () => {
   it("otra empresa no ve los conteos", async () => {
     expect((await getCountsOverview(sessionFor(b, userB), {})).counts).toEqual([]);
   });
+
+  it("el rango es por día en la zona de la empresa, sin importar la de PostgreSQL", async () => {
+    // 15/01 04:30 UTC = 14/01 23:30 en Bogotá (zona por defecto).
+    await db.inventoryCount.update({
+      where: { id: countId },
+      data: { confirmedAt: new Date("2026-01-15T04:30:00Z") },
+    });
+    const on = async (day: string) =>
+      (await getCountsOverview(admin(), { desde: day, hasta: day })).counts.map((count) => count.id);
+    expect(await on("2026-01-14")).toContain(countId);
+    expect(await on("2026-01-15")).not.toContain(countId);
+  });
 });
 
 describe("aislamiento y permisos", () => {

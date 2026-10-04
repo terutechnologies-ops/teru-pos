@@ -2640,7 +2640,64 @@ de **los últimos 90 días** y **% sobre lo vendido**. Sin migración.
   redirigen al login. Revisión visual con sesión: la hace el usuario.
 - Aprobado por el usuario el 2026-10-04 (revisión en el navegador a su cargo).
 
-**Próximo paso recomendado:** revisión del componente 3 en el navegador
-→ commit y push → componente 4 (cierre de la fase 9: revisión, ADR 0009,
-README).
+Commit `0f61932`.
 
+### Componente 4 — Cierre de la fase 9 (aprobado 2026-10-04)
+
+**Fase 9 aprobada** (2026-10-04).
+
+- **Revisión de la fase** (datos, servicios, acciones, páginas, hoja de
+  existencias y kardex): acciones con sesión y permiso de la empresa
+  enviada, páginas con permiso en el servidor, datos filtrados por empresa.
+  Dos hallazgos corregidos:
+  - **Guardar el borrador** hacía un `upsert` por insumo en una
+    transacción con el límite por defecto (5 s). Medido hoy: ~0,32 s por
+    consulta a Supabase desde aquí, así que con más de ~12 insumos
+    contados guardar (y confirmar, que guarda primero) fallaba en dev.
+    Ahora `deleteMany` + `createMany` de los insumos enviados, con
+    `COUNT_TX_OPTIONS`; un insumo repetido vale por su último valor.
+    Prueba nueva con 41 insumos en `inventory-counts-data.test.ts`.
+  - **Fechas en SQL directo:** un `Date` llega como `timestamptz` y
+    PostgreSQL lo compara con la zona de su sesión (dev/Supabase: UTC;
+    base local de pruebas: `America/Bogota`, verificado). La lista de
+    confirmados quedaba corrida 5 h en pruebas, y el `updatedAt` del saldo
+    al confirmar también. `utcTimestamp(date)` en `data/inventory-counts.ts`
+    los pasa como texto ISO a `timestamp(3)`. Prueba nueva (conteo a las
+    23:30 de Bogotá) que fallaba antes del arreglo y pasa después.
+- `docs/decisiones/0009-conteo-fisico.md` y README (estado, menú, conteos,
+  estructura, ADR).
+- Verificado: typecheck, lint, suite **387/387**, build. Pruebas de
+  conteos 3/3 seguidas.
+
+## Cierre de la sesión 2026-10-04
+
+**Implementado hoy:**
+- Fase 9, componente 3 — lista, resultado y kardex (`0f61932`, subido).
+- Componente 4 — revisión con dos correcciones, ADR 0009 y README
+  (aprobado; último commit de la sesión). **Fase 9 cerrada.**
+
+**Pendiente:**
+- Siguiente fase por definir con el usuario (analizar primero). Ideas
+  abiertas: aviso por WhatsApp de insumos que faltan, "Venta #N" con
+  enlace en el kardex (opcional, sin confirmar), traslados entre bodegas,
+  clientes y cartera, gastos de caja.
+- Siguen abiertos: despliegue en Vercel (en pausa), proveedor de correo,
+  clave de Storage y bucket por entorno.
+
+**Decisiones técnicas de hoy:** resultado del conteo calculado con la
+diferencia guardada (consumo real = vendido − diferencia); % sobre lo
+vendido; lista de confirmados de 90 días con una sola consulta SQL que
+suma por conteo; guardado del borrador por lotes; fechas a SQL directo
+como `timestamp(3)` en UTC (`utcTimestamp`).
+
+**Errores conocidos:**
+- No se probó con sesión ninguna página de conteos (revisión visual a
+  cargo del usuario). Confirmar un conteo en dev cambia el inventario real
+  de Su Arepa.
+- Otras consultas SQL directas con fechas deberían usar el mismo patrón
+  si aparecen (hoy solo las de conteos tenían parámetros de fecha).
+- Siguen los de sesiones anteriores (latencia a Supabase en dev, `next
+  dev` en Windows deja el proceso en el 3000, heredoc largos en Bash).
+
+**Próximo paso recomendado:** análisis de la siguiente fase con el
+usuario.

@@ -20,6 +20,13 @@ function prismaCode(error: unknown) {
   return error instanceof Prisma.PrismaClientKnownRequestError ? error.code : null;
 }
 
+// Fecha como timestamp sin zona en UTC (así se guardan las columnas
+// DateTime). Un Date en SQL directo llega como timestamptz y se compararía
+// con la zona de la sesión de PostgreSQL, que no siempre es UTC.
+function utcTimestamp(date: Date) {
+  return Prisma.sql`${date.toISOString()}::timestamp(3)`;
+}
+
 // Bloquea el conteo hasta el fin de la transacción: las escrituras de un
 // mismo borrador (líneas, confirmar, borrar) no se cruzan.
 async function lockCount(tx: Prisma.TransactionClient, companyId: string, countId: string) {
@@ -114,7 +121,9 @@ export async function saveInventoryCountLines(
     if (!count) return { status: "NOT_FOUND" };
     if (count.status !== "DRAFT") return { status: "NOT_DRAFT" };
 
-    const filled = entries.filter((entry) => entry.countedQuantity !== null);
+    // Un insumo repetido vale por su último valor.
+    const unique = [...new Map(entries.map((entry) => [entry.supplyId, entry])).values()];
+    const filled = unique.filter((entry) => entry.countedQuantity !== null);
     const supplies = await tx.supply.findMany({
       where: { companyId, id: { in: filled.map((entry) => entry.supplyId) } },
       select: { id: true, unit: true, isArchived: true },
@@ -128,24 +137,26 @@ export async function saveInventoryCountLines(
       if (supply.unit !== unit) return { status: "UNIT_CHANGED", supplyId };
     }
 
-    const blank = entries.filter((entry) => entry.countedQuantity === null);
-    if (blank.length > 0) {
-      await tx.inventoryCountLine.deleteMany({
-        where: { companyId, countId, supplyId: { in: blank.map((entry) => entry.supplyId) } },
-      });
-    }
-    for (const entry of filled) {
-      const countedQuantity = new Prisma.Decimal(entry.countedQuantity!);
-      // Si la unidad cambia antes de confirmar, la confirmación lo detecta.
-      const { unit } = entry;
-      await tx.inventoryCountLine.upsert({
-        where: { countId_supplyId: { countId, supplyId: entry.supplyId } },
-        create: { companyId, countId, supplyId: entry.supplyId, unit, countedQuantity },
-        update: { unit, countedQuantity },
+    // Por lotes, como la confirmación: se reemplazan las líneas de los
+    // insumos enviados (las del borrador no son documentos). Una consulta
+    // por línea agotaba la transacción con la latencia a Supabase.
+    await tx.inventoryCountLine.deleteMany({
+      where: { companyId, countId, supplyId: { in: unique.map((entry) => entry.supplyId) } },
+    });
+    if (filled.length > 0) {
+      await tx.inventoryCountLine.createMany({
+        // Si la unidad cambia antes de confirmar, la confirmación lo detecta.
+        data: filled.map((entry) => ({
+          companyId,
+          countId,
+          supplyId: entry.supplyId,
+          unit: entry.unit,
+          countedQuantity: new Prisma.Decimal(entry.countedQuantity!),
+        })),
       });
     }
     return { status: "OK" };
-  });
+  }, COUNT_TX_OPTIONS);
 }
 
 // --- Confirmar ---------------------------------------------------------------
@@ -268,7 +279,7 @@ export async function confirmInventoryCount(
     if (changed.length > 0) {
       await tx.$executeRaw`
         INSERT INTO "stock_levels" ("companyId", "warehouseId", "supplyId", "quantity", "updatedAt")
-        SELECT ${companyId}, ${warehouseId}, v."supplyId", v."quantity", ${confirmedAt}
+        SELECT ${companyId}, ${warehouseId}, v."supplyId", v."quantity", ${utcTimestamp(confirmedAt)}
         FROM unnest(
           ${changed.map((result) => result.line.supplyId)}::text[],
           ${changed.map((result) => result.line.countedQuantity.toString())}::text[]::numeric[]
@@ -434,8 +445,8 @@ export async function listInventoryCounts(
     LEFT JOIN "inventory_count_lines" l ON l."countId" = c."id" AND l."companyId" = c."companyId"
     WHERE c."companyId" = ${companyId}
       AND c."status" = 'CONFIRMED'
-      AND c."confirmedAt" >= ${filters.start}
-      AND c."confirmedAt" < ${filters.end}
+      AND c."confirmedAt" >= ${utcTimestamp(filters.start)}
+      AND c."confirmedAt" < ${utcTimestamp(filters.end)}
       ${filters.warehouseId ? Prisma.sql`AND c."warehouseId" = ${filters.warehouseId}` : Prisma.empty}
     GROUP BY c."id", w."name", b."name", u."name"
     ORDER BY c."confirmedAt" DESC, c."number" DESC

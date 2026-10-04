@@ -199,6 +199,31 @@ describe("borrador", () => {
     await deleteInventoryCountDraft(companyId, countId);
   });
 
+  it("guarda muchos insumos de una vez; un repetido vale por su último valor", async () => {
+    const countId = await draft();
+    const many: string[] = [];
+    for (let i = 0; i < 40; i++) many.push(await supply(`Lote ${i}`, "UNIT", null));
+    expect(await save(countId, { [harina]: "3", ...Object.fromEntries(many.map((id) => [id, "1"])) })).toEqual(
+      { status: "OK" },
+    );
+    expect(await db.inventoryCountLine.count({ where: { countId } })).toBe(41);
+
+    // Los insumos que no vienen no se tocan.
+    expect(
+      await saveInventoryCountLines(companyId, countId, [
+        { supplyId: many[0], countedQuantity: "2", unit: "UNIT" },
+        { supplyId: many[0], countedQuantity: "4", unit: "UNIT" },
+        { supplyId: many[1], countedQuantity: null, unit: "UNIT" },
+      ]),
+    ).toEqual({ status: "OK" });
+    expect(await db.inventoryCountLine.count({ where: { countId } })).toBe(40);
+    expect((await lineOf(countId, many[0])).counted).toBe("4");
+    expect((await lineOf(countId, harina)).counted).toBe("3");
+
+    await deleteInventoryCountDraft(companyId, countId);
+    for (const id of many) await setSupplyArchived(companyId, id, true);
+  });
+
   it("sin líneas no se confirma", async () => {
     const countId = await draft();
     expect(await confirm(countId)).toEqual({ status: "EMPTY" });

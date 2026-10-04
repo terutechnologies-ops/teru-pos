@@ -4,7 +4,7 @@ Plataforma de gestión multiempresa de TERU (ventas, inventario, caja, etc.).
 Cada negocio es una empresa cliente con su propia URL; la arepería
 **Su Arepa** es la primera, no el modelo del sistema.
 
-**Estado:** fase 8 cerrada (autenticación del personal, configuración
+**Estado:** fase 9 cerrada (autenticación del personal, configuración
 inicial de la empresa, panel con menú por rol, configuración de negocio y
 equipo, logo, catálogo de venta con categorías y productos con precio y
 foto, inventario con insumos, bodegas, carga inicial, ajustes y kardex,
@@ -12,7 +12,8 @@ recetas con costo y margen, y ventas de mostrador: POS con turno de caja,
 pago mixto y descuento de inventario por receta, ventas y cierres de caja
 en el panel, alertas y hojas impresas, y compras: proveedores, compra en
 borrador que al confirmarse entra al inventario con costo promedio
-ponderado, y anulación).
+ponderado, y anulación; y conteo físico por bodega: borrador, confirmación
+que corrige el inventario y resultado teórico vs. real valorizado).
 
 ## Stack
 
@@ -41,8 +42,8 @@ npm run dev
   Confirmar).
 - Panel `/<slug-empresa>`: menú lateral según el rol. Ventas > Vender,
   Ventas y Cierres de caja, Compras > Compras y Proveedores, Catálogo >
-  Productos y Categorías, Inventario > Insumos y Bodegas (propietario y
-  administrador), Configuración > Negocio
+  Productos y Categorías, Inventario > Insumos, Bodegas y Conteos
+  (propietario y administrador), Configuración > Negocio
   (propietario), Equipo y Métodos de pago (propietario y administrador).
   El inicio muestra los pendientes (alertas).
 - POS `/<slug-empresa>/pos` (pantalla oscura, requiere JavaScript): abrir
@@ -56,6 +57,13 @@ npm run dev
   bodega y actualiza el costo promedio de cada insumo. Confirmada no
   cambia: se anula con motivo (no recalcula el costo). El kardex enlaza
   "Compra #N".
+- Conteos (`/inventario/conteos`): se cuenta una bodega en borrador (se
+  puede guardar el avance; lo que queda en blanco no se ajusta) y al
+  confirmar cada diferencia entra al kardex como "Conteo #N". El detalle
+  del conteo confirmado muestra por insumo lo vendido (consumo teórico),
+  el consumo real, la diferencia sobre lo vendido y su valor, con el
+  faltante, el sobrante y el neto. Sin anulación: se corrige con otro
+  conteo o un ajuste.
 - Recetas: cada producto tiene la pestaña Receta
   (`/catalogo/productos/<id>/receta`) con los insumos que lleva una unidad
   vendida, su costo y el margen sobre el precio.
@@ -151,7 +159,7 @@ src/
                         (panel): inicio, ventas, caja,
                         compras (con proveedores),
                         catalogo/{productos (con [id]/receta),categorias},
-                        inventario/{insumos,bodegas} y
+                        inventario/{insumos,bodegas,conteos} y
                         configuracion/{negocio,equipo,pagos};
                         pos (venta, cierre y turno) e imprimir/{comanda,
                         soporte,cierre,existencias}
@@ -162,7 +170,7 @@ src/
     cash/               Cierres de caja en el panel
     catalog/            Categorías, productos, fotos, recetas y costos
     company/            Formularios de datos y logo de la empresa
-    inventory/          Bodegas, insumos, movimientos y kardex
+    inventory/          Bodegas, insumos, movimientos, kardex y conteos
     payments/           Métodos de pago
     pos/                Turno de caja y pantalla de venta
     printing/           Hojas impresas y ajustes de impresión del equipo
@@ -175,7 +183,7 @@ src/
   server/
     data/               Único acceso a Prisma; filtra siempre por empresa
     services/           Lógica de negocio (auth y permisos, empresas, equipo,
-                        catálogo, inventario, recetas y costos,
+                        catálogo, inventario y conteos, recetas y costos,
                         ventas, caja, métodos de pago, alertas,
                         compras y terceros,
                         mensajería, imágenes y almacenamiento)
@@ -198,3 +206,4 @@ docs/decisiones/        Decisiones de arquitectura (ADR)
 - [ADR 0006 — Recetas y costos](docs/decisiones/0006-recetas-y-costos.md)
 - [ADR 0007 — Ventas, POS y caja](docs/decisiones/0007-ventas-pos-y-caja.md)
 - [ADR 0008 — Compras](docs/decisiones/0008-compras.md)
+- [ADR 0009 — Conteo físico y consumo teórico vs. real](docs/decisiones/0009-conteo-fisico.md)
