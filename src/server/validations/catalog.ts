@@ -1,14 +1,16 @@
 import { z } from "zod";
 
-import { displayNameSchema, moneySchema } from "@/server/validations/common";
+import { amountSchema, displayNameSchema } from "@/server/validations/common";
 
 // Catálogo de venta.
 
 export const categoryNameSchema = displayNameSchema(60);
 
-// Precio final al público (ver moneySchema).
+// Precio final al público, como se escribe en el campo: punto de miles y
+// coma decimal ("16.500", "4,50"); también sin separadores (ver
+// amountSchema).
 export function priceSchema(currency: string) {
-  return moneySchema(currency, "precio");
+  return amountSchema(currency, "precio");
 }
 
 const optionalText = (max: number, message: string) =>

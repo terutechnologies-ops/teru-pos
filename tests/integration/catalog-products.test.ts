@@ -76,7 +76,7 @@ describe("productos (servicio)", () => {
     ]);
 
     // COP no usa centavos; nombre repetido; categoría ajena.
-    expect(await createCatalogProduct(owner(), { ...input, name: "Otra", price: "4.5" }, ctx(tag)))
+    expect(await createCatalogProduct(owner(), { ...input, name: "Otra", price: "4,5" }, ctx(tag)))
       .toEqual({ ok: false, fieldErrors: { price: "Esta moneda no usa centavos." } });
     expect(await createCatalogProduct(owner(), { ...input, name: "reina pepiada" }, ctx(tag)))
       .toEqual({ ok: false, fieldErrors: { name: "Ya existe un producto con ese nombre." } });
@@ -88,7 +88,7 @@ describe("productos (servicio)", () => {
     expect(
       await createCatalogProduct(
         sessionFor(b, "ADMIN"),
-        { name: "Soda", categoryId: ajena, description: "", price: "2.5" },
+        { name: "Soda", categoryId: ajena, description: "", price: "2,5" },
         ctx(tag),
       ),
     ).toMatchObject({ ok: true });

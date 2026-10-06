@@ -22,26 +22,29 @@ describe("categoryNameSchema", () => {
 });
 
 describe("priceSchema", () => {
+  // Como se escribe en el campo: punto de miles y coma decimal.
   it.each([
     ["COP", "16500", "16500"],
-    ["COP", "16500.00", "16500"],
+    ["COP", "16.500", "16500"],
+    ["COP", "1.250.000", "1250000"],
+    ["COP", "16.500,00", "16500"],
+    ["COP", "$ 16.500", "16500"],
     ["COP", "0", "0"],
-    ["USD", "4.5", "4.50"],
-    ["USD", "007.10", "7.10"],
+    ["USD", "4,5", "4.50"],
+    ["USD", "1.234,5", "1234.50"],
+    ["USD", "007,10", "7.10"],
     ["EUR", "12", "12.00"],
   ])("%s %j → %j", (currency, value, expected) => {
     expect(priceSchema(currency).parse(value)).toBe(expected);
   });
 
   it.each([
-    ["COP", "4.5", "Esta moneda no usa centavos."],
-    // "16.500" escrito con punto de miles: se lee 16,5 y COP no tiene centavos.
-    ["COP", "16.500", "Esta moneda no usa centavos."],
-    ["USD", "4.505", "Usa máximo 2 decimales."],
+    ["COP", "4,5", "Esta moneda no usa centavos."],
+    ["USD", "4,505", "Usa máximo 2 decimales."],
     ["COP", "-3", "Escribe un precio válido (solo números, sin signos)."],
-    ["COP", "16,500", "Escribe un precio válido (solo números, sin signos)."],
+    ["COP", "16,5,0", "Escribe un precio válido (solo números, sin signos)."],
     ["COP", "", "Escribe el precio."],
-    ["COP", "99999999999", "El precio es demasiado alto."],
+    ["COP", "99.999.999.999", "El precio es demasiado alto."],
   ])("rechaza %s %j", (currency, value, message) => {
     const result = priceSchema(currency).safeParse(value);
     expect(result.success).toBe(false);

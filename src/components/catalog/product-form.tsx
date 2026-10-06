@@ -5,12 +5,13 @@ import { useActionState, useState } from "react";
 import { ImagePlus, Loader2, Package, Save, TriangleAlert } from "lucide-react";
 
 import { FormField } from "@/components/shared/form-field";
+import { MoneyField } from "@/components/pos/money-field";
 import { ImagePicker } from "@/components/shared/image-picker";
 import { SectionTitle } from "@/components/shared/section-title";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { currencyDecimals, currencyName, formatMoney } from "@/lib/company-formats";
+import { currencyDecimals, currencyName } from "@/lib/company-formats";
 import { cn } from "@/lib/utils";
 
 import { ProductThumb } from "./product-thumb";
@@ -25,9 +26,8 @@ const fieldClass =
 
 type CategoryOption = { id: string; name: string; isActive: boolean };
 
-// Crear y editar productos. El precio se escribe como número (16500) y se
-// muestra al lado como se verá ("$ 16.500"): evita la ambigüedad de los
-// separadores de miles.
+// Crear y editar productos. El precio muestra el separador de miles
+// mientras se escribe ("16.500"), como los montos del POS y de compras.
 export function ProductForm({
   action,
   companySlug,
@@ -52,12 +52,10 @@ export function ProductForm({
     values: initialValues,
   } satisfies ProductFormState);
   const { values, fieldErrors } = state;
-  const [price, setPrice] = useState(values.price);
   const [preparing, setPreparing] = useState(false);
   // Al crear, la foto va en el mismo formulario; al editar, en su tarjeta.
   const withImage = !productId;
   const decimals = currencyDecimals(currency);
-  const amount = Number(price);
   const listHref = `/${companySlug}/catalogo/productos`;
 
   return (
@@ -115,33 +113,16 @@ export function ProductForm({
             </select>
           </FormField>
 
-          <FormField name="price" label={`Precio (${currency})`} required error={fieldErrors.price}>
-            <Input
-              id="price"
-              name="price"
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step={decimals === 0 ? 1 : 1 / 10 ** decimals}
-              value={price}
-              onChange={(event) => setPrice(event.target.value)}
-              required
-              placeholder={decimals === 0 ? "16500" : "4.50"}
-              aria-invalid={fieldErrors.price ? true : undefined}
-              aria-describedby={cn("price-preview", fieldErrors.price && "price-error")}
-              className={fieldClass}
-            />
-            <p id="price-preview" className="text-xs text-muted-foreground">
-              Se verá como{" "}
-              <span className="font-bold text-link">
-                {price !== "" && Number.isFinite(amount) && amount >= 0
-                  ? formatMoney(amount, currency)
-                  : "—"}
-              </span>{" "}
-              · {currencyName(currency)}
-              {decimals === 0 && ", sin centavos"}
-            </p>
-          </FormField>
+          <MoneyField
+            name="price"
+            label="Precio"
+            currency={currency}
+            defaultValue={values.price}
+            error={fieldErrors.price}
+            hint={`${currencyName(currency)}${decimals === 0 ? ", sin centavos" : ""}. Precio final al público.`}
+            placeholder={decimals === 0 ? "16.500" : "4,50"}
+            size="form"
+          />
         </div>
 
         <FormField name="description" label="Descripción" error={fieldErrors.description}>

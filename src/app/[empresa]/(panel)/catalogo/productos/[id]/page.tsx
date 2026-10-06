@@ -10,6 +10,7 @@ import { ProductTabs } from "@/components/catalog/product-tabs";
 import { PageHeader } from "@/components/shared/page-header";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { amountInputValue } from "@/lib/company-formats";
 import { requirePermission } from "@/server/http/staff-session";
 import { getProductForm } from "@/server/services/catalog";
 
@@ -63,7 +64,7 @@ export default async function EditProductPage({
           name: product.name,
           categoryId: product.category.id,
           description: product.description ?? "",
-          price: product.price,
+          price: amountInputValue(product.price, form.currency),
         }}
         submitLabel="Guardar cambios"
       />

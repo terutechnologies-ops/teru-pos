@@ -2988,3 +2988,19 @@ barra del POS (el cajero solo usa el POS).
 - Prueba nueva en `sales-panel.test.ts` (venta, anulación y carga inicial
   sin venta). Verificado: typecheck, lint, suite **419/419**, build.
 
+Commit `c609e87` (subido).
+
+### Componente 2 — Precio con separador de miles (aprobado 2026-10-05)
+
+- `priceSchema` = `amountSchema` (antes `moneySchema`): el precio se lee
+  como los montos del POS y compras, **punto de miles y coma decimal**
+  ("16.500", "1.250.000", "4,50"; también sin separadores). Cambio de
+  lectura: "4.5" en USD ahora es 45 (antes 4,50); se escribe "4,5".
+- Formulario de producto con `MoneyField` (tamaño nuevo `form`, h-11 como
+  los demás campos; ayuda con el nombre de la moneda y "sin centavos"); se
+  quitó la vista previa "Se verá como" (el campo ya muestra el formato).
+  Al editar, el precio guardado llega con `amountInputValue`.
+- Pruebas: `catalog.test.ts` (miles, coma decimal, "$ 16.500"),
+  `catalog-products.test.ts` y `product-image.test.ts` ajustadas.
+  Verificado: typecheck, lint, suite **422/422**, build.
+

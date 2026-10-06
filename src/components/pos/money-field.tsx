@@ -7,10 +7,12 @@ import { Input } from "@/components/ui/input";
 import { currencyDecimals, formatAmountInput } from "@/lib/company-formats";
 import { cn } from "@/lib/utils";
 
-// lg: grande y táctil (POS); md: del tamaño de los campos del panel.
+// lg: grande y táctil (POS); md: del tamaño de los campos del panel; form:
+// de los formularios de datos (productos).
 const SIZES = {
   lg: { prefix: "left-4 text-sm", input: "h-14 pl-16 text-xl font-bold" },
   md: { prefix: "left-3 text-xs", input: "h-10 border-transparent pl-14 text-sm focus-visible:bg-card" },
+  form: { prefix: "left-3 text-xs", input: "h-11 border-transparent pl-14 text-sm focus-visible:bg-card" },
 } as const;
 
 // Monto en la moneda de la empresa. Muestra

@@ -155,7 +155,7 @@ describe("foto del producto", () => {
       const svg = new TextEncoder().encode("<svg/>");
       const result = await createCatalogProduct(
         sessionFor(a, "OWNER"),
-        { ...input("X"), price: "4.5" },
+        { ...input("X"), price: "4,5" },
         ctx(tag),
         blob(svg),
       );
