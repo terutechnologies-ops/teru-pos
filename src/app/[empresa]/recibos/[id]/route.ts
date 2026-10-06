@@ -7,7 +7,17 @@ import { getReceiptUrl } from "@/server/services/cash-movements";
 export async function GET(_request: Request, { params }: RouteContext<"/[empresa]/recibos/[id]">) {
   const { empresa, id } = await params;
   const session = await requireStaffSession(empresa);
-  const url = await getReceiptUrl(session, id);
+  let url: string | null;
+  try {
+    url = await getReceiptUrl(session, id);
+  } catch (error) {
+    // El almacenamiento no respondió: no es que el recibo no exista.
+    console.error("recibos: no se pudo firmar el enlace", (error as Error).message);
+    return new Response("No se pudo abrir el recibo. Inténtalo de nuevo en un momento.", {
+      status: 503,
+      headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" },
+    });
+  }
   if (!url) return new Response("Recibo no encontrado", { status: 404 });
   return new Response(null, {
     status: 302,

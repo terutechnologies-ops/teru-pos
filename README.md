@@ -4,7 +4,7 @@ Plataforma de gestión multiempresa de TERU (ventas, inventario, caja, etc.).
 Cada negocio es una empresa cliente con su propia URL; la arepería
 **Su Arepa** es la primera, no el modelo del sistema.
 
-**Estado:** fase 9 cerrada (autenticación del personal, configuración
+**Estado:** fase 10 cerrada (autenticación del personal, configuración
 inicial de la empresa, panel con menú por rol, configuración de negocio y
 equipo, logo, catálogo de venta con categorías y productos con precio y
 foto, inventario con insumos, bodegas, carga inicial, ajustes y kardex,
@@ -13,7 +13,9 @@ pago mixto y descuento de inventario por receta, ventas y cierres de caja
 en el panel, alertas y hojas impresas, y compras: proveedores, compra en
 borrador que al confirmarse entra al inventario con costo promedio
 ponderado, y anulación; y conteo físico por bodega: borrador, confirmación
-que corrige el inventario y resultado teórico vs. real valorizado).
+que corrige el inventario y resultado teórico vs. real valorizado; y
+movimientos de caja: gastos con categoría y foto del recibo, retiros e
+ingresos en el turno, con su revisión, anulación y totales en el panel).
 
 ## Stack
 
@@ -30,7 +32,7 @@ npm install
 cp .env.example .env      # completar DATABASE_URL, DIRECT_URL y APP_URL
 npm run db:migrate:deploy # aplica las migraciones
 npm run db:seed           # crea la empresa su-arepa y su OWNER (ver abajo)
-npm run storage:setup     # crea el bucket de archivos (requiere SUPABASE_*)
+npm run storage:setup     # crea los buckets de archivos (requiere SUPABASE_*)
 npm run dev
 ```
 
@@ -41,14 +43,24 @@ npm run dev
   asistente `/<slug-empresa>/configuracion-inicial` (Negocio → Equipo →
   Confirmar).
 - Panel `/<slug-empresa>`: menú lateral según el rol. Ventas > Vender,
-  Ventas y Cierres de caja, Compras > Compras y Proveedores, Catálogo >
+  Ventas, Cierres de caja y Gastos, Compras > Compras y Proveedores, Catálogo >
   Productos y Categorías, Inventario > Insumos, Bodegas y Conteos
   (propietario y administrador), Configuración > Negocio
-  (propietario), Equipo y Métodos de pago (propietario y administrador).
+  (propietario), Equipo, Métodos de pago y Categorías de gasto
+  (propietario y administrador).
   El inicio muestra los pendientes (alertas).
 - POS `/<slug-empresa>/pos` (pantalla oscura, requiere JavaScript): abrir
   turno con fondo inicial, vender con pago mixto y cerrar el turno contando
-  el efectivo (conteo ciego). El cajero entra directo aquí.
+  el efectivo (conteo ciego). El cajero entra directo aquí. En "Gastos y
+  retiros" (`/pos/caja`) registra lo que sale o entra de la caja sin ser
+  venta: gastos (con categoría y foto opcional del recibo), retiros e
+  ingresos; cuentan en el efectivo esperado del cierre.
+- Gastos (`/gastos`): gastos, retiros e ingresos de los turnos con filtros
+  (fechas, tipo o categoría, cajero, sucursal) y totales por categoría. Se
+  anulan con motivo desde el detalle de su turno en Cierres de caja,
+  mientras el turno siga abierto. Los recibos están en un bucket privado:
+  `/<slug-empresa>/recibos/<id>` valida quién los pide y redirige a un
+  enlace firmado que vence al minuto.
 - Inventario: cada insumo tiene su ficha (`/inventario/insumos/<id>`) con
   existencias por bodega, carga inicial, ajustes con motivo, kardex y su
   costo de referencia.
@@ -77,7 +89,7 @@ npm run dev
 | `DATABASE_URL` | Conexión de la app (Supabase: transaction pooler, puerto 6543) |
 | `DIRECT_URL` | Conexión para migraciones (session pooler, puerto 5432) |
 | `APP_URL` | URL pública, para armar enlaces de recuperación e invitación |
-| `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | Almacenamiento de archivos (logos y fotos de productos) en Supabase Storage. Opcionales: sin ellas no se pueden subir logos. La clave es secreta (`sb_secret_...`) |
+| `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | Almacenamiento de archivos en Supabase Storage (logos y fotos de productos en un bucket público; recibos de gastos en uno privado). Opcionales: sin ellas no se suben archivos. La clave es secreta (`sb_secret_...`) |
 | `SEED_OWNER_EMAIL`, `SEED_OWNER_NAME`, `SEED_OWNER_PASSWORD` | Solo para `npm run db:seed` |
 
 Los archivos `.env*` no se versionan (salvo `.env.example`).
@@ -95,7 +107,7 @@ Los archivos `.env*` no se versionan (salvo `.env.example`).
 | `npm run db:migrate:deploy` | Aplica migraciones pendientes |
 | `npm run db:seed` | Datos iniciales (idempotente) |
 | `npm run company:create -- --name ... --slug ... --owner-name ... --owner-email ...` | Alta de empresa: sucursal principal + enlace de invitación del propietario (72 h) |
-| `npm run storage:setup` | Crea el bucket público `company-assets` (idempotente, una vez por entorno) |
+| `npm run storage:setup` | Crea el bucket público `company-assets` y el privado `company-private` (idempotente, una vez por entorno) |
 
 ## Pruebas
 
@@ -156,18 +168,20 @@ src/
   app/                  Rutas (App Router)
     [empresa]/          Rutas por empresa: login, recuperar, restablecer,
                         invitacion, configuracion-inicial (asistente) y
-                        (panel): inicio, ventas, caja,
+                        (panel): inicio, ventas, caja, gastos,
                         compras (con proveedores),
                         catalogo/{productos (con [id]/receta),categorias},
                         inventario/{insumos,bodegas,conteos} y
-                        configuracion/{negocio,equipo,pagos};
-                        pos (venta, cierre y turno) e imprimir/{comanda,
-                        soporte,cierre,existencias}
+                        configuracion/{negocio,equipo,pagos,gastos};
+                        pos (venta, caja, cierre y turno),
+                        imprimir/{comanda,soporte,cierre,existencias} y
+                        recibos/[id] (enlace firmado al recibo)
     dev/outbox/         Bandeja de correos (solo desarrollo)
   components/
     ui/                 Componentes shadcn/ui
     shared/             Componentes propios reutilizables
-    cash/               Cierres de caja en el panel
+    cash/               Cierres de caja, movimientos de caja y gastos
+    expenses/           Categorías de gasto
     catalog/            Categorías, productos, fotos, recetas y costos
     company/            Formularios de datos y logo de la empresa
     inventory/          Bodegas, insumos, movimientos, kardex y conteos
@@ -184,7 +198,8 @@ src/
     data/               Único acceso a Prisma; filtra siempre por empresa
     services/           Lógica de negocio (auth y permisos, empresas, equipo,
                         catálogo, inventario y conteos, recetas y costos,
-                        ventas, caja, métodos de pago, alertas,
+                        ventas, caja y sus movimientos, categorías de
+                        gasto, métodos de pago, alertas,
                         compras y terceros,
                         mensajería, imágenes y almacenamiento)
     http/               Adaptador Next: cookies, cabeceras, sesión actual
@@ -207,3 +222,4 @@ docs/decisiones/        Decisiones de arquitectura (ADR)
 - [ADR 0007 — Ventas, POS y caja](docs/decisiones/0007-ventas-pos-y-caja.md)
 - [ADR 0008 — Compras](docs/decisiones/0008-compras.md)
 - [ADR 0009 — Conteo físico y consumo teórico vs. real](docs/decisiones/0009-conteo-fisico.md)
+- [ADR 0010 — Movimientos de caja](docs/decisiones/0010-movimientos-de-caja.md)

@@ -2943,3 +2943,24 @@ Sin migración.
 - Revisión visual con sesión: la hace el usuario.
 - Aprobado por el usuario el 2026-10-05 (revisión en el navegador a su cargo).
 
+Commit `1055762` (subido).
+
+### Componente 5 — Cierre de la fase 10 (aprobado 2026-10-05)
+
+**Fase 10 aprobada** (2026-10-05).
+
+- **Revisión de la fase** (migración, datos, servicios, acciones, páginas
+  del POS y del panel, ruta de recibos, almacenamiento privado,
+  `storage:setup`): acciones con sesión y permiso de la empresa enviada,
+  páginas con permiso en el servidor, datos filtrados por empresa, recibos
+  solo con enlace firmado tras validar a quien los pide. Sin hallazgos de
+  seguridad ni de aislamiento. Corrección menor: si el almacenamiento
+  fallaba al firmar, `/recibos/[id]` daba un 500 genérico; ahora responde
+  503 con mensaje y lo registra en el log.
+- `docs/decisiones/0010-movimientos-de-caja.md` y README (estado, menú,
+  POS "Gastos y retiros", página Gastos, recibos, `storage:setup` con dos
+  buckets, variables, estructura, ADR).
+- Verificado: typecheck, lint, suite **418/418**, build.
+- Nota: `npm run build` con `next dev` encendido no lo afectó (dev usa
+  `.next/dev`); el servidor siguió respondiendo.
+
