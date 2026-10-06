@@ -3,6 +3,7 @@
 import { useActionState, useState } from "react";
 import { CircleCheck, ImageIcon, Loader2, Plus, TriangleAlert } from "lucide-react";
 
+import { CASH_MOVEMENT_KINDS, type CashMovementKind } from "@/components/cash/cash-movement-kinds";
 import { FormField } from "@/components/shared/form-field";
 import { ImagePicker } from "@/components/shared/image-picker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -10,12 +11,7 @@ import { Button } from "@/components/ui/button";
 
 import { MoneyField } from "../money-field";
 import { registerCashMovementAction } from "./cash-movement-actions";
-import {
-  CASH_MOVEMENT_KINDS,
-  initialCashMovementState,
-  type CashMovementFormState,
-  type CashMovementKind,
-} from "./cash-movement-fields";
+import { initialCashMovementState, type CashMovementFormState } from "./cash-movement-fields";
 
 const controlClass =
   "w-full min-w-0 rounded-lg border border-input bg-muted px-3 text-sm outline-none focus-visible:ring-3 focus-visible:ring-ring/50";

@@ -1,4 +1,5 @@
 import {
+  Banknote,
   Boxes,
   ClipboardCheck,
   FolderTree,
@@ -92,6 +93,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     description: "Turnos abiertos y cerrados, con su cuadre.",
     path: "caja",
     icon: Vault,
+    group: "sales",
+    permission: "cash.review",
+  },
+  {
+    id: "cash-movements",
+    label: "Gastos",
+    description: "Gastos, retiros e ingresos de caja, con totales por categoría.",
+    path: "gastos",
+    icon: Banknote,
     group: "sales",
     permission: "cash.review",
   },

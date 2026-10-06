@@ -118,27 +118,111 @@ export async function voidCashMovement(
   }, CASH_TX_OPTIONS);
 }
 
+const movementSelect = {
+  id: true,
+  type: true,
+  amount: true,
+  note: true,
+  receiptPath: true,
+  status: true,
+  createdAt: true,
+  voidedAt: true,
+  voidReason: true,
+  category: { select: { id: true, name: true } },
+  user: { select: { name: true } },
+  voidedBy: { select: { name: true } },
+} satisfies Prisma.CashMovementSelect;
+
 // Movimientos de un turno, del más antiguo al más reciente (también los
 // anulados).
 export async function listSessionCashMovements(companyId: string, cashSessionId: string) {
   return db.cashMovement.findMany({
     where: { companyId, cashSessionId },
     orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-    select: {
-      id: true,
-      type: true,
-      amount: true,
-      note: true,
-      receiptPath: true,
-      status: true,
-      createdAt: true,
-      voidedAt: true,
-      voidReason: true,
-      category: { select: { id: true, name: true } },
-      user: { select: { name: true } },
-      voidedBy: { select: { name: true } },
-    },
+    select: movementSelect,
   });
+}
+
+export type CashMovementFilters = {
+  // Momento del registro, [from, to).
+  from: Date;
+  to: Date;
+  type?: CashMovementType;
+  categoryId?: string;
+  // Del turno: su cajero y su sucursal.
+  userId?: string;
+  branchId?: string;
+};
+
+function movementWhere(
+  companyId: string,
+  filters: CashMovementFilters,
+): Prisma.CashMovementWhereInput {
+  return {
+    companyId,
+    createdAt: { gte: filters.from, lt: filters.to },
+    ...(filters.type && { type: filters.type }),
+    ...(filters.categoryId && { categoryId: filters.categoryId }),
+    ...((filters.userId || filters.branchId) && {
+      cashSession: {
+        ...(filters.userId && { userId: filters.userId }),
+        ...(filters.branchId && { branchId: filters.branchId }),
+      },
+    }),
+  };
+}
+
+// Movimientos del rango, el más reciente primero, con su turno.
+export async function listCashMovements(
+  companyId: string,
+  filters: CashMovementFilters,
+  take: number,
+) {
+  const where = movementWhere(companyId, filters);
+  const [movements, total] = await Promise.all([
+    db.cashMovement.findMany({
+      where,
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take,
+      select: {
+        ...movementSelect,
+        cashSession: {
+          select: { id: true, user: { select: { name: true } }, branch: { select: { name: true } } },
+        },
+      },
+    }),
+    db.cashMovement.count({ where }),
+  ]);
+  return { movements, total };
+}
+
+// Resumen del rango completo (sin el filtro de tipo ni de categoría): sumas
+// por tipo y categoría sin los anulados, y los anulados aparte.
+export async function summarizeCashMovements(companyId: string, filters: CashMovementFilters) {
+  const base = movementWhere(companyId, { ...filters, type: undefined, categoryId: undefined });
+  const [recorded, voided] = await Promise.all([
+    db.cashMovement.groupBy({
+      by: ["type", "categoryId"],
+      where: { ...base, status: "RECORDED" },
+      _sum: { amount: true },
+      _count: { _all: true },
+    }),
+    db.cashMovement.aggregate({
+      where: { ...base, status: "VOIDED" },
+      _count: true,
+      _sum: { amount: true },
+    }),
+  ]);
+  return {
+    groups: recorded.map((row) => ({
+      type: row.type,
+      categoryId: row.categoryId,
+      amount: row._sum.amount ?? new Prisma.Decimal(0),
+      count: row._count._all,
+    })),
+    voidedCount: voided._count,
+    voidedTotal: voided._sum.amount ?? new Prisma.Decimal(0),
+  };
 }
 
 // Guarda la foto del recibo de un gasto recién registrado (solo si aún no

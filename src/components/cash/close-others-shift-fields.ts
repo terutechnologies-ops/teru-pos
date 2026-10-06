@@ -13,4 +13,5 @@ export type CloseOthersShiftFormState = {
 // Avisos del detalle del turno por ?aviso=...
 export const CASH_NOTICES = {
   cerrado: "Turno cerrado. Sus ventas ya no se pueden anular.",
+  "movimiento-anulado": "Movimiento anulado. Ya no cuenta en el efectivo esperado del turno.",
 } as const;

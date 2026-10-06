@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { amountSchema, optionalText } from "@/server/validations/common";
+import { amountSchema, optionalText, voidReasonSchema } from "@/server/validations/common";
 
 // Gasto, retiro o ingreso de efectivo en el turno (ver ADR 0010). El monto
 // llega como se ve en el campo (amountSchema).
@@ -36,3 +36,7 @@ export function cashMovementSchema(currency: string) {
 
 // Lo que llega del formulario: todo texto (el esquema valida el tipo).
 export type CashMovementInput = Record<keyof z.input<ReturnType<typeof cashMovementSchema>>, string>;
+
+export const voidCashMovementSchema = z.object({ reason: voidReasonSchema });
+
+export type VoidCashMovementInput = z.input<typeof voidCashMovementSchema>;

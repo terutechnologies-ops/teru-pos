@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
+  Banknote,
   Calculator,
   CircleCheck,
   Printer,
@@ -11,9 +12,13 @@ import {
   Wallet,
 } from "lucide-react";
 
+import { CashBreakdown } from "@/components/cash/cash-breakdown";
 import { CashDifference } from "@/components/cash/cash-difference";
+import { CASH_MOVEMENT_KINDS } from "@/components/cash/cash-movement-kinds";
+import { CashMovementList } from "@/components/cash/cash-movement-list";
 import { CASH_NOTICES } from "@/components/cash/close-others-shift-fields";
 import { CloseOthersShiftForm } from "@/components/cash/close-others-shift-form";
+import { VoidCashMovementForm } from "@/components/cash/void-cash-movement-form";
 import { printSheetHref } from "@/components/printing/print-sheets";
 import { PageHeader } from "@/components/shared/page-header";
 import { SectionTitle } from "@/components/shared/section-title";
@@ -32,8 +37,9 @@ function param(value: string | string[] | undefined) {
   return typeof value === "string" ? value : "";
 }
 
-// Detalle del turno: cuadre (o cómo va, si está abierto), ventas por método
-// de pago y la lista de ventas. Un turno abierto se puede cerrar aquí.
+// Detalle del turno: cuadre (o cómo va, si está abierto), gastos, retiros e
+// ingresos, ventas por método de pago y la lista de ventas. Con el turno
+// abierto, aquí se anulan sus movimientos y se cierra.
 export default async function CashSessionPage({
   params,
   searchParams,
@@ -118,41 +124,33 @@ export default async function CashSessionPage({
               : "Efectivo que debería haber hasta ahora. El cajero no lo ve hasta cerrar (conteo ciego)."
           }
         />
-        <dl className="flex flex-col gap-2 text-sm">
-          <div className="flex justify-between gap-3">
-            <dt>Fondo inicial</dt>
-            <dd className="tabular-nums">{money(shift.openingAmount)}</dd>
-          </div>
-          <div className="flex justify-between gap-3">
-            <dt>+ Efectivo de ventas no anuladas</dt>
-            <dd className="tabular-nums">{money(shift.cashSales)}</dd>
-          </div>
-          <div className="flex justify-between gap-3 border-t border-border pt-2 font-bold">
-            <dt>Esperado</dt>
-            <dd className="tabular-nums">{money(expected)}</dd>
-          </div>
-          {shift.closed && (
-            <>
-              <div className="flex justify-between gap-3 font-bold">
-                <dt>Contado</dt>
-                <dd className="tabular-nums">{money(shift.closed.countedCash)}</dd>
-              </div>
-              <div className="flex items-center justify-between gap-3 border-t-2 border-border pt-2">
-                <dt className="font-bold">Diferencia</dt>
-                <dd>
-                  <CashDifference
-                    difference={shift.closed.difference}
-                    currency={currency}
-                    className="text-lg"
-                  />
-                </dd>
-              </div>
-              {shift.closed.note && !shift.closed.byOtherName && (
-                <p className="text-muted-foreground">Nota del cierre: {shift.closed.note}</p>
-              )}
-            </>
-          )}
-        </dl>
+        <CashBreakdown
+          openingAmount={shift.openingAmount}
+          cash={shift.cash}
+          expectedCash={expected}
+          currency={currency}
+        />
+        {shift.closed && (
+          <dl className="flex flex-col gap-2 text-sm">
+            <div className="flex justify-between gap-3 font-bold">
+              <dt>Contado</dt>
+              <dd className="tabular-nums">{money(shift.closed.countedCash)}</dd>
+            </div>
+            <div className="flex items-center justify-between gap-3 border-t-2 border-border pt-2">
+              <dt className="font-bold">Diferencia</dt>
+              <dd>
+                <CashDifference
+                  difference={shift.closed.difference}
+                  currency={currency}
+                  className="text-lg"
+                />
+              </dd>
+            </div>
+            {shift.closed.note && !shift.closed.byOtherName && (
+              <p className="text-muted-foreground">Nota del cierre: {shift.closed.note}</p>
+            )}
+          </dl>
+        )}
         {review.canClose && (
           <CloseOthersShiftForm
             companySlug={slug}
@@ -160,6 +158,41 @@ export default async function CashSessionPage({
             cashierName={shift.cashierName}
             currency={currency}
           />
+        )}
+      </section>
+
+      <section className="flex flex-col gap-4 rounded-xl bg-card p-5 shadow-sm sm:p-6">
+        <SectionTitle
+          icon={<Banknote className="size-5" aria-hidden />}
+          title="Gastos, retiros e ingresos"
+          description={
+            review.canVoidMovements
+              ? "Efectivo que salió o entró sin ser una venta. Mientras el turno siga abierto, se pueden anular."
+              : "Efectivo que salió o entró sin ser una venta. Los anulados no cuentan en el esperado."
+          }
+        />
+        {shift.movements.length > 0 ? (
+          <CashMovementList
+            movements={shift.movements}
+            currency={currency}
+            timeZone={timeZone}
+            companySlug={slug}
+            renderActions={
+              review.canVoidMovements
+                ? (movement) =>
+                    !movement.voided && (
+                      <VoidCashMovementForm
+                        companySlug={slug}
+                        cashSessionId={shift.id}
+                        movementId={movement.id}
+                        label={CASH_MOVEMENT_KINDS[movement.type].label.toLowerCase()}
+                      />
+                    )
+                : undefined
+            }
+          />
+        ) : (
+          <p className="text-sm text-muted-foreground">Este turno no tiene movimientos de caja.</p>
         )}
       </section>
 

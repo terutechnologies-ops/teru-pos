@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft, Banknote } from "lucide-react";
 
 import { CashMovementForm } from "@/components/pos/cash/cash-movement-form";
-import { CashMovementList } from "@/components/pos/cash/cash-movement-list";
+import { CashMovementList } from "@/components/cash/cash-movement-list";
 import { CashMovementTotalItems } from "@/components/pos/cash/cash-movement-totals";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";

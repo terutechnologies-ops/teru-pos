@@ -2885,3 +2885,61 @@ gasto activa; categorías sin auditoría.
 
 **Próximo paso recomendado:** diseño del componente 4 de la fase 10 (panel).
 
+## Sesión 2026-10-05
+
+### Componente 4 — Movimientos de caja en el panel (aprobado 2026-10-05)
+
+Diseño aprobado el 2026-10-05: la hoja impresa del cierre lleva **totales y
+una línea por movimiento**; la página Gastos muestra **hoy** por defecto.
+Sin migración.
+- **Hallazgo corregido:** desde el componente 3, el cuadre del detalle del
+  turno en el panel y el de la hoja impresa del cierre decían "fondo +
+  efectivo de ventas = esperado", pero el esperado ya incluía los
+  movimientos: con gastos no cuadraba.
+- **Compartidos movidos** a `components/cash/`: `CashBreakdown` y
+  `CashMovementList` (antes en `components/pos/cash/`), y
+  `cash-movement-kinds.ts` (`CASH_MOVEMENT_KINDS`, `CashMovementKind`,
+  antes en `cash-movement-fields.ts` del POS). `CashMovementList` acepta
+  `renderActions` (el panel agrega "Anular").
+- **Datos** (`data/cash-movements.ts`): `movementSelect` compartido,
+  `listCashMovements` (rango por `createdAt`, tipo, categoría, cajero y
+  sucursal del turno; con el turno) y `summarizeCashMovements` (groupBy
+  por tipo y categoría sin anulados; anulados aparte; sin el filtro de
+  tipo ni categoría).
+- **Servicio** (`services/cash-movements.ts`): `voidCashMovementFromPanel`
+  (`cash.void`, `voidCashMovementSchema` = `voidReasonSchema`; mensajes
+  para inexistente, ya anulado y turno cerrado) y
+  `getCashMovementsOverview` (`cash.review`; filtro `ver` = `gastos`,
+  `retiros`, `ingresos` o el id de una categoría de la empresa —también
+  inactiva—; otro valor muestra todo; `CASH_MOVEMENTS_LIMIT` 200; gastos
+  por categoría de mayor a menor). `services/cash-sessions.ts`:
+  `loadCashSessionReview` trae `movements` y `cash` (ventas, ingresos,
+  gastos, retiros); `getCashSessionReview` suma `canVoidMovements` (turno
+  abierto y `cash.void`); `getPrintableShift` reemplaza `cashSales` por
+  `cash` y suma `movements` (no anulados) y `voidedMovementsCount`.
+- **UI:** detalle del turno (`/caja/[id]`) con `CashBreakdown` en "Cuadre"
+  / "Cómo va" y sección "Gastos, retiros e ingresos" (recibo y "Anular"
+  con `VoidCashMovementForm`: `<details>` con motivo, vuelve con
+  `?aviso=movimiento-anulado`). Hoja del cierre: sección "MOVIMIENTOS DE
+  CAJA" (hora, categoría o tipo, monto con signo; "Anulados (no cuentan)")
+  y el cuadre con ingresos, gastos y retiros solo si los hubo. Página
+  **`/gastos`** (menú "Gastos", grupo Ventas, ícono `Banknote`,
+  `cash.review`): filtros GET (desde, hasta, "Mostrar", cajero, sucursal
+  si hay varias), resumen (Gastos, Retiros, Ingresos; gastos por categoría
+  con barra y %; anulados aparte) y lista (`CashMovementLedger`: fecha,
+  tipo, categoría, nota, cajero, "Ver turno", "Ver recibo"; anulados
+  tachados). La anulación solo se hace desde el turno.
+- Pruebas: `cash-movements-panel.test.ts` (7: cuadre y anulación en el
+  detalle, motivo, una sola vez, otra empresa, cajero, turno cerrado, hoja
+  impresa; resumen por categoría sin anulados, filtros por tipo, categoría,
+  cajero y fechas, valores desconocidos —incluido `constructor`—, otra
+  empresa, permisos), `printing.test.ts` ajustada y menú. Verificado:
+  typecheck, lint, suite **418/418**, build; sin sesión `/gastos` y
+  `/caja/[id]` redirigen al login. Hoja del cierre renderizada con el CSS
+  y la fuente del build en 80 y 58 mm (`render-closing.tsx` del
+  scratchpad): nada se sale del papel; las líneas largas bajan.
+- Prettier no está configurado en el proyecto: no correrlo (reformatea a
+  80 columnas).
+- Revisión visual con sesión: la hace el usuario.
+- Aprobado por el usuario el 2026-10-05 (revisión en el navegador a su cargo).
+

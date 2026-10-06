@@ -2,10 +2,11 @@
 
 import { refresh } from "next/cache";
 
+import { CASH_MOVEMENT_KINDS } from "@/components/cash/cash-movement-kinds";
 import { requirePermission } from "@/server/http/staff-session";
 import { registerCashMovement } from "@/server/services/cash-movements";
 
-import { CASH_MOVEMENT_KINDS, type CashMovementFormState } from "./cash-movement-fields";
+import type { CashMovementFormState } from "./cash-movement-fields";
 
 const UNEXPECTED = "No pudimos completar la acción. Inténtalo de nuevo en un momento.";
 

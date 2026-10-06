@@ -10,7 +10,7 @@ import {
   startOfCalendarDay,
 } from "@/lib/company-formats";
 import { listActiveBranches } from "@/server/data/branches";
-import { sumSessionCashMovements } from "@/server/data/cash-movements";
+import { listSessionCashMovements, sumSessionCashMovements } from "@/server/data/cash-movements";
 import {
   closeCashSession,
   countOpenCashSessionsBefore,
@@ -27,6 +27,7 @@ import { findCompanyFormats, findCompanySettings } from "@/server/data/companies
 import { listPaymentMethods } from "@/server/data/payment-methods";
 import type { StaffSessionDto } from "@/server/dto/auth";
 import { assertPermission, hasPermission } from "@/server/services/auth/permissions";
+import { cashMovementTotals, toCashMovement } from "@/server/services/cash-movements";
 import {
   closeOthersShiftSchema,
   closeShiftSchema,
@@ -305,31 +306,47 @@ export type CashOverview = Awaited<ReturnType<typeof getCashOverview>>;
 export async function getCashSessionReview(session: StaffSessionDto, cashSessionId: string) {
   assertPermission(session, "cash.review");
   const review = await loadCashSessionReview(session.company.id, cashSessionId);
+  const isOpen = review?.shift.closed === null;
   return (
     review && {
       ...review,
-      canClose: review.shift.closed === null && hasPermission(session.user.role, "cash.close"),
+      canClose: isOpen && hasPermission(session.user.role, "cash.close"),
+      // Con el turno cerrado ya no: el cierre guardó el esperado.
+      canVoidMovements: isOpen && hasPermission(session.user.role, "cash.void"),
     }
   );
 }
 
 // Detalle sin revisar permisos: lo comparten el panel y el cierre impreso.
 async function loadCashSessionReview(companyId: string, cashSessionId: string) {
-  const [row, formats, methods] = await Promise.all([
+  const [row, formats, methods, movementRows] = await Promise.all([
     findCashSessionReview(companyId, cashSessionId),
     findCompanyFormats(companyId),
     listPaymentMethods(companyId),
+    listSessionCashMovements(companyId, cashSessionId),
   ]);
   if (!row) return null;
   const amounts = new Map(row.byMethod.map((entry) => [entry.paymentMethodId, entry.amount]));
   const cashMethod = methods.find((method) => method.isCash);
+  // Efectivo cobrado en ventas no anuladas (amount ya descuenta el cambio).
+  const cashSales = (cashMethod && amounts.get(cashMethod.id)?.toString()) ?? "0";
+  const movements = movementRows.map(toCashMovement);
+  const totals = cashMovementTotals(movements);
 
   return {
     ...formats,
     shift: {
       ...toReviewShift(row),
-      // Efectivo cobrado en ventas no anuladas (el esperado sin el fondo).
-      cashSales: (cashMethod && amounts.get(cashMethod.id)?.toString()) ?? "0",
+      cashSales,
+      // Cuadre: fondo + efectivo de ventas + ingresos − gastos − retiros =
+      // esperado.
+      cash: {
+        sales: cashSales,
+        deposits: totals.deposits,
+        expenses: totals.expenses,
+        withdrawals: totals.withdrawals,
+      },
+      movements,
       // Abierto: lo que debería haber hasta ahora.
       liveExpected: row.liveExpected?.toString() ?? null,
       byMethod: methods
@@ -389,11 +406,22 @@ export async function getPrintableShift(session: StaffSessionDto, cashSessionId:
       byMethod: shift.byMethod,
       soldTotal: sum(shift.byMethod.map((method) => method.amount)),
       openingAmount: shift.openingAmount,
-      cashSales: shift.cashSales,
+      cash: shift.cash,
       expectedCash: shift.closed.expectedCash,
       countedCash: shift.closed.countedCash,
       difference: shift.closed.difference,
       note: shift.closed.note,
+      // Los anulados no salen en la hoja: solo cuántos fueron.
+      movements: shift.movements
+        .filter((movement) => !movement.voided)
+        .map(({ id, type, amount, categoryName, createdAt }) => ({
+          id,
+          type,
+          amount,
+          categoryName,
+          createdAt,
+        })),
+      voidedMovementsCount: shift.movements.filter((movement) => movement.voided).length,
     },
   };
 }

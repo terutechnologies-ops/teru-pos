@@ -5,25 +5,37 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import { Prisma } from "@/generated/prisma/client";
+import type { CashMovementType } from "@/generated/prisma/enums";
+import { resolveDayRange } from "@/lib/company-formats";
 import { IMAGE_TYPES } from "@/lib/images";
+import { listActiveBranches } from "@/server/data/branches";
 import {
   findCashMovementReceipt,
+  listCashMovements,
   listSessionCashMovements,
   recordCashMovement,
   setCashMovementReceipt,
+  summarizeCashMovements,
+  voidCashMovement,
 } from "@/server/data/cash-movements";
-import { findOpenCashSession } from "@/server/data/cash-sessions";
+import { findOpenCashSession, listCashSessionUsers } from "@/server/data/cash-sessions";
 import { findCompanyFormats } from "@/server/data/companies";
 import { listExpenseCategories } from "@/server/data/expense-categories";
 import type { StaffSessionDto } from "@/server/dto/auth";
 import { assertPermission, hasPermission } from "@/server/services/auth/permissions";
 import { checkImageFile, NO_STORAGE } from "@/server/services/images";
 import { getPrivateFileStorage } from "@/server/services/storage";
-import { cashMovementSchema, type CashMovementInput } from "@/server/validations/cash-movements";
+import {
+  cashMovementSchema,
+  voidCashMovementSchema,
+  type CashMovementInput,
+  type VoidCashMovementInput,
+} from "@/server/validations/cash-movements";
 
 // Gastos, retiros e ingresos del turno propio en el POS (sales.charge; ver
 // ADR 0010). El cajero ve sus movimientos, nunca el esperado (conteo
-// ciego). Los anulan OWNER/ADMIN desde el panel.
+// ciego). En el panel, quien revisa cierres (cash.review) los consulta y
+// OWNER/ADMIN (cash.void) los anulan mientras el turno siga abierto.
 
 // Lo que dura el enlace firmado de un recibo: se abre al instante.
 const RECEIPT_LINK_SECONDS = 60;
@@ -171,3 +183,140 @@ export async function getReceiptUrl(session: StaffSessionDto, movementId: string
   const storage = getPrivateFileStorage();
   return storage ? storage.signedUrl(movement.receiptPath, RECEIPT_LINK_SECONDS) : null;
 }
+
+// --- Panel: anulación y consulta (cash.void / cash.review) -----------------
+
+export type VoidCashMovementResult =
+  | { ok: true }
+  | { ok: false; error?: string; fieldErrors: Partial<Record<keyof VoidCashMovementInput, string>> };
+
+const VOID_ERRORS = {
+  NOT_FOUND: "El movimiento ya no existe. Actualiza la página.",
+  ALREADY_VOIDED: "Este movimiento ya estaba anulado.",
+  SESSION_CLOSED: "El turno de este movimiento ya se cerró: no se puede anular.",
+} as const;
+
+// Anula el movimiento: deja de contar en el efectivo esperado del turno y
+// guarda quién, cuándo y por qué. Con el turno cerrado ya no se puede: el
+// cierre guardó el esperado.
+export async function voidCashMovementFromPanel(
+  session: StaffSessionDto,
+  movementId: string,
+  input: VoidCashMovementInput,
+): Promise<VoidCashMovementResult> {
+  assertPermission(session, "cash.void");
+  const parsed = voidCashMovementSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, fieldErrors: { reason: parsed.error.issues[0].message } };
+  }
+  const result = await voidCashMovement(session.company.id, {
+    movementId,
+    userId: session.user.id,
+    reason: parsed.data.reason,
+  });
+  return result.status === "OK"
+    ? { ok: true }
+    : { ok: false, error: VOID_ERRORS[result.status], fieldErrors: {} };
+}
+
+// Movimientos que muestra la lista (los más recientes del rango).
+export const CASH_MOVEMENTS_LIMIT = 200;
+
+// Filtro "Mostrar": un tipo o una categoría de gasto (su id).
+const VIEW_TYPES = new Map<string, CashMovementType>([
+  ["gastos", "EXPENSE"],
+  ["retiros", "WITHDRAWAL"],
+  ["ingresos", "DEPOSIT"],
+]);
+
+export type CashMovementsQuery = {
+  desde?: string;
+  hasta?: string;
+  ver?: string;
+  cajero?: string;
+  sucursal?: string;
+};
+
+export async function getCashMovementsOverview(
+  session: StaffSessionDto,
+  query: CashMovementsQuery,
+  now = new Date(),
+) {
+  assertPermission(session, "cash.review");
+  const companyId = session.company.id;
+  const [formats, categories] = await Promise.all([
+    findCompanyFormats(companyId),
+    // También las inactivas: tienen gastos anteriores.
+    listExpenseCategories(companyId),
+  ]);
+  const days = resolveDayRange(query, formats.timeZone, now);
+  const view = query.ver ?? "";
+  const category = categories.find((entry) => entry.id === view);
+  const filters = {
+    from: days.start,
+    to: days.end,
+    type: category ? ("EXPENSE" as const) : VIEW_TYPES.get(view),
+    categoryId: category?.id,
+    userId: query.cajero || undefined,
+    branchId: query.sucursal || undefined,
+  };
+
+  const [list, summary, cashiers, branches] = await Promise.all([
+    listCashMovements(companyId, filters, CASH_MOVEMENTS_LIMIT),
+    summarizeCashMovements(companyId, filters),
+    listCashSessionUsers(companyId),
+    listActiveBranches(companyId),
+  ]);
+
+  const total = (type: CashMovementType) => {
+    const groups = summary.groups.filter((group) => group.type === type);
+    return {
+      total: groups.reduce((sum, group) => sum.plus(group.amount), new Prisma.Decimal(0)).toString(),
+      count: groups.reduce((sum, group) => sum + group.count, 0),
+    };
+  };
+  const names = new Map(categories.map((entry) => [entry.id, entry.name]));
+
+  return {
+    ...formats,
+    filters: {
+      from: days.from,
+      to: days.to,
+      view: category || VIEW_TYPES.has(view) ? view : "",
+      cashierId: query.cajero ?? "",
+      branchId: query.sucursal ?? "",
+    },
+    today: days.today,
+    categories: categories.map(({ id, name, isActive }) => ({ id, name, isActive })),
+    cashiers,
+    // Solo con varias sucursales tiene sentido filtrar por sucursal.
+    branches: branches.length > 1 ? branches.map(({ id, name }) => ({ id, name })) : [],
+    summary: {
+      expenses: {
+        ...total("EXPENSE"),
+        // De la categoría con más gasto a la de menos.
+        byCategory: summary.groups
+          .filter((group) => group.type === "EXPENSE")
+          .sort((x, y) => y.amount.comparedTo(x.amount))
+          .map((group) => ({
+            name: names.get(group.categoryId ?? "") ?? "Sin categoría",
+            amount: group.amount.toString(),
+            count: group.count,
+          })),
+      },
+      withdrawals: total("WITHDRAWAL"),
+      deposits: total("DEPOSIT"),
+      voidedCount: summary.voidedCount,
+      voidedTotal: summary.voidedTotal.toString(),
+    },
+    movements: list.movements.map((row) => ({
+      ...toCashMovement(row),
+      cashSessionId: row.cashSession.id,
+      cashierName: row.cashSession.user.name,
+      branchName: row.cashSession.branch.name,
+    })),
+    totalCount: list.total,
+  };
+}
+
+export type CashMovementsOverview = Awaited<ReturnType<typeof getCashMovementsOverview>>;

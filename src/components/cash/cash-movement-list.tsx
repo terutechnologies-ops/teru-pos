@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { ReceiptText } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -5,21 +6,24 @@ import { formatClock, formatMoney } from "@/lib/company-formats";
 import { cn } from "@/lib/utils";
 import type { CashMovementDto } from "@/server/services/cash-movements";
 
-import { CASH_MOVEMENT_KINDS } from "./cash-movement-fields";
+import { CASH_MOVEMENT_KINDS } from "./cash-movement-kinds";
 
 // Movimientos de un turno, del más antiguo al más reciente. Los anulados se
 // ven tachados con quién los anuló y por qué. El recibo se abre con un
-// enlace firmado (ruta /recibos/[id]).
+// enlace firmado (ruta /recibos/[id]). El panel agrega sus acciones
+// (anular) con renderActions.
 export function CashMovementList({
   movements,
   currency,
   timeZone,
   companySlug,
+  renderActions,
 }: {
   movements: CashMovementDto[];
   currency: string;
   timeZone: string;
   companySlug: string;
+  renderActions?: (movement: CashMovementDto) => ReactNode;
 }) {
   return (
     <ul className="flex flex-col divide-y divide-border">
@@ -57,6 +61,7 @@ export function CashMovementList({
                   Ver recibo
                 </a>
               )}
+              {renderActions?.(movement)}
             </div>
             <span
               className={cn(

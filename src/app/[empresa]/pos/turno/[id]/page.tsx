@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CircleCheck, LockOpen, Printer } from "lucide-react";
 
-import { CashBreakdown } from "@/components/pos/cash/cash-breakdown";
+import { CashBreakdown } from "@/components/cash/cash-breakdown";
 import { Item, ShiftSummary } from "@/components/pos/shift-summary";
 import { PrintSheetButton } from "@/components/printing/print-sheet-button";
 import { printSheetHref } from "@/components/printing/print-sheets";

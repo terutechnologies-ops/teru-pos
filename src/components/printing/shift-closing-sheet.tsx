@@ -1,4 +1,5 @@
-import { formatDateTime, formatMoney } from "@/lib/company-formats";
+import { CASH_MOVEMENT_KINDS } from "@/components/cash/cash-movement-kinds";
+import { formatClock, formatDateTime, formatMoney } from "@/lib/company-formats";
 import type { PrintableShift } from "@/server/services/cash-sessions";
 
 import { DashedRule, SheetRow, ThickRule } from "./sheet-parts";
@@ -16,8 +17,8 @@ function Signature({ label }: { label: string }) {
   );
 }
 
-// Cierre de turno para entregar la caja: ventas del turno, cuadre del
-// efectivo y la diferencia, con espacio para las firmas de quien entrega y
+// Cierre de turno para entregar la caja: ventas del turno, gastos, retiros
+// e ingresos de efectivo, cuadre del efectivo y la diferencia, con espacio para las firmas de quien entrega y
 // quien recibe.
 export function ShiftClosingSheet({ printable }: { printable: PrintableShift }) {
   const { companyName, shift, currency, dateFormat, timeZone } = printable;
@@ -61,10 +62,42 @@ export function ShiftClosingSheet({ printable }: { printable: PrintableShift }) 
         <SheetRow label="Total vendido" value={money(shift.soldTotal)} className="font-bold" />
       </div>
 
+      {(shift.movements.length > 0 || shift.voidedMovementsCount > 0) && (
+        <>
+          <DashedRule />
+          <SectionLabel>MOVIMIENTOS DE CAJA</SectionLabel>
+          {shift.movements.map((movement) => {
+            const kind = CASH_MOVEMENT_KINDS[movement.type];
+            return (
+              <SheetRow
+                key={movement.id}
+                label={`${formatClock(movement.createdAt, timeZone)} ${
+                  movement.categoryName ?? kind.label
+                }`}
+                value={`${kind.sign}${money(movement.amount)}`}
+              />
+            );
+          })}
+          {shift.voidedMovementsCount > 0 && (
+            <SheetRow label="Anulados (no cuentan)" value={shift.voidedMovementsCount} />
+          )}
+        </>
+      )}
+
       <DashedRule />
       <SectionLabel>CUADRE DE EFECTIVO</SectionLabel>
       <SheetRow label="Fondo inicial" value={money(shift.openingAmount)} />
-      <SheetRow label="+ Efectivo de ventas" value={money(shift.cashSales)} />
+      <SheetRow label="+ Efectivo de ventas" value={money(shift.cash.sales)} />
+      {/* Solo los que hubo: la hoja no se alarga con ceros. */}
+      {Number(shift.cash.deposits) > 0 && (
+        <SheetRow label="+ Ingresos" value={money(shift.cash.deposits)} />
+      )}
+      {Number(shift.cash.expenses) > 0 && (
+        <SheetRow label="− Gastos" value={money(shift.cash.expenses)} />
+      )}
+      {Number(shift.cash.withdrawals) > 0 && (
+        <SheetRow label="− Retiros" value={money(shift.cash.withdrawals)} />
+      )}
       <SheetRow label="Esperado" value={money(shift.expectedCash)} className="font-bold" />
       <SheetRow label="Contado" value={money(shift.countedCash)} className="font-bold" />
 
