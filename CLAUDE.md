@@ -3121,6 +3121,111 @@ enlaces de recuperación.
 - `next dev` quedó encendido en segundo plano en el puerto 3000 al final
   de la sesión (detenerlo con `taskkill /PID <pid> /T /F` si estorba).
 
-**Próximo paso recomendado:** aprobar el cierre de la fase 11 y empezar
-el análisis de la preparación para producción.
+Commit `0a0dd2a` (subido): cierre de la fase 11 y menú desplegable.
+
+## Hoja de ruta actualizada (2026-10-05, después del cierre de la fase 11)
+
+Nuevo orden acordado con el usuario:
+1. **Fase 12 — Lista de compras y reporte por correo al cerrar el día**
+   (adelanta la integración con Resend; así también funcionan en
+   producción "Recuperar contraseña" e "Invitar al equipo").
+2. **Fase 13 — Cartera: clientes con crédito.**
+3. Preparación para producción, despliegue en Vercel (como estaba).
+
+### Fase 12 — Lista de compras y reporte por correo (por diseñar)
+
+Contexto del usuario: Su Arepa compra a diario (carne y otros insumos);
+al cerrar el día quiere avisar al cliente cuánto insumo le quedó para que
+sepa qué comprar al otro día. El aviso por WhatsApp (idea del 2026-10-01)
+**no estaba hecho**. Opciones analizadas: botón con enlace `wa.me`
+(manual), WhatsApp Business Cloud API de Meta (automático, verificación
+del negocio, número dedicado, plantilla aprobada, costo por mensaje; las
+plantillas no admiten saltos de línea en las variables: mensaje corto con
+enlace) y correo. **Decisión del usuario: por correo** (más práctico).
+WhatsApp queda para después, si se pide.
+
+Alcance propuesto (pendiente de aprobar en el diseño):
+- **Existencia ideal** por insumo (lo que se quiere tener al abrir el
+  día). Sugerido = ideal − existencia; insumos sin ideal muestran solo lo
+  que queda.
+- **Página "Lista de compras"** en Inventario: qué quedó y cuánto
+  comprar, por bodega.
+- **Correo automático al cerrar el último turno abierto de la sucursal**
+  (desde el POS o desde el panel); se envía después del cierre (con
+  `after()` de Next): si falla el correo, el cierre no se afecta.
+- Integración con **Resend** (reemplaza el `MessageSender` de desarrollo
+  en producción; en dev se sigue viendo en `/dev/outbox`).
+
+**Preguntas abiertas para el usuario:**
+1. ¿Tiene dominio propio? (Resend solo envía a cualquier destinatario
+   desde un dominio verificado). Se le dio la guía (abajo); lo va a
+   comprar y configurar.
+2. Destinatarios: propuesto un campo "Correos para el reporte de cierre"
+   en Configuración > Negocio (uno o varios; por defecto el del
+   propietario). Sin respuesta.
+3. Contenido: ¿solo la lista de compras o también un resumen corto del día
+   (ventas, gastos, faltante/sobrante)? Sin respuesta.
+
+Se puede adelantar lo que no depende del correo (existencia ideal, lista
+de compras, destinatarios) mientras el usuario configura el dominio.
+
+### Guía entregada al usuario: dominio y Resend (2026-10-05)
+
+Recomendación: **`.com` en Cloudflare Registrar** (precio de costo, ~USD
+10–11/año, sin promoción ni renovación inflada, DNS y privacidad
+gratis). Nombre de la plataforma (p. ej. `terutechnologies.com` o
+`terupos.com`), no de un cliente. Uso: `app.<dominio>` para el sistema
+(Vercel) y `envios.<dominio>` para el correo (subdominio, cuida la
+reputación del principal).
+
+Pasos: 1) elegir el nombre; 2) cuenta en Cloudflare con el correo de TERU
+y verificación en dos pasos; 3) Domain Registration → Register Domains,
+`.com`, 1 año, renovación automática activada; 4) cuenta en Resend (2FA) →
+Domains → Add Domain `envios.<dominio>`, región São Paulo (sa-east-1) si
+está; 5) copiar en Cloudflare (DNS → Records) los registros MX y TXT
+(SPF, DKIM) que muestra Resend, en "DNS only", más DMARC (`_dmarc`, TXT
+`v=DMARC1; p=none;`) y pulsar Verify; 6) API key con "Sending access"
+solo para ese dominio, que **el usuario pega en `.env`** (no en el chat;
+el nombre de la variable se define en la fase 12); 7) en el despliegue,
+`app.<dominio>` → Vercel.
+
+Costos informados (verificar al comprar): dominio ~USD 10–11/año; DNS
+gratis; Resend gratis hasta ~3.000 correos/mes (~100/día; plan pago ~USD
+20/mes); **Vercel Hobby no permite uso comercial** → Pro ~USD 20/mes por
+miembro; Supabase gratis (se pausa y sin copias diarias) o Pro ~USD
+25/mes (recomendado con datos reales). Decidir Vercel y Supabase en el
+despliegue.
+
+### Fase 13 — Cartera (propuesta inicial, por analizar y diseñar)
+
+El usuario quiere crearla. Base: `third_parties` ya admite `isCustomer`.
+Propuesta (recomendaciones, sin aprobar):
+- Clientes autorizados creados en el panel (OWNER/ADMIN) con **cupo de
+  crédito** y **plazo** (p. ej. 15 días).
+- POS: método de pago "Crédito" que exige elegir el cliente; se puede
+  mezclar con otros pagos; **bloquea** si supera el cupo disponible.
+  Vende a crédito quien cobra.
+- **Abonos** en el POS dentro del turno (los de efectivo entran al cuadre
+  de caja; los demás no).
+- **Saldo por cliente** como cuenta corriente con historial (ventas a
+  crédito, abonos, anulaciones); alerta de clientes con pagos vencidos.
+
+## Cierre de la sesión 2026-10-05 (final)
+
+**Implementado y subido hoy:** fases 10 y 11 completas y cerradas, más el
+menú desplegable (último commit `0a0dd2a`). Árbol limpio.
+
+**Pendiente (mañana):**
+- Usuario: comprar el dominio y configurar Resend (guía arriba); responder
+  destinatarios y contenido del reporte.
+- Claude: análisis y diseño de la **fase 12** (se puede empezar por
+  existencia ideal y lista de compras aunque el dominio no esté).
+- Después: fase 13 (cartera), preparación para producción, despliegue.
+
+**Errores conocidos:** los de la sección anterior; `next dev` quedó
+encendido en el puerto 3000 al cerrar (detenerlo con `taskkill /PID <pid>
+/T /F` si estorba).
+
+**Próximo paso recomendado:** diseño de la fase 12 con las respuestas del
+usuario sobre destinatarios y contenido del reporte.
 
