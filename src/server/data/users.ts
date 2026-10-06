@@ -31,8 +31,9 @@ export async function findUserPasswordHash(companyId: string, userId: string) {
   return user?.passwordHash ?? null;
 }
 
-// Cambia la contraseña y cierra las demás sesiones de la persona (la actual
-// sigue abierta), todo junto. Devuelve cuántas sesiones cerró, o null si la
+// Cambia la contraseña, cierra las demás sesiones de la persona (la actual
+// sigue abierta) e invalida los enlaces de recuperación pendientes, todo
+// junto. Devuelve cuántas sesiones cerró, o null si la
 // persona ya no existe o está inactiva.
 export async function changeUserPassword(params: {
   companyId: string;
@@ -48,6 +49,11 @@ export async function changeUserPassword(params: {
       data: { passwordHash: params.passwordHash },
     });
     if (updated.count !== 1) return null;
+    // Un enlace pedido antes del cambio ya no debe servir.
+    await tx.userPasswordResetToken.updateMany({
+      where: { userId: params.userId, usedAt: null },
+      data: { usedAt: now },
+    });
     const revoked = await tx.userSession.updateMany({
       where: {
         userId: params.userId,

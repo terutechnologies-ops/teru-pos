@@ -4,7 +4,7 @@ Plataforma de gestión multiempresa de TERU (ventas, inventario, caja, etc.).
 Cada negocio es una empresa cliente con su propia URL; la arepería
 **Su Arepa** es la primera, no el modelo del sistema.
 
-**Estado:** fase 10 cerrada (autenticación del personal, configuración
+**Estado:** fase 11 cerrada (autenticación del personal, configuración
 inicial de la empresa, panel con menú por rol, configuración de negocio y
 equipo, logo, catálogo de venta con categorías y productos con precio y
 foto, inventario con insumos, bodegas, carga inicial, ajustes y kardex,
@@ -15,7 +15,8 @@ borrador que al confirmarse entra al inventario con costo promedio
 ponderado, y anulación; y conteo físico por bodega: borrador, confirmación
 que corrige el inventario y resultado teórico vs. real valorizado; y
 movimientos de caja: gastos con categoría y foto del recibo, retiros e
-ingresos en el turno, con su revisión, anulación y totales en el panel).
+ingresos en el turno, con su revisión, anulación y totales en el panel;
+y "Mi cuenta" para cambiar la propia contraseña).
 
 ## Stack
 
@@ -48,7 +49,10 @@ npm run dev
   (propietario y administrador), Configuración > Negocio
   (propietario), Equipo, Métodos de pago y Categorías de gasto
   (propietario y administrador).
-  El inicio muestra los pendientes (alertas).
+  El inicio muestra los pendientes (alertas). "Mi cuenta" (`/cuenta`, en
+  el pie del menú; en el POS, `/pos/cuenta`) muestra los datos de la
+  persona y permite cambiar su contraseña: pide la actual, cierra las
+  demás sesiones y se bloquea 15 min tras 5 intentos fallidos.
 - POS `/<slug-empresa>/pos` (pantalla oscura, requiere JavaScript): abrir
   turno con fondo inicial, vender con pago mixto y cerrar el turno contando
   el efectivo (conteo ciego). El cajero entra directo aquí. En "Gastos y
@@ -63,7 +67,9 @@ npm run dev
   enlace firmado que vence al minuto.
 - Inventario: cada insumo tiene su ficha (`/inventario/insumos/<id>`) con
   existencias por bodega, carga inicial, ajustes con motivo, kardex y su
-  costo de referencia.
+  costo de referencia. Cada movimiento de venta, compra o conteo muestra
+  su número ("Venta #N", "Compra #N", "Conteo #N") con enlace al
+  documento.
 - Compras (`/compras`): la compra se arma en borrador (proveedor, bodega,
   fecha, factura e insumos con lo pagado) y al confirmarse entra a la
   bodega y actualiza el costo promedio de cada insumo. Confirmada no
@@ -76,6 +82,8 @@ npm run dev
   el consumo real, la diferencia sobre lo vendido y su valor, con el
   faltante, el sobrante y el neto. Sin anulación: se corrige con otro
   conteo o un ajuste.
+- Montos de dinero (precio de productos, POS, compras, caja): punto de
+  miles y coma decimal ("16.500", "4,50"), también sin separadores.
 - Recetas: cada producto tiene la pestaña Receta
   (`/catalogo/productos/<id>/receta`) con los insumos que lleva una unidad
   vendida, su costo y el margen sobre el precio.
@@ -168,17 +176,18 @@ src/
   app/                  Rutas (App Router)
     [empresa]/          Rutas por empresa: login, recuperar, restablecer,
                         invitacion, configuracion-inicial (asistente) y
-                        (panel): inicio, ventas, caja, gastos,
+                        (panel): inicio, cuenta, ventas, caja, gastos,
                         compras (con proveedores),
                         catalogo/{productos (con [id]/receta),categorias},
                         inventario/{insumos,bodegas,conteos} y
                         configuracion/{negocio,equipo,pagos,gastos};
-                        pos (venta, caja, cierre y turno),
+                        pos (venta, caja, cierre, turno y cuenta),
                         imprimir/{comanda,soporte,cierre,existencias} y
                         recibos/[id] (enlace firmado al recibo)
     dev/outbox/         Bandeja de correos (solo desarrollo)
   components/
     ui/                 Componentes shadcn/ui
+    account/            Mi cuenta y cambio de contraseña
     shared/             Componentes propios reutilizables
     cash/               Cierres de caja, movimientos de caja y gastos
     expenses/           Categorías de gasto
@@ -223,3 +232,4 @@ docs/decisiones/        Decisiones de arquitectura (ADR)
 - [ADR 0008 — Compras](docs/decisiones/0008-compras.md)
 - [ADR 0009 — Conteo físico y consumo teórico vs. real](docs/decisiones/0009-conteo-fisico.md)
 - [ADR 0010 — Movimientos de caja](docs/decisiones/0010-movimientos-de-caja.md)
+- [ADR 0011 — Pendientes del cliente: kardex, precio y Mi cuenta](docs/decisiones/0011-pendientes-del-cliente.md)

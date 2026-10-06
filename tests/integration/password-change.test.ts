@@ -81,14 +81,24 @@ describe("cambiar la propia contraseña", () => {
     expect(await login(`val@${tag}.co`)).not.toBeNull();
   });
 
-  it("cambia la contraseña, mantiene esta sesión y cierra las demás", async () => {
+  it("cambia la contraseña, mantiene esta sesión, cierra las demás e invalida los enlaces pendientes", async () => {
     const email = await person("ok");
     const here = (await login(email))!;
     const other1 = (await login(email))!;
     const other2 = (await login(email))!;
     const session = await sessionOf(here);
+    // Un enlace de recuperación pedido antes del cambio.
+    const pending = await db.userPasswordResetToken.create({
+      data: {
+        userId: session.user.id,
+        tokenHash: `${tag}-pendiente`.padEnd(64, "0"),
+        expiresAt: new Date(Date.now() + 20 * 60_000),
+      },
+    });
 
     expect(await change(session, {})).toEqual({ ok: true, closedSessions: 2 });
+    const token = await db.userPasswordResetToken.findUniqueOrThrow({ where: { id: pending.id } });
+    expect(token.usedAt).not.toBeNull();
 
     expect(await getStaffSession(a.slug, here)).not.toBeNull();
     expect(await getStaffSession(a.slug, other1)).toBeNull();

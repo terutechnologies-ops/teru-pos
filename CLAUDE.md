@@ -3043,3 +3043,84 @@ actuales incorrectas en 15 min bloquean** el cambio. Sin migración.
   aviso en lugar de sus páginas, así que el cajero no ve "Mi cuenta" hasta
   que el propietario termine.
 
+Commit `4bfac17` (subido).
+
+### Componente 4 — Cierre de la fase 11 (aprobado 2026-10-05)
+
+**Fase 11 aprobada** (2026-10-05).
+
+- **Revisión de la fase** (kardex, precio, Mi cuenta: datos, servicio,
+  acción, páginas y enlaces): páginas con sesión de la empresa
+  (`sales.charge` en el POS), acción con la empresa enviada, persona
+  buscada por id y empresa y activa. Ningún script ni el seed usan el
+  esquema del precio. **Corregido:** cambiar la contraseña no invalidaba
+  un enlace de recuperación pedido antes (servía hasta 20 min después);
+  `changeUserPassword` ahora los marca usados en la misma transacción.
+  Prueba ampliada en `password-change.test.ts`.
+- `docs/decisiones/0011-pendientes-del-cliente.md` y README (estado, Mi
+  cuenta, kardex con números, formato de montos, estructura, ADR).
+- Verificado: typecheck, lint, suite **427/427**, build.
+
+### Ajuste pedido por el usuario — menú con grupos desplegables (aprobado 2026-10-05)
+
+Pedido antes de subir el cierre de la fase 11 (captura del menú largo).
+- `components/ui/collapsible.tsx` (envoltorio de `Collapsible` de
+  `radix-ui`, ya instalado; sin dependencias nuevas).
+- `app-sidebar.tsx`: "General" (Inicio) fijo; Ventas, Compras, Catálogo,
+  Inventario y Configuración se despliegan con su nombre y una flecha. Al
+  cargar se abre el grupo de la página actual; al navegar a otro grupo,
+  ese se abre y los demás quedan como estaban (estado ajustado durante el
+  render, no en un efecto). Si se cierra el grupo de la página actual, un
+  punto lima lo indica. Sin guardar el estado entre cargas completas.
+- Segundo ajuste del usuario (referencia: submenú con sangría): cada grupo
+  es una fila con su ícono (`NAV_GROUP_ICONS`: Ventas `HandCoins`, Compras
+  `ShoppingBasket`, Catálogo `BookOpen`, Inventario `Archive`,
+  Configuración `Settings`), nombre en negrita y flecha; sus secciones van
+  con sangría bajo una línea guía (`SidebarMenuSub`), texto e íconos un
+  poco más suaves. Inicio y los grupos en una sola lista.
+- Verificado: typecheck, lint, suite **427/427**, build. Revisión visual
+  con sesión: la hace el usuario.
+
+## Cierre de la sesión 2026-10-05
+
+**Implementado hoy (con commit y subido, salvo el componente 4 de la fase
+11, pendiente de aprobación):**
+- Fase 10, componentes 4 (`1055762`, movimientos de caja en el panel y
+  página Gastos) y 5 (`6abf42f`, revisión, ADR 0010, README). **Fase 10
+  cerrada.**
+- Fase 11 — pendientes del cliente: "Venta #N" en el kardex (`c609e87`),
+  precio con separador de miles (`a5faed0`), Mi cuenta con cambio de
+  contraseña (`4bfac17`) y cierre (ADR 0011, README).
+
+**Pendiente:**
+- (Hecho) Componente 4 de la fase 11 y menú desplegable aprobados y subidos.
+- Siguiente en la hoja de ruta: **preparación para producción** (analizar
+  y diseñar primero): desarrollo en PostgreSQL local, `postinstall:
+  prisma generate`, región `gru1`, bucket por entorno, revisión de
+  seguridad, reinicio de la base de Supabase (destructivo: confirmar justo
+  antes) y alta de Su Arepa real con `company:create`; plan de Supabase
+  (decisión del usuario). Después: correo con Resend y despliegue en
+  Vercel.
+
+**Decisiones técnicas de hoy:** cuadre de caja con movimientos en el
+panel y en la hoja impresa (`CashBreakdown` compartido); página Gastos
+con resumen independiente del filtro "Mostrar"; anulación solo desde el
+turno; recibos 503 si falla el almacenamiento; precio con
+`amountSchema` (punto de miles, coma decimal); cambio de contraseña con
+límite de intentos, cierre de las otras sesiones e invalidación de los
+enlaces de recuperación.
+
+**Errores conocidos:**
+- Revisión visual con sesión a cargo del usuario (páginas de hoy: Gastos,
+  detalle del turno con anulación, formulario de producto, Mi cuenta).
+- Con la configuración inicial pendiente, el cajero no ve "Mi cuenta".
+- Siguen los de sesiones anteriores (`next dev` en Windows deja el
+  proceso en el 3000, `prisma generate` con EPERM si `next dev` corre,
+  heredoc largos en Bash: usar la herramienta Write; Prettier no
+  configurado: no correrlo).
+- `next dev` quedó encendido en segundo plano en el puerto 3000 al final
+  de la sesión (detenerlo con `taskkill /PID <pid> /T /F` si estorba).
+
+**Próximo paso recomendado:** aprobar el cierre de la fase 11 y empezar
+el análisis de la preparación para producción.
+

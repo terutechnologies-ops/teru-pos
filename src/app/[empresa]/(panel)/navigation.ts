@@ -1,12 +1,17 @@
 import {
+  Archive,
   Banknote,
+  BookOpen,
   Boxes,
   ClipboardCheck,
   FolderTree,
+  HandCoins,
   House,
   Package,
   PackagePlus,
   Receipt,
+  Settings,
+  ShoppingBasket,
   ShoppingCart,
   Store,
   Tags,
@@ -56,6 +61,15 @@ export const NAV_GROUP_LABELS: Record<NavGroup, string> = {
   catalog: "Catálogo",
   inventory: "Inventario",
   settings: "Configuración",
+};
+
+// Ícono de cada grupo desplegable del menú (General no se despliega).
+export const NAV_GROUP_ICONS: Record<Exclude<NavGroup, "general">, LucideIcon> = {
+  sales: HandCoins,
+  purchases: ShoppingBasket,
+  catalog: BookOpen,
+  inventory: Archive,
+  settings: Settings,
 };
 
 export const NAV_ITEMS: readonly NavItem[] = [
