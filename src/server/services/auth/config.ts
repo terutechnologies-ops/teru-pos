@@ -10,6 +10,12 @@ export const LOGIN_WINDOW_MS = 15 * MINUTE;
 export const MAX_FAILED_LOGINS_PER_ACCOUNT = 5;
 export const MAX_FAILED_LOGINS_PER_IP = 20;
 
+// Cambio de la propia contraseña: contraseñas actuales incorrectas
+// permitidas dentro de la ventana (con una sesión abierta no se debe poder
+// adivinar la contraseña).
+export const PASSWORD_CHANGE_WINDOW_MS = 15 * MINUTE;
+export const MAX_FAILED_PASSWORD_CHANGES = 5;
+
 export const RESET_TOKEN_TTL_MS = 20 * MINUTE;
 export const RESET_WINDOW_MS = 15 * MINUTE;
 export const MAX_RESET_REQUESTS_PER_ACCOUNT = 3;
@@ -23,6 +29,10 @@ export const AUTH_EVENTS = {
   PASSWORD_RESET_REQUESTED: "PASSWORD_RESET_REQUESTED",
   PASSWORD_RESET_BLOCKED: "PASSWORD_RESET_BLOCKED",
   PASSWORD_RESET_COMPLETED: "PASSWORD_RESET_COMPLETED",
+  // Cambio de la propia contraseña desde "Mi cuenta".
+  PASSWORD_CHANGED: "PASSWORD_CHANGED",
+  PASSWORD_CHANGE_FAILED: "PASSWORD_CHANGE_FAILED",
+  PASSWORD_CHANGE_BLOCKED: "PASSWORD_CHANGE_BLOCKED",
 } as const;
 
 export const STAFF_INVITATION_TTL_MS = 72 * HOUR;

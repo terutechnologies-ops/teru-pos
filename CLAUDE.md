@@ -3004,3 +3004,42 @@ Commit `c609e87` (subido).
   `catalog-products.test.ts` y `product-image.test.ts` ajustadas.
   Verificado: typecheck, lint, suite **422/422**, build.
 
+Commit `a5faed0` (subido).
+
+### Componente 3 — Mi cuenta: cambiar la propia contraseña (aprobado 2026-10-05)
+
+Diseño aprobado el 2026-10-05 (se confirman las recomendaciones: cierra
+las **otras** sesiones; enlaces en el panel y en el POS), con dos reglas
+nuevas: la nueva debe ser **distinta de la actual** y **5 contraseñas
+actuales incorrectas en 15 min bloquean** el cambio. Sin migración.
+- **Validación** (`validations/auth.ts`): `newPasswordSchema` compartido
+  (8–200; también lo usa `passwordResetSchema`, mismos mensajes) y
+  `passwordChangeSchema` (actual, nueva, confirmación).
+- **Datos** (`data/users.ts`): `findUserPasswordHash` (solo activos) y
+  `changeUserPassword` (en una transacción: cambia el hash y revoca las
+  sesiones de la persona menos la actual; devuelve cuántas cerró o null).
+- **Servicio** `services/auth/password-change.ts` → `changeOwnPassword`
+  (cualquier rol con sesión): límite con `PASSWORD_CHANGE_WINDOW_MS` y
+  `MAX_FAILED_PASSWORD_CHANGES` (cuentan los fallos posteriores al último
+  cambio), verifica la actual, rechaza la misma, hashea fuera de la
+  transacción. Auditoría `AUTH_EVENTS.PASSWORD_CHANGED`,
+  `PASSWORD_CHANGE_FAILED`, `PASSWORD_CHANGE_BLOCKED` (sin contraseñas).
+- **UI** `components/account/`: `change-password-fields`,
+  `change-password-actions` (`requireStaffSession`; mensaje "Cerramos tu
+  sesión en N equipos más"), `change-password-form` (sin JS; las
+  contraseñas nunca vuelven al navegador; se vuelve a montar vacío con
+  `savedCount`) y `account-sections` ("Tus datos" de solo lectura y
+  "Cambiar contraseña"). Páginas `/[empresa]/cuenta` (panel, cualquier
+  rol con sesión; el cajero es redirigido al POS por el layout) y
+  `/[empresa]/pos/cuenta` (`sales.charge`). Enlaces: "Mi cuenta" en el pie
+  del menú (activo en `/cuenta`) y en la barra del POS.
+- Pruebas: `password-change.test.ts` (5: validaciones, cambio con la
+  sesión actual viva y las otras cerradas, entra con la nueva y no con la
+  vieja, auditoría, bloqueo tras 5 fallos, otra empresa con el mismo
+  correo no cambia, persona desactivada). Verificado: typecheck, lint,
+  suite **427/427**, build; sin sesión `/cuenta` y `/pos/cuenta`
+  redirigen al login.
+- Conocido: con la configuración inicial pendiente, el POS muestra el
+  aviso en lugar de sus páginas, así que el cajero no ve "Mi cuenta" hasta
+  que el propietario termine.
+

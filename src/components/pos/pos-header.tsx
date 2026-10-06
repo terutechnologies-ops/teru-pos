@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { LayoutDashboard, LogOut } from "lucide-react";
+import { LayoutDashboard, LogOut, UserRound } from "lucide-react";
 
 import { logoutAction } from "@/app/[empresa]/(panel)/actions";
 import { CompanyMark } from "@/components/shared/company-mark";
 import { Button } from "@/components/ui/button";
 
 // Encabezado del POS: empresa, quién atiende, volver al panel (si tiene
-// algo allá) y salir.
+// algo allá), su cuenta y salir.
 export function PosHeader({
   companySlug,
   companyName,
@@ -39,6 +39,12 @@ export function PosHeader({
           </Link>
         </Button>
       )}
+      <Button asChild variant="ghost" size="sm" className="gap-2">
+        <Link href={`/${companySlug}/pos/cuenta`}>
+          <UserRound aria-hidden />
+          <span className="hidden sm:inline">Mi cuenta</span>
+        </Link>
+      </Button>
       <form action={logoutAction.bind(null, companySlug)}>
         <Button type="submit" variant="ghost" size="sm" className="gap-2">
           <LogOut aria-hidden />

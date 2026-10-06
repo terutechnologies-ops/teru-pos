@@ -22,6 +22,45 @@ export async function findUserCredentialsByEmail(
   });
 }
 
+// Para verificar la contraseña actual antes de cambiarla. Solo activos.
+export async function findUserPasswordHash(companyId: string, userId: string) {
+  const user = await db.user.findFirst({
+    where: { id: userId, companyId, isActive: true },
+    select: { passwordHash: true },
+  });
+  return user?.passwordHash ?? null;
+}
+
+// Cambia la contraseña y cierra las demás sesiones de la persona (la actual
+// sigue abierta), todo junto. Devuelve cuántas sesiones cerró, o null si la
+// persona ya no existe o está inactiva.
+export async function changeUserPassword(params: {
+  companyId: string;
+  userId: string;
+  passwordHash: string;
+  keepSessionId: string;
+  now?: Date;
+}): Promise<number | null> {
+  const now = params.now ?? new Date();
+  return db.$transaction(async (tx) => {
+    const updated = await tx.user.updateMany({
+      where: { id: params.userId, companyId: params.companyId, isActive: true },
+      data: { passwordHash: params.passwordHash },
+    });
+    if (updated.count !== 1) return null;
+    const revoked = await tx.userSession.updateMany({
+      where: {
+        userId: params.userId,
+        companyId: params.companyId,
+        revokedAt: null,
+        id: { not: params.keepSessionId },
+      },
+      data: { revokedAt: now },
+    });
+    return revoked.count;
+  });
+}
+
 export async function userExistsWithEmail(companyId: string, email: string) {
   const user = await db.user.findUnique({
     where: { companyId_email: { companyId, email } },

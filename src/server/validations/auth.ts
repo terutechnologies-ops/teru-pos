@@ -41,18 +41,38 @@ export const PASSWORD_MIN_LENGTH = 8;
 
 export const passwordResetRequestSchema = z.object({ email: emailSchema });
 
+// Reglas de una contraseña nueva (restablecer, invitación y cambio).
+const newPasswordSchema = z
+  .string()
+  .min(PASSWORD_MIN_LENGTH, {
+    error: `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres.`,
+  })
+  .max(200, { error: "La contraseña es demasiado larga." });
+
 export const passwordResetSchema = z
   .object({
     token: z.string().min(20).max(200),
-    password: z
-      .string()
-      .min(PASSWORD_MIN_LENGTH, {
-        error: `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres.`,
-      })
-      .max(200, { error: "La contraseña es demasiado larga." }),
+    password: newPasswordSchema,
     confirmPassword: z.string(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     error: "Las contraseñas no coinciden.",
     path: ["confirmPassword"],
   });
+
+// Cambio de la propia contraseña: la actual y la nueva dos veces.
+export const passwordChangeSchema = z
+  .object({
+    currentPassword: z
+      .string()
+      .min(1, { error: "Escribe tu contraseña actual." })
+      .max(200, { error: "La contraseña es demasiado larga." }),
+    password: newPasswordSchema,
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    error: "Las contraseñas no coinciden.",
+    path: ["confirmPassword"],
+  });
+
+export type PasswordChangeInput = z.input<typeof passwordChangeSchema>;

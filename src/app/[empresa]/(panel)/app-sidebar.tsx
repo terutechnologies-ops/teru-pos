@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { LogOut, UserRound } from "lucide-react";
 
 import { CompanyMark } from "@/components/shared/company-mark";
 import {
@@ -103,12 +103,24 @@ export function AppSidebar({
           <p className="truncate text-sm font-semibold">{userName}</p>
           <p className="text-xs text-brand-muted-foreground">{roleLabel}</p>
         </div>
-        <form action={logoutAction.bind(null, companySlug)}>
-          <SidebarMenuButton type="submit" className="h-9">
-            <LogOut aria-hidden />
-            <span>Cerrar sesión</span>
+        <div className="flex flex-col gap-1">
+          <SidebarMenuButton
+            asChild
+            isActive={pathname === `/${companySlug}/cuenta`}
+            className="h-9 data-active:bg-sidebar-primary data-active:font-semibold data-active:text-sidebar-primary-foreground"
+          >
+            <Link href={`/${companySlug}/cuenta`}>
+              <UserRound aria-hidden />
+              <span>Mi cuenta</span>
+            </Link>
           </SidebarMenuButton>
-        </form>
+          <form action={logoutAction.bind(null, companySlug)}>
+            <SidebarMenuButton type="submit" className="h-9">
+              <LogOut aria-hidden />
+              <span>Cerrar sesión</span>
+            </SidebarMenuButton>
+          </form>
+        </div>
       </SidebarFooter>
     </Sidebar>
   );
