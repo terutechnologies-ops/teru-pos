@@ -20,6 +20,24 @@ const KIND_LABELS: Record<KardexKind, string> = {
   COUNT_OUT: "Conteo",
 };
 
+// " #N" del documento que originó el movimiento, con enlace si quien mira
+// puede abrirlo.
+function DocumentNumber({ number, href }: { number: number | null; href: string | null }) {
+  if (number == null) return null;
+  return (
+    <>
+      {" "}
+      {href ? (
+        <Link href={href} className="font-semibold text-link hover:underline">
+          #{number}
+        </Link>
+      ) : (
+        `#${number}`
+      )}
+    </>
+  );
+}
+
 const isOutflow = (kind: KardexKind) =>
   kind === "OUT" || kind === "SALE" || kind === "PURCHASE_VOID" || kind === "COUNT_OUT";
 
@@ -107,30 +125,29 @@ export function SupplyKardex({
                   <td className="py-2.5 pr-3">{movement.warehouseName}</td>
                   <td className="py-2.5 pr-3 whitespace-nowrap">
                     {KIND_LABELS[movement.kind]}
-                    {movement.purchase?.number != null &&
-                      (detail.canViewPurchases ? (
-                        <>
-                          {" "}
-                          <Link
-                            href={`/${companySlug}/compras/${movement.purchase.id}`}
-                            className="font-semibold text-link hover:underline"
-                          >
-                            #{movement.purchase.number}
-                          </Link>
-                        </>
-                      ) : (
-                        ` #${movement.purchase.number}`
-                      ))}
-                    {movement.inventoryCount?.number != null && (
-                      <>
-                        {" "}
-                        <Link
-                          href={`/${companySlug}/inventario/conteos/${movement.inventoryCount.id}`}
-                          className="font-semibold text-link hover:underline"
-                        >
-                          #{movement.inventoryCount.number}
-                        </Link>
-                      </>
+                    {movement.sale && (
+                      <DocumentNumber
+                        number={movement.sale.number}
+                        href={
+                          detail.canViewSales ? `/${companySlug}/ventas/${movement.sale.id}` : null
+                        }
+                      />
+                    )}
+                    {movement.purchase && (
+                      <DocumentNumber
+                        number={movement.purchase.number}
+                        href={
+                          detail.canViewPurchases
+                            ? `/${companySlug}/compras/${movement.purchase.id}`
+                            : null
+                        }
+                      />
+                    )}
+                    {movement.inventoryCount && (
+                      <DocumentNumber
+                        number={movement.inventoryCount.number}
+                        href={`/${companySlug}/inventario/conteos/${movement.inventoryCount.id}`}
+                      />
                     )}
                   </td>
                   <td

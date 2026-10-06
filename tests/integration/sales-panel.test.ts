@@ -11,6 +11,7 @@ import { addRecipeItem } from "@/server/data/recipes";
 import type { StaffSessionDto } from "@/server/dto/auth";
 import { ForbiddenError } from "@/server/services/auth/permissions";
 import { closeShift, openShift } from "@/server/services/cash-sessions";
+import { getSupplyDetail } from "@/server/services/inventory";
 import {
   checkout,
   findSaleByNumber,
@@ -228,6 +229,21 @@ describe("detalle y anulación", () => {
       error: "Esta venta ya estaba anulada.",
       fieldErrors: {},
     });
+  });
+
+  it("el kardex enlaza la venta y su anulación", async () => {
+    const detail = (await getSupplyDetail(admin, harina))!;
+    expect(detail.canViewSales).toBe(true);
+    const ofSale = (number: number) =>
+      detail.movements.filter((m) => m.sale?.number === number).map((m) => m.kind);
+    expect(ofSale(1)).toEqual(["SALE_VOID", "SALE"]);
+    expect(ofSale(2)).toEqual(["SALE"]);
+    expect(detail.movements.find((m) => m.sale?.number === 2)?.sale).toEqual({
+      id: saleIds[2],
+      number: 2,
+    });
+    // La carga inicial no es de ninguna venta.
+    expect(detail.movements.find((m) => m.kind === "INITIAL")?.sale).toBeNull();
   });
 
   it("con el turno cerrado ya no se anula", async () => {

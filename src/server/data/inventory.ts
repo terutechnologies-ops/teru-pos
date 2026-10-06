@@ -422,6 +422,7 @@ export async function listStockMovements(
       createdAt: true,
       warehouse: { select: { id: true, name: true } },
       user: { select: { id: true, name: true } },
+      sale: { select: { id: true, number: true } },
       purchase: { select: { id: true, number: true } },
       inventoryCount: { select: { id: true, number: true } },
     },

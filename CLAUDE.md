@@ -2964,3 +2964,27 @@ Commit `1055762` (subido).
 - Nota: `npm run build` con `next dev` encendido no lo afectó (dev usa
   `.next/dev`); el servidor siguió respondiendo.
 
+Commit `6abf42f` (subido).
+
+## Fase 11 — Pendientes del cliente
+
+Alcance aprobado (2026-10-05): 1) "Venta #N" con enlace en el kardex;
+2) precio de productos con separador de miles (como los montos del POS y
+compras; el costo de insumos sigue igual, usa 4 decimales); 3) cambiar la
+propia contraseña ("Mi cuenta"); 4) cierre (ADR 0011, README).
+Para el componente 3 se aplican las recomendaciones (el usuario aprobó sin
+responder las preguntas; confirmarlas al diseñarlo): al cambiarla se
+cierran las **otras** sesiones (sigue en este equipo); "Mi cuenta" en
+`/[empresa]/cuenta`, con enlace en el pie del menú del panel **y** en la
+barra del POS (el cajero solo usa el POS).
+
+### Componente 1 — "Venta #N" en el kardex (aprobado 2026-10-05)
+
+- `listStockMovements` trae `sale { id, number }`; `getSupplyDetail` suma
+  `sale` por movimiento y `canViewSales` (`sales.view`).
+- `SupplyKardex`: "Venta #N" y "Anulación de venta #N" con enlace a
+  `/ventas/[id]` si puede ver ventas (si no, el número sin enlace).
+  `DocumentNumber` reemplaza el marcado repetido de compra y conteo.
+- Prueba nueva en `sales-panel.test.ts` (venta, anulación y carga inicial
+  sin venta). Verificado: typecheck, lint, suite **419/419**, build.
+

@@ -422,10 +422,12 @@ export async function getSupplyDetail(
       createdAt: movement.createdAt,
       warehouseName: movement.warehouse.name,
       userName: movement.user.name,
+      sale: movement.sale,
       purchase: movement.purchase,
       inventoryCount: movement.inventoryCount,
     })),
-    // Para enlazar "Compra #N" con su compra.
+    // Para enlazar "Venta #N" y "Compra #N" con su documento.
+    canViewSales: hasPermission(session.user.role, "sales.view"),
     canViewPurchases: hasPermission(session.user.role, "purchases.manage"),
     ...formats,
   };
