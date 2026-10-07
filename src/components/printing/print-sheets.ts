@@ -29,6 +29,11 @@ export function stockSheetHref(
   return `/${companySlug}/imprimir/existencias/${warehouseId}${query}`;
 }
 
+// Lista de compras de la empresa (todas las bodegas).
+export function shoppingListSheetHref(companySlug: string) {
+  return `/${companySlug}/imprimir/lista-compras`;
+}
+
 // Aviso de la hoja a la pantalla que la abrió en segundo plano.
 export const PRINTED_MESSAGE = "teru-pos:impreso";
 

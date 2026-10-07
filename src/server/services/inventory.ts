@@ -153,7 +153,7 @@ type SupplyRow = NonNullable<Awaited<ReturnType<typeof findSupply>>>;
 
 // Cantidades como texto (Decimal serializado): la vista las formatea con
 // la unidad. total suma todas las bodegas.
-function toSupplyDto(supply: SupplyRow) {
+export function toSupplyDto(supply: SupplyRow) {
   const total = supply.stockLevels.reduce(
     (sum, level) => sum.plus(level.quantity),
     new Prisma.Decimal(0),

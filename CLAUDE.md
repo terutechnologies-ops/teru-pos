@@ -3264,3 +3264,32 @@ outbox en dev); 5) Resend (con el dominio); 6) cierre (ADR 0012, README).
   typecheck, lint, suite **428/428**, build; sin sesión la ruta redirige
   al login. Revisión visual con sesión: la hace el usuario.
 - Aprobado por el usuario el 2026-10-06 (revisión en el navegador a su cargo).
+
+Commit `e703ea2` (subido).
+
+### Componente 2 — Lista de compras (aprobado 2026-10-06)
+
+Diseño aprobado el 2026-10-06 con las recomendaciones: **saldo negativo
+cuenta como 0** (comprar = ideal; se marca "Saldo negativo") y **hoja
+impresa incluida**. Sin migración.
+- Servicio `services/shopping-list.ts`: `buildShoppingList` (puro; grupos
+  `toBuy` — ideal − max(existencia, 0) > 0 —, `enough` y `noSuggestion` —
+  sin ideal o sin carga inicial —; orden por nombre, sin archivados),
+  `loadShoppingList(companyId)` **sin permiso** (para el reporte de
+  cierre, que puede disparar un cajero) y `getShoppingList(session)` con
+  `inventory.manage` (formatos, empresa, quién imprime). `toSupplyDto` de
+  `services/inventory.ts` ahora exportado.
+- Página `/inventario/lista-de-compras` (menú "Lista de compras" después
+  de Insumos, ícono `ClipboardList`): secciones Por comprar (con "Nada por
+  comprar" si todo alcanza), Alcanzan y Sin sugerencia (enlace "Definir
+  stock ideal"); aviso si ningún insumo tiene ideal; botón "Imprimir
+  lista". Componentes `components/inventory/shopping-list.tsx`.
+- Hoja `/imprimir/lista-compras` (80/58 mm y Carta,
+  `shoppingListSheetHref`): Por comprar y Sin sugerencia con columna
+  "Comprado" en blanco; los que alcanzan solo se cuentan.
+- Pruebas: `shopping-list.test.ts` (4: suma de bodegas, negativo como 0,
+  decimales, ideal exacto alcanza, sin carga, archivados fuera, cálculo
+  sin permiso igual, otra empresa, cajero) y menú. Verificado: typecheck,
+  lint, suite **432/432**, build; sin sesión las rutas redirigen al login.
+  Revisión visual con sesión (y la hoja en la impresora): la hace el
+  usuario.
