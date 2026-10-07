@@ -2,13 +2,16 @@ import "server-only";
 
 import { z } from "zod";
 
+import { formatDateTime } from "@/lib/company-formats";
 import type { RequestContext, StaffSessionDto } from "@/server/dto/auth";
 import { recordAuthEvent } from "@/server/data/auth-audit";
 import { findMainBranch } from "@/server/data/branches";
+import { findLastClosingReport } from "@/server/data/closing-reports";
 import {
   createCompanyWithOwnerInvitation,
   findActiveCompanyBySlug,
   findClosingReportEmails,
+  findCompanyFormats,
   findCompanySettings,
   markCompanySetupCompleted,
   replaceCompanyLogoPath,
@@ -270,3 +273,24 @@ export async function saveClosingReportRecipients(
   });
   return { ok: true, emails };
 }
+
+// Último reporte (o cierre sin destinatarios), con la fecha en el formato de
+// la empresa. null = nunca se ha cerrado el último turno con esta función.
+export async function getLastClosingReport(session: StaffSessionDto) {
+  assertPermission(session, "company.manage");
+  const companyId = session.company.id;
+  const [report, formats] = await Promise.all([
+    findLastClosingReport(companyId),
+    findCompanyFormats(companyId),
+  ]);
+  if (!report) return null;
+  return {
+    at: formatDateTime(report.createdAt, formats.dateFormat, formats.timeZone),
+    status: report.status,
+    recipientCount: report.recipientCount,
+    sentCount: report.sentCount,
+    error: report.error,
+  };
+}
+
+export type LastClosingReport = NonNullable<Awaited<ReturnType<typeof getLastClosingReport>>>;

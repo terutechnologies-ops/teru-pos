@@ -1,9 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 
 import { requirePermission } from "@/server/http/staff-session";
 import { closeShiftFromPanel, type ShiftResult } from "@/server/services/cash-sessions";
+import { sendClosingReportIfLast } from "@/server/services/closing-report";
 
 import type { CloseOthersShiftFormState } from "./close-others-shift-fields";
 
@@ -46,5 +48,8 @@ export async function closeShiftFromPanelAction(
     };
   }
 
+  // Si era el último turno abierto, el reporte de cierre sale después de
+  // responder (como en el cierre del POS).
+  after(() => sendClosingReportIfLast(session.company.id, cashSessionId));
   redirect(`/${session.company.slug}/caja/${encodeURIComponent(cashSessionId)}?aviso=cerrado`);
 }

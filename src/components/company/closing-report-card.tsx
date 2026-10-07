@@ -8,6 +8,8 @@ import { SectionTitle } from "@/components/shared/section-title";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import type { LastClosingReport } from "@/server/services/companies";
 
 import { saveClosingReportAction } from "./closing-report-actions";
 import { emailsToText, type ClosingReportFormState } from "./closing-report-fields";
@@ -65,16 +67,51 @@ function EmailsInput({
   );
 }
 
+function emailsCount(count: number) {
+  return count === 1 ? "1 correo" : `${count} correos`;
+}
+
+// Estado del último reporte: para saber si llega sin revisar el correo.
+function LastReport({ report }: { report: LastClosingReport | null }) {
+  if (!report) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Aún no se ha enviado ningún reporte: sale al cerrar el último turno abierto.
+      </p>
+    );
+  }
+  const text = {
+    SENT: `enviado a ${emailsCount(report.sentCount)}.`,
+    PENDING: "enviándose…",
+    SKIPPED: "no se envió porque no había destinatarios.",
+    FAILED: `no se pudo enviar (llegó a ${report.sentCount} de ${report.recipientCount}).${
+      report.error ? ` Motivo: ${report.error}` : ""
+    }`,
+  }[report.status];
+  return (
+    <p
+      className={cn(
+        "text-sm",
+        report.status === "FAILED" ? "font-medium text-destructive" : "text-muted-foreground",
+      )}
+    >
+      Último reporte: {report.at} · {text}
+    </p>
+  );
+}
+
 // Configuración > Negocio: a quién se envía el reporte al cerrar el último
 // turno del día (lista de compras y resumen).
 export function ClosingReportCard({
   companySlug,
   emails,
   ownEmail,
+  lastReport,
 }: {
   companySlug: string;
   emails: string[];
   ownEmail: string;
+  lastReport: LastClosingReport | null;
 }) {
   const [state, formAction, pending] = useActionState<ClosingReportFormState, FormData>(
     saveClosingReportAction,
@@ -88,6 +125,7 @@ export function ClosingReportCard({
         title="Reporte de cierre del día"
         description="Al cerrar el último turno abierto, se envía por correo la lista de compras y un resumen del día (ventas, gastos y faltante o sobrante de caja)."
       />
+      <LastReport report={lastReport} />
 
       {state.status === "saved" && state.message && (
         <Alert aria-live="polite">

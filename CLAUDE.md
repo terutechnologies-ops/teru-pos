@@ -3326,3 +3326,48 @@ máximo 5, con auditoría).
   "El correo X está repetido." y la ayuda dice "Hasta 5 correos
   distintos". En su captura los dos correos eran distintos
   (bevagas10 / bevargas10). Suite 437/437, typecheck y lint.
+
+Commit `87b02e5` (subido).
+
+### Componente 4 — Envío del reporte al cerrar el último turno (aprobado 2026-10-06)
+
+Diseño aprobado el 2026-10-06 **con historial** (tabla `closing_reports`).
+- Migración `20261006140000_add_closing_reports` (**aplicada en test y
+  dev**; diff vacío; RLS verificado en dev): enum `ClosingReportStatus`
+  (`PENDING`/`SENT`/`FAILED`/`SKIPPED`) y `closing_reports` (turno que lo
+  disparó con FK compuesta, `periodStart`, `createdAt` = fin del período,
+  destinatarios, enviados, error ≤ 500, `finishedAt`). CHECK: 0–5
+  destinatarios, enviados ≤ destinatarios, SKIPPED ⇔ 0 destinatarios,
+  PENDING ⇔ sin `finishedAt`, `periodStart < createdAt`.
+- **Reserva** `claimClosingReport` (`data/closing-reports.ts`): bloquea la
+  fila de la empresa `FOR UPDATE`; sigue solo si no queda ningún turno
+  abierto en la empresa y hay turnos cerrados en (último reporte, ahora];
+  el primero cubre las últimas 24 h. Sin destinatarios crea `SKIPPED`
+  (marca el corte). Con dos cierres a la vez sale un solo reporte (prueba
+  3/3). `findClosingReportPeriod`: turnos del período, ventas (por método
+  en el orden de la empresa, anuladas aparte) y movimientos de caja.
+- **Servicio** `services/closing-report.ts`: `buildClosingReportEmail`
+  (puro; texto plano; asunto "Cierre del día · Empresa · fecha · N insumos
+  por comprar"; lista de compras —sin sugerencia hasta 15 y "y N más"—,
+  ventas, métodos, anuladas, gastos y —si hay— retiros e ingresos, caja
+  por turno con sucursal si hay varias, enlace a la lista y pie) y
+  `sendClosingReportIfLast(companyId, cashSessionId)`: un correo por
+  destinatario; `SENT` si llegaron todos, si no `FAILED` con el primer
+  motivo; nunca lanza. Fecha y horas en la zona de la empresa.
+- Se dispara con `after()` en `closeShiftAction` (POS) y
+  `closeShiftFromPanelAction` (panel), después de responder.
+- `setMessageSenderForTesting` en `services/messaging`. `tests/helpers.ts`
+  limpia `closing_reports`.
+- Negocio: la tarjeta muestra el último reporte (`getLastClosingReport`,
+  `company.manage`): enviado a N, enviándose, sin destinatarios o "no se
+  pudo enviar (llegó a X de Y). Motivo: …" en rojo.
+- En producción, hasta Resend, el envío queda `FAILED` con "No hay
+  proveedor de mensajes configurado".
+- Pruebas: `closing-report.test.ts` (7: no sale con turnos abiertos,
+  contenido y un correo por destinatario, cierre desde el panel, no se
+  repite, concurrencia, fallo parcial, SKIPPED, permisos y otra empresa,
+  y el texto puro con negativos, anuladas, retiros, varias sucursales y
+  lista larga). Los montos usan espacio no separable (es-CO). Verificado:
+  typecheck, lint, suite **444/444**, build.
+- **Sin probar de punta a punta en el navegador:** cerrar el último turno
+  en dev y ver el correo en `/dev/outbox` (lo hace el usuario).

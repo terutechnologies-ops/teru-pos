@@ -83,6 +83,7 @@ model Company {
   inventoryCountLines InventoryCountLine[]
   expenseCategories   ExpenseCategory[]
   cashMovements       CashMovement[]
+  closingReports      ClosingReport[]
 
   @@map("companies")
 }
@@ -381,12 +382,48 @@ model CashSession {
   countedCash   Decimal?  @db.Decimal(12, 2)
   closingNote   String?
 
-  sales     Sale[]
-  movements CashMovement[]
+  sales          Sale[]
+  movements      CashMovement[]
+  closingReports ClosingReport[]
 
   @@unique([companyId, id])
   @@index([companyId, openedAt])
   @@map("cash_sessions")
+}
+
+enum ClosingReportStatus {
+  // Reservado: el envío está en curso (o el proceso se cortó antes de
+  // terminar).
+  PENDING
+  SENT
+  // Al menos un destinatario no lo recibió (error en el envío).
+  FAILED
+  // Sin destinatarios: no se envía, pero marca el corte del período.
+  SKIPPED
+}
+
+// Reporte de cierre: se reserva al cerrar el último turno abierto de la
+// empresa y cubre los turnos cerrados en (periodStart, createdAt]. La
+// reserva bloquea la empresa: dos cierres simultáneos no envían dos
+// correos. Es también el historial de envíos (estado y error).
+model ClosingReport {
+  id             String              @id @default(cuid())
+  companyId      String
+  company        Company             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  // Turno cuyo cierre lo disparó.
+  cashSessionId  String
+  cashSession    CashSession         @relation(fields: [companyId, cashSessionId], references: [companyId, id], onDelete: Restrict)
+  periodStart    DateTime
+  createdAt      DateTime            @default(now())
+  status         ClosingReportStatus
+  recipientCount Int
+  sentCount      Int                 @default(0)
+  // Motivo del fallo (sin datos sensibles).
+  error          String?
+  finishedAt     DateTime?
+
+  @@index([companyId, createdAt])
+  @@map("closing_reports")
 }
 
 // Categorías de gasto de cada empresa (configurables; unas por defecto al

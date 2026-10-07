@@ -11,6 +11,7 @@ import {
   companyLogoUrl,
   getClosingReportRecipients,
   getCompanyProfile,
+  getLastClosingReport,
 } from "@/server/services/companies";
 
 import { saveCompanySettingsAction } from "./actions";
@@ -22,9 +23,10 @@ export default async function BusinessSettingsPage({
 }: PageProps<"/[empresa]/configuracion/negocio">) {
   const { empresa } = await params;
   const session = await requirePermission(empresa, "company.manage");
-  const [profile, reportEmails] = await Promise.all([
+  const [profile, reportEmails, lastReport] = await Promise.all([
     getCompanyProfile(session),
     getClosingReportRecipients(session),
+    getLastClosingReport(session),
   ]);
   if (!profile) notFound();
 
@@ -44,6 +46,7 @@ export default async function BusinessSettingsPage({
         companySlug={profile.slug}
         emails={reportEmails}
         ownEmail={session.user.email}
+        lastReport={lastReport}
       />
       <CompanyProfileForm
         mode="settings"

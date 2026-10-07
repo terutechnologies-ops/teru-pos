@@ -1,9 +1,11 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 
 import { requirePermission } from "@/server/http/staff-session";
 import { closeShift, openShift, type ShiftResult } from "@/server/services/cash-sessions";
+import { sendClosingReportIfLast } from "@/server/services/closing-report";
 
 import type { ShiftFormState } from "./shift-fields";
 
@@ -47,5 +49,9 @@ export async function closeShiftAction(
   };
   const result = await attempt("closeShiftAction", () => closeShift(session, values));
   if (!result.ok) return { error: result.error, fieldErrors: result.fieldErrors ?? {}, values };
-  redirect(`/${session.company.slug}/pos/turno/${result.cashSessionId}`);
+  // Si era el último turno abierto, el reporte de cierre sale después de
+  // responder: su envío no demora ni afecta el cierre.
+  const { cashSessionId } = result;
+  after(() => sendClosingReportIfLast(session.company.id, cashSessionId));
+  redirect(`/${session.company.slug}/pos/turno/${cashSessionId}`);
 }
