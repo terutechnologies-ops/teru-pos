@@ -85,6 +85,19 @@ export async function updateCompanySettings(
   await db.company.update({ where: { id: companyId }, data });
 }
 
+// Destinatarios del reporte de cierre ([] = no se envía).
+export async function findClosingReportEmails(companyId: string) {
+  const company = await db.company.findUnique({
+    where: { id: companyId },
+    select: { closingReportEmails: true },
+  });
+  return company?.closingReportEmails ?? [];
+}
+
+export async function updateClosingReportEmails(companyId: string, emails: string[]) {
+  await db.company.update({ where: { id: companyId }, data: { closingReportEmails: emails } });
+}
+
 // Cambia la ruta del logo y devuelve la anterior (para borrar su archivo).
 export async function replaceCompanyLogoPath(
   companyId: string,

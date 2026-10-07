@@ -1,12 +1,17 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
+import { ClosingReportCard } from "@/components/company/closing-report-card";
 import { CompanyLogoCard } from "@/components/company/company-logo-card";
 import { CompanyProfileForm } from "@/components/company/company-profile-form";
 import { toProfileFormValues } from "@/components/company/company-profile-fields";
 import { PageHeader } from "@/components/shared/page-header";
 import { requirePermission } from "@/server/http/staff-session";
-import { companyLogoUrl, getCompanyProfile } from "@/server/services/companies";
+import {
+  companyLogoUrl,
+  getClosingReportRecipients,
+  getCompanyProfile,
+} from "@/server/services/companies";
 
 import { saveCompanySettingsAction } from "./actions";
 
@@ -17,7 +22,10 @@ export default async function BusinessSettingsPage({
 }: PageProps<"/[empresa]/configuracion/negocio">) {
   const { empresa } = await params;
   const session = await requirePermission(empresa, "company.manage");
-  const profile = await getCompanyProfile(session);
+  const [profile, reportEmails] = await Promise.all([
+    getCompanyProfile(session),
+    getClosingReportRecipients(session),
+  ]);
   if (!profile) notFound();
 
   return (
@@ -31,6 +39,11 @@ export default async function BusinessSettingsPage({
         companySlug={profile.slug}
         companyName={profile.name}
         logoUrl={companyLogoUrl(profile.logoPath)}
+      />
+      <ClosingReportCard
+        companySlug={profile.slug}
+        emails={reportEmails}
+        ownEmail={session.user.email}
       />
       <CompanyProfileForm
         mode="settings"

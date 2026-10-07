@@ -3293,3 +3293,36 @@ impresa incluida**. Sin migración.
   lint, suite **432/432**, build; sin sesión las rutas redirigen al login.
   Revisión visual con sesión (y la hoja en la impresora): la hace el
   usuario.
+
+Commit `fcd6356` (subido).
+
+### Componente 3 — Destinatarios del reporte (aprobado 2026-10-06)
+
+Diseño aprobado el 2026-10-06 (tarjeta propia en Negocio, solo OWNER,
+máximo 5, con auditoría).
+- Migración `20261006130000_add_closing_report_emails` (**aplicada en test
+  y dev**; diff vacío): `companies.closingReportEmails TEXT[]` (default
+  vacío) con `CHECK (cardinality <= 5)`.
+- `closingReportEmailsSchema` (`validations/companies.ts`): separa por
+  coma, punto y coma, espacios o saltos; cada uno con `emailSchema`
+  (minúsculas), sin repetidos, máx. `CLOSING_REPORT_MAX_EMAILS` (5);
+  mensaje con el correo inválido.
+- Datos: `findClosingReportEmails` (lo usará el reporte) y
+  `updateClosingReportEmails`. Servicio (`company.manage`):
+  `getClosingReportRecipients`, `saveClosingReportRecipients` (no escribe
+  ni audita si la lista no cambió; evento
+  `COMPANY_REPORT_RECIPIENTS_UPDATED` sin los correos).
+- UI `components/company/closing-report-{card,actions,fields}`: tarjeta
+  "Reporte de cierre del día" entre el logo y los datos del negocio; campo
+  de texto con "Agregar mi correo" (requiere JS; sin JS se escribe a mano);
+  aviso "Guardado. El reporte de cierre no se enviará." si queda vacío.
+  El asistente de configuración inicial no cambia.
+- Pruebas: `closing-report-recipients.test.ts` (5). Verificado:
+  typecheck, lint, suite **437/437**, build; sin sesión Negocio redirige
+  al login. Revisión visual con sesión: la hace el usuario.
+- Corrección reportada por el usuario (captura): un correo repetido se
+  quitaba en silencio, así que 6 copias del mismo pasaban como 1 sin
+  ningún aviso. Ahora un repetido (sin distinguir mayúsculas) es error
+  "El correo X está repetido." y la ayuda dice "Hasta 5 correos
+  distintos". En su captura los dos correos eran distintos
+  (bevagas10 / bevargas10). Suite 437/437, typecheck y lint.

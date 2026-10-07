@@ -8,9 +8,11 @@ import { findMainBranch } from "@/server/data/branches";
 import {
   createCompanyWithOwnerInvitation,
   findActiveCompanyBySlug,
+  findClosingReportEmails,
   findCompanySettings,
   markCompanySetupCompleted,
   replaceCompanyLogoPath,
+  updateClosingReportEmails,
   updateCompanySettings,
 } from "@/server/data/companies";
 import { companyHasSales } from "@/server/data/sales";
@@ -32,6 +34,7 @@ import {
 } from "@/server/services/images";
 import { companySlugSchema } from "@/server/validations/auth";
 import {
+  closingReportEmailsSchema,
   companyProfileSchema,
   createCompanySchema,
   type CompanyProfileInput,
@@ -229,4 +232,41 @@ export async function removeCompanyLogo(
   await removeFileQuietly(previous);
   await auditCompany(session, COMPANY_EVENTS.LOGO_REMOVED, ctx);
   return { ok: true };
+}
+
+// --- Reporte de cierre -----------------------------------------------------
+
+export async function getClosingReportRecipients(session: StaffSessionDto) {
+  assertPermission(session, "company.manage");
+  return findClosingReportEmails(session.company.id);
+}
+
+export type SaveClosingReportResult = { ok: true; emails: string[] } | { ok: false; error: string };
+
+// Define quién recibe datos del negocio por correo: cada cambio se audita
+// (sin los correos).
+export async function saveClosingReportRecipients(
+  session: StaffSessionDto,
+  input: string,
+  ctx: RequestContext,
+): Promise<SaveClosingReportResult> {
+  assertPermission(session, "company.manage");
+  const parsed = closingReportEmailsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0].message };
+  const emails = parsed.data;
+  const current = await findClosingReportEmails(session.company.id);
+  if (current.length === emails.length && current.every((email, i) => email === emails[i])) {
+    return { ok: true, emails };
+  }
+
+  await updateClosingReportEmails(session.company.id, emails);
+  await recordAuthEvent({
+    companyId: session.company.id,
+    actorType: "STAFF",
+    actorId: session.user.id,
+    action: COMPANY_EVENTS.REPORT_RECIPIENTS_UPDATED,
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
+  });
+  return { ok: true, emails };
 }

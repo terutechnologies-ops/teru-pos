@@ -60,3 +60,43 @@ export const companyProfileSchema = z.object({
 });
 
 export type CompanyProfileInput = z.input<typeof companyProfileSchema>;
+
+// Destinatarios del reporte de cierre: correos separados por coma, punto y
+// coma, espacios o saltos de línea. Rechaza repetidos y más de 5. Devuelve
+// la lista en minúsculas; vacío = no se envía el reporte.
+export const CLOSING_REPORT_MAX_EMAILS = 5;
+
+export const closingReportEmailsSchema = z.string().transform((value, ctx) => {
+  const emails: string[] = [];
+  for (const part of value.split(/[\s,;]+/).filter(Boolean)) {
+    const email = emailSchema.safeParse(part);
+    if (!email.success) {
+      ctx.issues.push({
+        code: "custom",
+        input: value,
+        message: `"${part.slice(0, 60)}" no es un correo válido.`,
+      });
+      return z.NEVER;
+    }
+    // Repetido (sin distinguir mayúsculas): se avisa en vez de quitarlo en
+    // silencio, para que quien escribe vea qué se va a guardar.
+    if (emails.includes(email.data)) {
+      ctx.issues.push({
+        code: "custom",
+        input: value,
+        message: `El correo ${email.data} está repetido.`,
+      });
+      return z.NEVER;
+    }
+    emails.push(email.data);
+  }
+  if (emails.length > CLOSING_REPORT_MAX_EMAILS) {
+    ctx.issues.push({
+      code: "custom",
+      input: value,
+      message: `Escribe máximo ${CLOSING_REPORT_MAX_EMAILS} correos.`,
+    });
+    return z.NEVER;
+  }
+  return emails;
+});

@@ -46,6 +46,10 @@ model Company {
   // Ruta del logo en el almacenamiento de archivos (no la URL: la URL
   // pública depende del proveedor configurado). null = sin logo.
   logoPath                 String?
+  // Correos que reciben el reporte al cerrar el último turno del día (en
+  // minúsculas, sin repetidos). Vacío = no se envía. CHECK de máximo 5 en
+  // la migración.
+  closingReportEmails      String[]  @default([])
   // Último número de venta usado. Se incrementa dentro de la transacción de
   // la venta: el consecutivo queda sin huecos.
   lastSaleNumber           Int       @default(0)
