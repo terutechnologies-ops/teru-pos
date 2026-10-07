@@ -87,8 +87,9 @@ npm run dev
 - Recetas: cada producto tiene la pestaña Receta
   (`/catalogo/productos/<id>/receta`) con los insumos que lleva una unidad
   vendida, su costo y el margen sobre el precio.
-- En desarrollo, los correos (recuperación de contraseña e invitaciones) se
-  ven en `http://localhost:3000/dev/outbox`.
+- Correos (recuperación de contraseña, invitaciones y reporte de cierre):
+  con `RESEND_API_KEY` salen por Resend; sin ella, en desarrollo se ven en
+  `http://localhost:3000/dev/outbox` y en producción el envío falla.
 
 ### Variables de entorno
 
@@ -98,6 +99,7 @@ npm run dev
 | `DIRECT_URL` | Conexión para migraciones (session pooler, puerto 5432) |
 | `APP_URL` | URL pública, para armar enlaces de recuperación e invitación |
 | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | Almacenamiento de archivos en Supabase Storage (logos y fotos de productos en un bucket público; recibos de gastos en uno privado). Opcionales: sin ellas no se suben archivos. La clave es secreta (`sb_secret_...`) |
+| `RESEND_API_KEY`, `MAIL_FROM` | Correo por Resend. La clave (`re_...`, permiso "Sending access" solo para el dominio de envío) es secreta; `MAIL_FROM` es el remitente de un dominio verificado (`Teru POS <reportes@envios.dominio.com>`). Sin clave: outbox en desarrollo, error en producción |
 | `SEED_OWNER_EMAIL`, `SEED_OWNER_NAME`, `SEED_OWNER_PASSWORD` | Solo para `npm run db:seed` |
 
 Los archivos `.env*` no se versionan (salvo `.env.example`).

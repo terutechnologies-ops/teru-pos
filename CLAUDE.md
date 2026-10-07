@@ -3371,3 +3371,110 @@ Diseño aprobado el 2026-10-06 **con historial** (tabla `closing_reports`).
   typecheck, lint, suite **444/444**, build.
 - **Sin probar de punta a punta en el navegador:** cerrar el último turno
   en dev y ver el correo en `/dev/outbox` (lo hace el usuario).
+
+Commit `d79a3c0` (subido).
+
+### Componente 5 — Resend y correos con la marca (aprobado 2026-10-06)
+
+Diseño del código aprobado el 2026-10-06 (avanzarlo mientras el usuario
+compra el dominio).
+- `env.ts` → `getMailConfig()`: `RESEND_API_KEY` (sin ella, null) y
+  `MAIL_FROM` ("Nombre <dir@dominio>" o la dirección); con clave y
+  remitente inválido lanza "MAIL_FROM no está configurado o no es válido".
+- `services/messaging/resend.ts` → `createResendSender` (fetch a
+  `https://api.resend.com/emails`, un destinatario por correo, texto plano,
+  timeout 15 s; error "Resend rechazó el correo (código): motivo" sin la
+  clave). `getMessageSender`: prueba → Resend si hay clave (también en
+  dev) → outbox en dev → error.
+- `tests/setup.ts` borra `RESEND_API_KEY`/`MAIL_FROM`: las pruebas nunca
+  envían correos reales. Pruebas `tests/unit/resend.test.ts` (4).
+- `.env.example`, `.env` (vacías, las llena el usuario) y README.
+  Verificado: typecheck, lint, suite **448/448**, build.
+- Pendiente (usuario, paso a paso): comprar el dominio (pidió guía y
+  recomendaciones antes), cuenta de Resend, subdominio `envios.` con DNS
+  en Cloudflare, API key en `.env` y `MAIL_FROM`; luego prueba real de
+  envío y commit.
+- **Dominio comprado por el usuario (2026-10-06): `teruwork.com`** en
+  Cloudflare Registrar (dominio de TERU, no solo del POS). Plan:
+  `envios.teruwork.com` para Resend (región São Paulo si está), sistema en
+  un subdominio (`pos.` o `app.`) al desplegar. `.env` ya tiene
+  `MAIL_FROM="Teru POS <reportes@envios.teruwork.com>"`; falta la clave
+  (la pega el usuario). Usar claves de Resend distintas para dev y
+  producción.
+- Primer envío real por Resend (2026-10-06): prueba de texto y reporte de
+  cierre reales llegaron a bevargas10@gmail.com (destinatario de Su Arepa).
+- **Ajuste pedido por el usuario: correos con estilo de marca.** Guía
+  visual `../Diseño-guia-correo.txt` (Tailwind + naranja), traducida a la
+  paleta TERU híbrida (encabezado morado oscuro con insignia lima, contenido
+  claro, botón morado, pie negro con "Teru POS ●" lima).
+  - `services/messaging/email-layout.ts`: `escapeHtml`, `emailLayout`
+    (tablas y estilos en línea; media query para apilar en celular con las
+    clases `col` / `stack`), `badge`, `button`, `card`, `sectionTitle`,
+    `bodyRow` y `simpleEmail` (saludo, párrafos, botón y enlace en texto).
+    Marca de la empresa: su logo (`publicFileUrl`) o su inicial sobre lima.
+  - `OutgoingEmail.html` opcional (siempre con `text`); Resend lo envía; el
+    outbox de desarrollo lo muestra en un iframe `sandbox=""`.
+  - Reporte: armado movido a `services/closing-report-email.ts` (texto +
+    HTML; `companyUrl` y `logoUrl` en lugar de `shoppingListUrl`). Orden de
+    la guía: cuadre de caja por turno (cuadrada verde, faltante rojo,
+    sobrante morado), resumen (ventas, gastos, retiros e ingresos si hay;
+    métodos con % del total; anuladas), lista de compras con barra
+    existencia/ideal y "Comprar X", sin sugerencia en tabla con estado,
+    botones "Ver lista de compras" y "Ver cierres de caja", pie con fecha,
+    cómo dejar de recibirlo y aviso de confidencialidad.
+  - Se omitió de la guía lo que no existe o sería falso: ID de referencia,
+    "prioridad alta", "caja verificada", descargar PDF / Excel, "generar
+    orden de compra", barra de responder/reenviar (era del cliente de
+    correo), diagnósticos inventados ("Normal", "Abastecido").
+  - Recuperar contraseña e invitación usan `simpleEmail`.
+  - Revisado con Chrome sin interfaz a 720 px y en un marco de 390 px
+    (Chrome sin interfaz no baja de ~500 px de ventana: medir en iframe).
+    Vista previa con datos de ejemplo enviada por Resend al usuario.
+  - Pruebas: HTML escapado, barra, enlaces y marca. Suite **449/449**,
+    typecheck, lint y build.
+- Aprobado por el usuario el 2026-10-06 (vista previa revisada en Gmail).
+
+## Cierre de la sesión 2026-10-06
+
+**Implementado hoy (todo con commit y subido a `origin/master`):**
+- Fase 12, componentes 1–5 aprobados: existencia ideal del insumo
+  (`e703ea2`), lista de compras con hoja impresa (`fcd6356`),
+  destinatarios del reporte en Negocio (`87b02e5`), envío del reporte al
+  cerrar el último turno con historial `closing_reports` (`d79a3c0`), y
+  Resend + correos con la marca TERU (último commit de la sesión).
+- Dominio `teruwork.com` comprado por el usuario en Cloudflare;
+  `envios.teruwork.com` verificado en Resend (São Paulo) con SPF, DKIM y
+  DMARC (`p=none`). Clave `teru-pos-dev` en `.env` (no versionado).
+
+**Pendiente (mañana):**
+- **Pedido del usuario: revisar el diseño de los demás correos** que puede
+  enviar el sistema (invitaciones, recuperar contraseña, cambio de
+  contraseña y cualquier otro que requiera diseño). Hoy ya usan
+  `simpleEmail` la recuperación y la invitación; revisarlos con el
+  usuario (en Gmail) y decidir si se agregan otros, p. ej. un aviso al
+  cambiar la propia contraseña (hoy no se envía ningún correo al
+  cambiarla) o al cambiar los destinatarios del reporte.
+- Fase 12, componente 6 — cierre: revisión de la fase, ADR 0012 (ideal por
+  empresa, negativo como 0, reserva con bloqueo de la empresa, primer
+  período de 24 h, SKIPPED como corte, Resend por fetch, correos en
+  tablas con estilos en línea) y README (lista de compras, reporte,
+  Resend, dominio).
+- Después: fase 13 (cartera), preparación para producción (clave de
+  Resend aparte `teru-pos-prod`, `APP_URL` con `pos.teruwork.com` u otro
+  subdominio, Vercel en `gru1`), despliegue.
+
+**Decisiones técnicas de hoy:** ver los componentes 1–5 de la fase 12.
+
+**Errores y riesgos conocidos:**
+- Con `RESEND_API_KEY` en `.env`, **en desarrollo los correos salen de
+  verdad** (no van a `/dev/outbox`): cuidado al invitar o recuperar
+  contraseñas de prueba. Para volver al outbox, dejar la clave vacía.
+- Plan gratis de Resend: 100 correos por día y 1 dominio.
+- Gmail ignora la fuente Plus Jakarta Sans (usa la de respaldo).
+- Siguen los de sesiones anteriores (`next dev` en Windows deja el
+  proceso en el 3000, `prisma generate` con EPERM si `next dev` corre).
+- Chrome sin interfaz no baja de ~500 px de ventana: para ver el correo
+  en celular, medirlo dentro de un iframe de 390 px.
+
+**Próximo paso recomendado:** revisar con el usuario el diseño de los
+demás correos (su pedido) y luego el cierre de la fase 12.

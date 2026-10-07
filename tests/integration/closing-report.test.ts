@@ -13,7 +13,8 @@ import { addRecipeItem } from "@/server/data/recipes";
 import type { StaffSessionDto } from "@/server/dto/auth";
 import { ForbiddenError } from "@/server/services/auth/permissions";
 import { closeShift, closeShiftFromPanel, openShift } from "@/server/services/cash-sessions";
-import { buildClosingReportEmail, sendClosingReportIfLast } from "@/server/services/closing-report";
+import { sendClosingReportIfLast } from "@/server/services/closing-report";
+import { buildClosingReportEmail } from "@/server/services/closing-report-email";
 import { getLastClosingReport } from "@/server/services/companies";
 import { setMessageSenderForTesting } from "@/server/services/messaging";
 import { listDevOutbox } from "@/server/services/messaging/dev-outbox";
@@ -156,6 +157,7 @@ describe("reporte de cierre", () => {
     expect(mail.text).toMatch(/• Ana, cerró a las .+: faltante \$ 1\.500/);
     expect(mail.text).toMatch(/• Beto, cerró a las .+: cuadrada/);
     expect(mail.text).toContain(`/${a.slug}/inventario/lista-de-compras`);
+    expect(mail.html).toContain("Reporte de cierre");
 
     const [report] = await reports();
     expect(report).toMatchObject({
@@ -249,7 +251,8 @@ describe("buildClosingReportEmail", () => {
   });
   const base = {
     companyName: "Su Arepa",
-    shoppingListUrl: "https://app.test/su-arepa/inventario/lista-de-compras",
+    logoUrl: null,
+    companyUrl: "https://app.test/su-arepa",
     currency: "COP",
     dateFormat: "DD/MM/YYYY" as const,
     timeZone: "America/Bogota",
@@ -334,5 +337,31 @@ describe("buildClosingReportEmail", () => {
     expect(email.text).not.toContain("Ingresos:");
     expect(email.text).toMatch(/• Ana \(Centro\), cerró a las .+: sobrante \$ 2\.000/);
     expect(email.text).toMatch(/• Beto \(Norte\), cerró a las .+: cuadrada/);
+  });
+
+  it("el HTML lleva la marca, escapa los nombres y enlaza al sistema", () => {
+    const email = buildClosingReportEmail({
+      ...base,
+      companyName: "Arepas <b>&</b> Co",
+      shopping: {
+        toBuy: [item("Pan <script>", { totalStock: "3.66", idealStock: "5", toBuy: "1.34" })],
+        enough: [],
+        noSuggestion: [item("Sal", { uninitialized: true })],
+      },
+    });
+    const html = plain(email.html);
+    expect(html).toMatch(/^<!doctype html>/);
+    expect(html).toContain("Arepas &lt;b&gt;&amp;&lt;/b&gt; Co");
+    expect(html).toContain("Pan &lt;script&gt;");
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("Comprar 1,34 kg");
+    // 3,66 de 5 = 73 % de la barra.
+    expect(html).toContain('width="73%"');
+    expect(html).toContain("Sin carga inicial");
+    expect(html).toContain('href="https://app.test/su-arepa/inventario/lista-de-compras"');
+    expect(html).toContain('href="https://app.test/su-arepa/caja"');
+    expect(html).toContain("#24104f");
+    // Sin logo: la inicial de la empresa sobre lima.
+    expect(html).toContain("#b8ff3d");
   });
 });

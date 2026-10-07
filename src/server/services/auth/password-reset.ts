@@ -15,7 +15,9 @@ import {
 import { findUserCredentialsByEmail } from "@/server/data/users";
 import { getAppUrl } from "@/server/env";
 import { getActiveCompanyBySlug } from "@/server/services/companies";
+import { publicFileUrl } from "@/server/services/images";
 import { getMessageSender } from "@/server/services/messaging";
+import { simpleEmail } from "@/server/services/messaging/email-layout";
 import {
   passwordResetRequestSchema,
   passwordResetSchema,
@@ -106,9 +108,26 @@ export async function requestStaffPasswordReset(
 
   const link = `${appUrl}/${company.slug}/restablecer?token=${token}`;
   const minutes = RESET_TOKEN_TTL_MS / 60_000;
+  const subject = `Restablece tu contraseña de ${company.name}`;
   await sender.sendEmail({
     to: user.email,
-    subject: `Restablece tu contraseña de ${company.name}`,
+    subject,
+    html: simpleEmail({
+      title: subject,
+      preheader: `Crea una contraseña nueva para ${company.name} (el enlace vence en ${minutes} minutos).`,
+      header: {
+        companyName: company.name,
+        logoUrl: publicFileUrl(company.logoPath),
+        eyebrow: "Recuperar contraseña",
+      },
+      greeting: `Hola ${user.name},`,
+      paragraphs: [
+        `Recibimos una solicitud para restablecer tu contraseña en ${company.name}.`,
+        `Usa el botón para crear una nueva. El enlace vence en ${minutes} minutos y sirve una sola vez.`,
+      ],
+      action: { href: link, label: "Crear contraseña nueva" },
+      note: "Si no la solicitaste, ignora este correo: tu contraseña no cambiará.",
+    }),
     text: [
       `Hola ${user.name},`,
       "",

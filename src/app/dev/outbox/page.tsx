@@ -23,7 +23,7 @@ export default function DevOutboxPage() {
   const messages = listDevOutbox();
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-4 px-4 py-10">
+    <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-4 px-4 py-10">
       <div>
         <h1 className="text-2xl font-extrabold tracking-tight">
           Bandeja de desarrollo
@@ -46,10 +46,25 @@ export default function DevOutboxPage() {
                 Para {m.to} · {m.sentAt.toLocaleString("es-CO")}
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <pre className="font-sans text-sm break-all whitespace-pre-wrap">
-                {m.text}
-              </pre>
+            <CardContent className="flex flex-col gap-3">
+              {/* Vista del HTML en un marco aislado (sandbox sin permisos:
+                  sin scripts ni navegación). */}
+              {m.html && (
+                <iframe
+                  title={`Vista del correo: ${m.subject}`}
+                  srcDoc={m.html}
+                  sandbox=""
+                  className="h-[640px] w-full rounded-lg border border-border bg-white"
+                />
+              )}
+              <details open={!m.html}>
+                <summary className="cursor-pointer text-sm font-semibold">
+                  Texto plano
+                </summary>
+                <pre className="mt-2 font-sans text-sm break-all whitespace-pre-wrap">
+                  {m.text}
+                </pre>
+              </details>
             </CardContent>
           </Card>
         ))

@@ -14,5 +14,8 @@ if (url.includes(DEV_PROJECT_REF)) {
   throw new Error("DATABASE_URL de .env.test apunta a la BD de desarrollo.");
 }
 
-// El outbox de desarrollo es el proveedor de mensajes en las pruebas.
+// El outbox de desarrollo es el proveedor de mensajes en las pruebas: nunca
+// se envían correos reales, aunque la clave de Resend esté en el entorno.
 (process.env as Record<string, string>).NODE_ENV = "development";
+delete process.env.RESEND_API_KEY;
+delete process.env.MAIL_FROM;

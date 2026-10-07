@@ -24,6 +24,8 @@ import {
   userExistsWithEmail,
 } from "@/server/data/users";
 import { getAppUrl } from "@/server/env";
+import { publicFileUrl } from "@/server/services/images";
+import { simpleEmail } from "@/server/services/messaging/email-layout";
 import {
   STAFF_EVENTS,
   STAFF_INVITATION_TTL_MS,
@@ -110,16 +112,34 @@ async function sendInvitation(
 
   const { company, user } = session;
   const hours = STAFF_INVITATION_TTL_MS / 3_600_000;
+  const subject = `${user.name} te invitó al equipo de ${company.name}`;
+  const link = `${appUrl}/${company.slug}/invitacion?token=${token}`;
   await sender.sendEmail({
     to: invitee.email,
-    subject: `${user.name} te invitó al equipo de ${company.name}`,
+    subject,
+    html: simpleEmail({
+      title: subject,
+      preheader: `Únete a ${company.name} como ${STAFF_ROLE_LABELS[invitee.role]} (el enlace vence en ${hours} horas).`,
+      header: {
+        companyName: company.name,
+        logoUrl: publicFileUrl(company.logoPath),
+        eyebrow: "Invitación al equipo",
+      },
+      greeting: `Hola ${invitee.name},`,
+      paragraphs: [
+        `${user.name} te invitó a unirte al equipo de ${company.name} como ${STAFF_ROLE_LABELS[invitee.role]}.`,
+        `Usa el botón para crear tu contraseña. El enlace vence en ${hours} horas.`,
+      ],
+      action: { href: link, label: "Aceptar invitación" },
+      note: "Si no esperabas esta invitación, ignora este correo.",
+    }),
     text: [
       `Hola ${invitee.name},`,
       "",
       `${user.name} te invitó a unirte al equipo de ${company.name} como ${STAFF_ROLE_LABELS[invitee.role]}.`,
       `Abre este enlace para crear tu contraseña (vence en ${hours} horas):`,
       "",
-      `${appUrl}/${company.slug}/invitacion?token=${token}`,
+      link,
       "",
       "Si no esperabas esta invitación, ignora este correo.",
     ].join("\n"),
