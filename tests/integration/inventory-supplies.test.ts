@@ -53,6 +53,7 @@ const ctxA = ctx(tag);
 // Lo que envía el formulario: todo texto, vacío = sin valor.
 const input = (fields: Partial<SupplyInput> & Pick<SupplyInput, "name" | "unit">): SupplyInput => ({
   minStock: "",
+  idealStock: "",
   unitCost: "",
   ...fields,
 });
@@ -79,7 +80,7 @@ const move = (supplyId: string, quantity: string, type: "INITIAL" | "ADJUSTMENT"
 
 describe("insumos (servicio)", () => {
   it("el administrador crea insumos con validación y nombre único", async () => {
-    expect(await create({ name: " Harina ", unit: "KG", minStock: "5" })).toMatchObject({
+    expect(await create({ name: " Harina ", unit: "KG", minStock: "5", idealStock: "20" })).toMatchObject({
       ok: true,
     });
     expect(await create({ name: "Gaseosa", unit: "UNIT" })).toMatchObject({ ok: true });
@@ -117,6 +118,7 @@ describe("insumos (servicio)", () => {
           name: "Harina",
           unit: "KG",
           minStock: "5",
+          idealStock: "20",
           unitCost: null,
           totalStock: "7.25",
           uninitialized: false,
@@ -140,6 +142,12 @@ describe("insumos (servicio)", () => {
       ok: false,
       fieldErrors: { unit: "La unidad no se puede cambiar: el insumo ya tiene movimientos." },
     });
+    expect(
+      await update(harina, { name: "Harina", unit: "KG", minStock: "10", idealStock: "8" }),
+    ).toEqual({
+      ok: false,
+      fieldErrors: { idealStock: "El stock ideal no puede ser menor que el mínimo." },
+    });
     expect(await update(harina, { name: "Harina PAN", unit: "KG", minStock: "10" })).toEqual({
       ok: true,
       supplyId: harina,
@@ -147,6 +155,7 @@ describe("insumos (servicio)", () => {
     expect(await getSupply(admin(), harina)).toMatchObject({
       name: "Harina PAN",
       minStock: "10",
+      idealStock: null,
       belowMinimum: true,
     });
 

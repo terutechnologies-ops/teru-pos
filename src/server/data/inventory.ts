@@ -165,6 +165,7 @@ const supplySelect = {
   name: true,
   unit: true,
   minStock: true,
+  idealStock: true,
   unitCost: true,
   isArchived: true,
   stockLevels: { select: { warehouseId: true, quantity: true } },
@@ -199,8 +200,10 @@ export async function findSupply(companyId: string, supplyId: string) {
 export type SupplyData = {
   name: string;
   unit: StockUnit;
-  // Textos decimales ya validados; null = sin mínimo / sin costo.
+  // Textos decimales ya validados; null = sin mínimo / sin ideal / sin
+  // costo.
   minStock: string | null;
+  idealStock: string | null;
   unitCost: string | null;
 };
 
@@ -211,6 +214,7 @@ function supplyRow(data: SupplyData) {
   return {
     ...data,
     minStock: decimalOrNull(data.minStock),
+    idealStock: decimalOrNull(data.idealStock),
     unitCost: decimalOrNull(data.unitCost),
   };
 }

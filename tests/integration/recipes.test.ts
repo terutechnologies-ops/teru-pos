@@ -45,7 +45,7 @@ async function newProduct(companyId: string, name: string) {
 }
 
 async function newSupply(companyId: string, name: string, unit: "KG" | "G" | "UNIT") {
-  return (await createSupply(companyId, { name, unit, minStock: null, unitCost: null })).id!;
+  return (await createSupply(companyId, { name, unit, minStock: null, idealStock: null, unitCost: null })).id!;
 }
 
 const add = (fields: { supplyId: string; quantity: string; unit: string }, product = arepa) =>

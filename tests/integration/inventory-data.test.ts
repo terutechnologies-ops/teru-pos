@@ -110,13 +110,13 @@ describe("bodegas", () => {
 
 describe("insumos", () => {
   it("se crean con nombre único por empresa y se listan", async () => {
-    const harina = { name: "Harina", unit: "KG", minStock: "5", unitCost: null } as const;
+    const harina = { name: "Harina", unit: "KG", minStock: "5", idealStock: null, unitCost: null } as const;
     expect((await createSupply(a.id, harina)).status).toBe("OK");
-    expect((await createSupply(a.id, { name: "Queso", unit: "G", minStock: null, unitCost: null })).status).toBe("OK");
+    expect((await createSupply(a.id, { name: "Queso", unit: "G", minStock: null, idealStock: null, unitCost: null })).status).toBe("OK");
     expect((await createSupply(a.id, { ...harina, name: "HARINA" })).status).toBe("NAME_TAKEN");
     expect((await createSupply(b.id, harina)).status).toBe("OK");
     await expect(
-      createSupply(a.id, { name: "Mínimo", unit: "G", minStock: "-1", unitCost: null }),
+      createSupply(a.id, { name: "Mínimo", unit: "G", minStock: "-1", idealStock: null, unitCost: null }),
     ).rejects.toThrow();
 
     expect((await listSupplies(a.id)).map((s) => s.name)).toEqual(["Harina", "Queso"]);
@@ -128,7 +128,7 @@ describe("insumos", () => {
 
   it("la unidad solo cambia mientras no haya movimientos", async () => {
     const queso = await supplyId(a.id, "Queso");
-    const data = { name: "Queso", unit: "KG", minStock: "2", unitCost: null } as const;
+    const data = { name: "Queso", unit: "KG", minStock: "2", idealStock: null, unitCost: null } as const;
     expect(await updateSupply(b.id, queso, data)).toBe("NOT_FOUND");
     expect(await updateSupply(a.id, queso, { ...data, name: "harina" })).toBe("NAME_TAKEN");
     expect(await updateSupply(a.id, queso, data)).toBe("OK");
@@ -136,7 +136,7 @@ describe("insumos", () => {
     expect((await move(queso, "3", { type: "INITIAL" })).status).toBe("OK");
     expect(await updateSupply(a.id, queso, { ...data, unit: "G" })).toBe("UNIT_LOCKED");
     // Sin cambiar la unidad, el resto sí se edita.
-    expect(await updateSupply(a.id, queso, { ...data, name: "Queso duro", minStock: null, unitCost: null })).toBe(
+    expect(await updateSupply(a.id, queso, { ...data, name: "Queso duro", minStock: null, idealStock: null, unitCost: null })).toBe(
       "OK",
     );
   });
@@ -207,7 +207,7 @@ describe("movimientos", () => {
 
   it("desactivar una bodega y cargarle saldo a la vez no la deja inactiva con existencias", async () => {
     const branchA = (await db.branch.findFirstOrThrow({ where: { companyId: a.id } })).id;
-    await createSupply(a.id, { name: "Sal", unit: "KG", minStock: null, unitCost: null });
+    await createSupply(a.id, { name: "Sal", unit: "KG", minStock: null, idealStock: null, unitCost: null });
     const sal = await supplyId(a.id, "Sal");
 
     for (const name of ["Despensa 1", "Despensa 2", "Despensa 3"]) {

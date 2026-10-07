@@ -68,7 +68,7 @@ beforeAll(async () => {
 
   await createProductCategory(a.id, "Arepas");
   const arepas = (await db.productCategory.findFirstOrThrow({ where: { companyId: a.id } })).id;
-  harina = (await createSupply(a.id, { name: "Harina", unit: "KG", minStock: null, unitCost: null }))
+  harina = (await createSupply(a.id, { name: "Harina", unit: "KG", minStock: null, idealStock: null, unitCost: null }))
     .id!;
   await recordStockMovement(a.id, {
     warehouseId,

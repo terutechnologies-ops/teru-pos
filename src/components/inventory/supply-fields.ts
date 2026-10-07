@@ -23,6 +23,7 @@ export function readSupplyForm(formData: FormData): SupplyFormValues {
     name: field("name"),
     unit: field("unit"),
     minStock: field("minStock"),
+    idealStock: field("idealStock"),
     unitCost: field("unitCost"),
   };
 }

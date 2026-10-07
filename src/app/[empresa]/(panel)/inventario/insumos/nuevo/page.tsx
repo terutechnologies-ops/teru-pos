@@ -22,7 +22,7 @@ export default async function NewSupplyPage({
         action={createSupplyAction}
         companySlug={session.company.slug}
         currency={currency}
-        initialValues={{ name: "", unit: "", minStock: "", unitCost: "" }}
+        initialValues={{ name: "", unit: "", minStock: "", idealStock: "", unitCost: "" }}
         submitLabel="Crear insumo"
       />
     </div>

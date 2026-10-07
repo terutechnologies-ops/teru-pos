@@ -43,7 +43,7 @@ let queso: string;
 let azucar: string;
 
 async function supply(name: string, unit: "KG" | "G" | "UNIT", unitCost: string | null, initial?: string) {
-  const { id } = await createSupply(companyId, { name, unit, minStock: null, unitCost });
+  const { id } = await createSupply(companyId, { name, unit, minStock: null, idealStock: null, unitCost });
   if (initial) {
     const result = await recordStockMovement(companyId, {
       warehouseId: mainId,
@@ -164,7 +164,7 @@ describe("borrador", () => {
     ]);
 
     const ajeno = (
-      await createSupply(otherCompanyId, { name: "Ajeno", unit: "KG", minStock: null, unitCost: null })
+      await createSupply(otherCompanyId, { name: "Ajeno", unit: "KG", minStock: null, idealStock: null, unitCost: null })
     ).id!;
     expect(await save(countId, { [ajeno]: "1" })).toEqual({
       status: "SUPPLY_NOT_FOUND",

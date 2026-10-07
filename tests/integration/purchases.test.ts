@@ -60,7 +60,7 @@ async function supplier(companyId: string, name: string, isArchived = false) {
 }
 
 async function supply(companyId: string, name: string, unit: "G" | "UNIT") {
-  const { id } = await createSupply(companyId, { name, unit, minStock: null, unitCost: null });
+  const { id } = await createSupply(companyId, { name, unit, minStock: null, idealStock: null, unitCost: null });
   if (!id) throw new Error(name);
   return id;
 }

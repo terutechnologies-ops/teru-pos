@@ -69,7 +69,7 @@ export function SupplyForm({
         <SectionTitle
           icon={<Boxes className="size-5" aria-hidden />}
           title="Datos del insumo"
-          description="Todas sus cantidades (existencias, ajustes y mínimo) se expresan en su unidad."
+          description="Todas sus cantidades (existencias, ajustes, mínimo e ideal) se expresan en su unidad."
         />
 
         <FormField name="name" label="Nombre" required error={fieldErrors.name}>
@@ -119,29 +119,6 @@ export function SupplyForm({
           </FormField>
 
           <FormField
-            name="minStock"
-            label={symbol ? `Stock mínimo (${symbol})` : "Stock mínimo"}
-            error={fieldErrors.minStock}
-          >
-            <Input
-              id="minStock"
-              name="minStock"
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step={0.001}
-              defaultValue={values.minStock}
-              placeholder="Opcional"
-              aria-invalid={fieldErrors.minStock ? true : undefined}
-              aria-describedby={cn("minStock-help", fieldErrors.minStock && "minStock-error")}
-              className={fieldClass}
-            />
-            <p id="minStock-help" className="text-xs text-muted-foreground">
-              Por debajo de esta cantidad (sumando todas las bodegas) se marcará como bajo mínimo.
-            </p>
-          </FormField>
-
-          <FormField
             name="unitCost"
             label={symbol ? `Costo por ${symbol} (${currency})` : `Costo por unidad (${currency})`}
             error={fieldErrors.unitCost}
@@ -169,6 +146,53 @@ export function SupplyForm({
               </span>{" "}
               · {currencyName(currency)}. Costo de referencia para calcular el costo de las
               recetas.
+            </p>
+          </FormField>
+
+          <FormField
+            name="minStock"
+            label={symbol ? `Stock mínimo (${symbol})` : "Stock mínimo"}
+            error={fieldErrors.minStock}
+          >
+            <Input
+              id="minStock"
+              name="minStock"
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step={0.001}
+              defaultValue={values.minStock}
+              placeholder="Opcional"
+              aria-invalid={fieldErrors.minStock ? true : undefined}
+              aria-describedby={cn("minStock-help", fieldErrors.minStock && "minStock-error")}
+              className={fieldClass}
+            />
+            <p id="minStock-help" className="text-xs text-muted-foreground">
+              Por debajo de esta cantidad (sumando todas las bodegas) se marcará como bajo mínimo.
+            </p>
+          </FormField>
+
+          <FormField
+            name="idealStock"
+            label={symbol ? `Stock ideal (${symbol})` : "Stock ideal"}
+            error={fieldErrors.idealStock}
+          >
+            <Input
+              id="idealStock"
+              name="idealStock"
+              type="number"
+              inputMode="decimal"
+              min={0}
+              step={0.001}
+              defaultValue={values.idealStock}
+              placeholder="Opcional"
+              aria-invalid={fieldErrors.idealStock ? true : undefined}
+              aria-describedby={cn("idealStock-help", fieldErrors.idealStock && "idealStock-error")}
+              className={fieldClass}
+            />
+            <p id="idealStock-help" className="text-xs text-muted-foreground">
+              Lo que quieres tener al empezar el día. La lista de compras sugiere comprar la
+              diferencia con la existencia.
             </p>
           </FormField>
         </div>

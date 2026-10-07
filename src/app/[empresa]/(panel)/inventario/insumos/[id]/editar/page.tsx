@@ -35,6 +35,7 @@ export default async function EditSupplyPage({
           name: supply.name,
           unit: supply.unit,
           minStock: supply.minStock ?? "",
+          idealStock: supply.idealStock ?? "",
           unitCost: supply.unitCost ?? "",
         }}
         submitLabel="Guardar cambios"

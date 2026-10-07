@@ -69,6 +69,8 @@ export function SupplyList({
                 en existencia
                 {supply.minStock !== null &&
                   ` · mínimo ${formatQuantity(supply.minStock, supply.unit)}`}
+                {supply.idealStock !== null &&
+                  ` · ideal ${formatQuantity(supply.idealStock, supply.unit)}`}
                 {" · "}
                 {supply.unitCost === null
                   ? "sin costo"

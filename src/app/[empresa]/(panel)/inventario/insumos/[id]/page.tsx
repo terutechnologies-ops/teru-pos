@@ -89,7 +89,7 @@ export default async function SupplyDetailPage({
         </Alert>
       )}
 
-      <dl className="grid gap-3 sm:grid-cols-3">
+      <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-xl bg-card p-5 shadow-sm">
           <dt className="text-xs font-semibold text-muted-foreground">Existencia total</dt>
           <dd className="mt-1 text-2xl font-extrabold tabular-nums">
@@ -100,6 +100,12 @@ export default async function SupplyDetailPage({
           <dt className="text-xs font-semibold text-muted-foreground">Stock mínimo</dt>
           <dd className="mt-1 text-2xl font-extrabold tabular-nums">
             {supply.minStock === null ? "—" : formatQuantity(supply.minStock, supply.unit)}
+          </dd>
+        </div>
+        <div className="rounded-xl bg-card p-5 shadow-sm">
+          <dt className="text-xs font-semibold text-muted-foreground">Stock ideal</dt>
+          <dd className="mt-1 text-2xl font-extrabold tabular-nums">
+            {supply.idealStock === null ? "—" : formatQuantity(supply.idealStock, supply.unit)}
           </dd>
         </div>
         <div className="rounded-xl bg-card p-5 shadow-sm">

@@ -165,6 +165,7 @@ function toSupplyDto(supply: SupplyRow) {
     unit: supply.unit,
     isArchived: supply.isArchived,
     minStock: supply.minStock?.toString() ?? null,
+    idealStock: supply.idealStock?.toString() ?? null,
     // Costo de referencia por unidad, en la moneda de la empresa.
     unitCost: supply.unitCost?.toString() ?? null,
     totalStock: total.toString(),

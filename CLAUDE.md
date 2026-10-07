@@ -3229,3 +3229,38 @@ encendido en el puerto 3000 al cerrar (detenerlo con `taskkill /PID <pid>
 **Próximo paso recomendado:** diseño de la fase 12 con las respuestas del
 usuario sobre destinatarios y contenido del reporte.
 
+
+## Sesión 2026-10-06 — Fase 12: lista de compras y reporte de cierre
+
+Decisiones del usuario (2026-10-06), todas las recomendadas:
+- **Existencia ideal por empresa** (un valor por insumo, como el mínimo,
+  contra la suma de las bodegas). Por sucursal, cuando un cliente tenga más
+  de una.
+- **Correo con lista de compras + resumen corto del día** (ventas, gastos,
+  faltante/sobrante).
+- **Destinatarios configurables** ("Correos para el reporte de cierre" en
+  Configuración > Negocio); vacío = no se envía.
+- El dominio y Resend se configuran después, paso a paso con el usuario.
+
+Componentes: 1) existencia ideal del insumo; 2) página "Lista de compras"
+en Inventario (+ impresión); 3) destinatarios en Configuración > Negocio;
+4) reporte al cerrar el último turno abierto (POS o panel, con `after()`,
+outbox en dev); 5) Resend (con el dominio); 6) cierre (ADR 0012, README).
+
+### Componente 1 — Existencia ideal del insumo (aprobado 2026-10-06)
+
+- Migración `20261006120000_add_supply_ideal_stock` (**aplicada en test y
+  dev**; diff vacío): `supplies.idealStock Decimal(14,3)` nullable con
+  `CHECK >= 0`.
+- `supplySchema`: `idealStock` opcional (vacío = null) y regla "El stock
+  ideal no puede ser menor que el mínimo." en el campo `idealStock` (si el
+  mínimo es inválido, solo se reporta el mínimo). `SupplyData` exige
+  `idealStock`; DTO del insumo con `idealStock`.
+- UI: formulario reordenado (Unidad | Costo; Stock mínimo | Stock ideal),
+  tarjeta "Stock ideal" en la ficha (4 tarjetas) y "· ideal N" en la
+  lista. Sin auditoría (como el mínimo).
+- Pruebas: unitarias del ideal y ajustes en las de integración (las
+  llamadas a `createSupply` llevan `idealStock: null`). Verificado:
+  typecheck, lint, suite **428/428**, build; sin sesión la ruta redirige
+  al login. Revisión visual con sesión: la hace el usuario.
+- Aprobado por el usuario el 2026-10-06 (revisión en el navegador a su cargo).

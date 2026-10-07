@@ -38,21 +38,36 @@ describe("quantitySchema", () => {
 describe("supplySchema", () => {
   it("acepta un insumo con o sin mínimo", () => {
     expect(
-      supplySchema.parse({ name: " Harina  de maíz ", unit: "KG", minStock: "5.50", unitCost: "3200" }),
-    ).toEqual({ name: "Harina de maíz", unit: "KG", minStock: "5.5", unitCost: "3200" });
-    const empty = supplySchema.parse({ name: "Queso", unit: "G", minStock: "  ", unitCost: "" });
-    expect([empty.minStock, empty.unitCost]).toEqual([null, null]);
+      supplySchema.parse({ name: " Harina  de maíz ", unit: "KG", minStock: "5.50", idealStock: "12.0", unitCost: "3200" }),
+    ).toEqual({ name: "Harina de maíz", unit: "KG", minStock: "5.5", idealStock: "12", unitCost: "3200" });
+    const empty = supplySchema.parse({ name: "Queso", unit: "G", minStock: "  ", idealStock: "", unitCost: "" });
+    expect([empty.minStock, empty.idealStock, empty.unitCost]).toEqual([null, null, null]);
   });
 
   it("exige una unidad válida y un mínimo no negativo", () => {
-    expect(error(supplySchema.safeParse({ name: "Queso", unit: "", minStock: "", unitCost: "" }))).toBe(
+    expect(error(supplySchema.safeParse({ name: "Queso", unit: "", minStock: "", idealStock: "", unitCost: "" }))).toBe(
       "Elige una unidad.",
     );
-    expect(error(supplySchema.safeParse({ name: "Queso", unit: "LB", minStock: "", unitCost: "" }))).toBe(
+    expect(error(supplySchema.safeParse({ name: "Queso", unit: "LB", minStock: "", idealStock: "", unitCost: "" }))).toBe(
       "Elige una unidad.",
     );
-    expect(error(supplySchema.safeParse({ name: "Queso", unit: "G", minStock: "-2", unitCost: "" }))).toBe(
+    expect(error(supplySchema.safeParse({ name: "Queso", unit: "G", minStock: "-2", idealStock: "", unitCost: "" }))).toBe(
       "Escribe una cantidad válida (solo números, sin signos).",
+    );
+  });
+
+  it("el stock ideal no puede ser menor que el mínimo", () => {
+    const parse = (minStock: string, idealStock: string) =>
+      supplySchema.safeParse({ name: "Queso", unit: "KG", minStock, idealStock, unitCost: "" });
+    expect(error(parse("5", "4.999"))).toBe("El stock ideal no puede ser menor que el mínimo.");
+    expect(parse("5", "5").success).toBe(true);
+    expect(parse("", "3").success).toBe(true);
+    expect(parse("5", "").success).toBe(true);
+    // Con el mínimo inválido solo se reporta ese campo.
+    const invalid = parse("abc", "3");
+    expect(invalid.success).toBe(false);
+    expect(new Set(invalid.error?.issues.map((issue) => issue.path.join(".")))).toEqual(
+      new Set(["minStock"]),
     );
   });
 });

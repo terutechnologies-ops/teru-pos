@@ -63,7 +63,7 @@ beforeAll(async () => {
   otherAdmin = await member(b, "ADMIN", "Eva");
 
   const supply = async (name: string, minStock: string | null, quantity?: string) => {
-    const id = (await createSupply(a.id, { name, unit: "KG", minStock, unitCost: null })).id!;
+    const id = (await createSupply(a.id, { name, unit: "KG", minStock, idealStock: null, unitCost: null })).id!;
     if (quantity) {
       await recordStockMovement(a.id, {
         warehouseId: mainId,

@@ -64,7 +64,7 @@ async function newProduct(companyId: string, name: string, price: string) {
 }
 
 async function newSupply(name: string, unit: "KG" | "G" | "UNIT", initial?: string) {
-  const { id } = await createSupply(a.id, { name, unit, minStock: null, unitCost: null });
+  const { id } = await createSupply(a.id, { name, unit, minStock: null, idealStock: null, unitCost: null });
   if (initial) {
     await recordStockMovement(a.id, {
       warehouseId: a.warehouseId,

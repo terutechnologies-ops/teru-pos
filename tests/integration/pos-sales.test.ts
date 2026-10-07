@@ -67,7 +67,7 @@ beforeAll(async () => {
   const viejas = await category("Viejas");
   await db.productCategory.update({ where: { id: viejas }, data: { isActive: false } });
 
-  const harina = (await createSupply(a.id, { name: "Harina", unit: "KG", minStock: null, unitCost: null })).id!;
+  const harina = (await createSupply(a.id, { name: "Harina", unit: "KG", minStock: null, idealStock: null, unitCost: null })).id!;
   arepa = await product(arepas, "Arepa de queso", "16500");
   await addRecipeItem(a.id, arepa, harina, { quantity: "120", unit: "G" });
   agotado = await product(arepas, "Arepa de pollo", "18000");

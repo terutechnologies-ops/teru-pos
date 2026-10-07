@@ -45,6 +45,7 @@ async function supply(
       name,
       unit: "KG",
       minStock: fields.minStock ?? null,
+      idealStock: null,
       unitCost: fields.unitCost ?? null,
     })
   ).id!;

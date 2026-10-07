@@ -227,6 +227,11 @@ model Supply {
   unit       StockUnit
   // Stock mínimo deseado (en su unidad); null = sin mínimo.
   minStock   Decimal?  @db.Decimal(14, 3)
+  // Existencia ideal: hasta dónde se repone (lista de compras: ideal −
+  // existencia, sumando todas las bodegas); null = sin ideal. No menor que
+  // el mínimo (lo valida supplySchema). CHECK (idealStock >= 0) en la
+  // migración.
+  idealStock Decimal?  @db.Decimal(14, 3)
   // Costo de referencia por unidad (en su unidad), en la moneda de la
   // empresa; null = sin costo. Lo escribe una persona hasta que exista el
   // módulo de compras. La migración agrega CHECK (unitCost >= 0).

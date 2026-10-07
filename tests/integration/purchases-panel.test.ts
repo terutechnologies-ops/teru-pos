@@ -101,7 +101,7 @@ beforeAll(async () => {
     ["Harina", (id: string) => (harina = id)],
     ["Queso", (id: string) => (queso = id)],
   ] as const) {
-    const { id } = await createSupply(a.id, { name, unit: "G", minStock: null, unitCost: null });
+    const { id } = await createSupply(a.id, { name, unit: "G", minStock: null, idealStock: null, unitCost: null });
     set(id!);
   }
 });

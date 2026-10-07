@@ -53,9 +53,9 @@ beforeAll(async () => {
   northWarehouse = await warehouseIdOf(a.id, "Despensa Norte");
   warehouseB = (await createMainBranch(b.id)).warehouseId;
 
-  harina = (await createSupply(a.id, { name: "Harina", unit: "KG", minStock: null, unitCost: null })).id!;
-  queso = (await createSupply(a.id, { name: "Queso", unit: "G", minStock: null, unitCost: null })).id!;
-  supplyB = (await createSupply(b.id, { name: "Ajena", unit: "G", minStock: null, unitCost: null })).id!;
+  harina = (await createSupply(a.id, { name: "Harina", unit: "KG", minStock: null, idealStock: null, unitCost: null })).id!;
+  queso = (await createSupply(a.id, { name: "Queso", unit: "G", minStock: null, idealStock: null, unitCost: null })).id!;
+  supplyB = (await createSupply(b.id, { name: "Ajena", unit: "G", minStock: null, idealStock: null, unitCost: null })).id!;
 });
 afterAll(() => cleanupCompanies(tag));
 

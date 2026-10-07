@@ -90,7 +90,7 @@ beforeAll(async () => {
   otherSupplierId = await supplier(otherCompanyId, "Proveedor ajeno");
 
   const supply = async (name: string, unit: "KG" | "UNIT", unitCost: string | null) =>
-    (await createSupply(companyId, { name, unit, minStock: null, unitCost })).id!;
+    (await createSupply(companyId, { name, unit, minStock: null, idealStock: null, unitCost })).id!;
   harina = await supply("Harina", "KG", "3000");
   queso = await supply("Queso", "KG", null);
   gaseosa = await supply("Gaseosa", "UNIT", "2000");
@@ -172,7 +172,7 @@ describe("borrador", () => {
   });
 
   it("no agrega insumos archivados", async () => {
-    const viejo = (await createSupply(companyId, { name: "Viejo", unit: "KG", minStock: null, unitCost: null })).id!;
+    const viejo = (await createSupply(companyId, { name: "Viejo", unit: "KG", minStock: null, idealStock: null, unitCost: null })).id!;
     await setSupplyArchived(companyId, viejo, true);
     const id = await draft();
     expect(await addPurchaseLine(companyId, id, line(viejo, "1", "KG", "1"))).toEqual({ status: "SUPPLY_ARCHIVED" });
@@ -262,7 +262,7 @@ describe("confirmar", () => {
     expect(await confirmPurchase(companyId, { purchaseId: id, userId })).toEqual({ status: "WAREHOUSE_INACTIVE" });
     await setWarehouseActive(companyId, congelador, true);
 
-    const tomate = (await createSupply(companyId, { name: "Tomate", unit: "KG", minStock: null, unitCost: null })).id!;
+    const tomate = (await createSupply(companyId, { name: "Tomate", unit: "KG", minStock: null, idealStock: null, unitCost: null })).id!;
     await addPurchaseLine(companyId, id, line(tomate, "1", "KG", "4000"));
     await setSupplyArchived(companyId, tomate, true);
     expect(await confirmPurchase(companyId, { purchaseId: id, userId })).toEqual({

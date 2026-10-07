@@ -54,7 +54,7 @@ function sessionFor(company: Company, userId: string, role: StaffRole = "ADMIN")
 const admin = () => sessionFor(a, userA);
 
 async function supply(name: string, unit: "KG" | "G" | "UNIT", initial?: string) {
-  const { id } = await createSupply(a.id, { name, unit, minStock: null, unitCost: null });
+  const { id } = await createSupply(a.id, { name, unit, minStock: null, idealStock: null, unitCost: null });
   if (!id) throw new Error(name);
   if (initial) {
     await recordStockMovement(a.id, {
@@ -218,8 +218,8 @@ describe("confirmados", () => {
   let number: number;
 
   beforeAll(async () => {
-    arroz = (await createSupply(a.id, { name: "Arroz", unit: "KG", minStock: null, unitCost: "2000" })).id!;
-    aceite = (await createSupply(a.id, { name: "Aceite", unit: "KG", minStock: null, unitCost: null })).id!;
+    arroz = (await createSupply(a.id, { name: "Arroz", unit: "KG", minStock: null, idealStock: null, unitCost: "2000" })).id!;
+    aceite = (await createSupply(a.id, { name: "Aceite", unit: "KG", minStock: null, idealStock: null, unitCost: null })).id!;
     for (const [supplyId, quantity] of [[arroz, "10"], [aceite, "5"]]) {
       await recordStockMovement(a.id, {
         warehouseId: mainA,

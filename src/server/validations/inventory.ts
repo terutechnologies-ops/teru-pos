@@ -65,14 +65,25 @@ const optional = <T extends z.ZodType<string, string>>(schema: T) =>
     .transform((value) => value || null)
     .pipe(schema.nullable());
 
-export const supplySchema = z.object({
-  name: displayNameSchema(80),
-  unit: z.enum(STOCK_UNITS, { error: "Elige una unidad." }),
-  // Vacío = sin mínimo.
-  minStock: optional(quantitySchema),
-  // Vacío = sin costo.
-  unitCost: optional(unitCostSchema),
-});
+export const supplySchema = z
+  .object({
+    name: displayNameSchema(80),
+    unit: z.enum(STOCK_UNITS, { error: "Elige una unidad." }),
+    // Vacío = sin mínimo.
+    minStock: optional(quantitySchema),
+    // Vacío = sin ideal (la lista de compras no sugiere cuánto comprar).
+    idealStock: optional(quantitySchema),
+    // Vacío = sin costo.
+    unitCost: optional(unitCostSchema),
+  })
+  // Reponer hasta menos del mínimo dejaría el insumo bajo mínimo. Los textos
+  // ya vienen normalizados (máx. 14 dígitos): Number los compara sin error.
+  // Si alguno es inválido, ese campo ya tiene su error (NaN no compara).
+  .refine(
+    ({ minStock, idealStock }) =>
+      minStock === null || idealStock === null || !(Number(idealStock) < Number(minStock)),
+    { path: ["idealStock"], error: "El stock ideal no puede ser menor que el mínimo." },
+  );
 
 // Lo que llega del formulario: todo texto, sin validar.
 export type SupplyInput = { [K in keyof z.input<typeof supplySchema>]: string };
