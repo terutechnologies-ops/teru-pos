@@ -29,6 +29,7 @@ import {
 } from "@/server/services/auth/config";
 import { assertPermission } from "@/server/services/auth/permissions";
 import { generateToken, hashToken } from "@/server/services/auth/tokens";
+import { sendOwnerWelcome } from "@/server/services/owner-welcome";
 import {
   publicFileUrl,
   removeFileQuietly,
@@ -51,8 +52,9 @@ export async function getActiveCompanyBySlug(companySlug: string) {
   return findActiveCompanyBySlug(slug.data);
 }
 
-// Crea empresa, sucursal principal e invitación del propietario. Devuelve el
-// enlace de la invitación: nunca se guarda ni se registra el token en claro.
+// Crea empresa, sucursal principal e invitación del propietario, y le envía
+// la bienvenida con el enlace. Devuelve el enlace (respaldo si el correo no
+// llega): nunca se guarda ni se registra el token en claro.
 export async function createCompany(input: CreateCompanyInput) {
   const data = createCompanySchema.parse(input);
   const token = generateToken();
@@ -72,12 +74,16 @@ export async function createCompany(input: CreateCompanyInput) {
     action: STAFF_EVENTS.INVITATION_CREATED,
   });
 
-  return {
-    companyId,
+  const invitationUrl = `${getAppUrl()}/${data.slug}/invitacion?token=${token}`;
+  const emailSent = await sendOwnerWelcome({
+    companyName: data.name,
     slug: data.slug,
-    expiresAt,
-    invitationUrl: `${getAppUrl()}/${data.slug}/invitacion?token=${token}`,
-  };
+    ownerName: data.ownerName,
+    ownerEmail: data.ownerEmail,
+    invitationUrl,
+  });
+
+  return { companyId, slug: data.slug, ownerEmail: data.ownerEmail, expiresAt, invitationUrl, emailSent };
 }
 
 export async function getCompanyProfile(session: StaffSessionDto) {

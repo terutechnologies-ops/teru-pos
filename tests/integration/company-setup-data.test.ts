@@ -6,6 +6,8 @@ import { findMainBranch } from "@/server/data/branches";
 import * as invitations from "@/server/data/staff-invitations";
 import { createCompany as createCompanyService } from "@/server/services/companies";
 import { hashToken } from "@/server/services/auth/tokens";
+import { setMessageSenderForTesting } from "@/server/services/messaging";
+import { listDevOutbox } from "@/server/services/messaging/dev-outbox";
 
 import {
   cleanupCompanies,
@@ -197,6 +199,14 @@ describe("alta de empresa (servicio del script)", () => {
     );
     expect(invitation).toMatchObject({ email: `ana@${tag}.co`, role: "OWNER" });
 
+    // Bienvenida al propietario con el enlace y sus datos de acceso.
+    expect(result).toMatchObject({ emailSent: true, ownerEmail: `ana@${tag}.co` });
+    const welcome = listDevOutbox().find((entry) => entry.to === `ana@${tag}.co`);
+    expect(welcome?.subject).toBe("Negocio Nuevo ya tiene su cuenta en Teru POS");
+    expect(welcome?.text).toContain(result.invitationUrl);
+    expect(welcome?.text).toContain("- Rol: Propietario");
+    expect(welcome?.html).toContain(`/${slug}/login`);
+
     await expect(
       createCompanyService({
         name: "Duplicada",
@@ -213,5 +223,26 @@ describe("alta de empresa (servicio del script)", () => {
         ownerEmail: `otro@${tag}.co`,
       }),
     ).rejects.toThrow();
+  });
+
+  it("si la bienvenida falla, la empresa queda creada y devuelve el enlace", async () => {
+    setMessageSenderForTesting({
+      sendEmail: async () => {
+        throw new Error("proveedor caído");
+      },
+    });
+    try {
+      const result = await createCompanyService({
+        name: "Sin Correo",
+        slug: `${tag}-sincorreo`,
+        ownerName: "Luis",
+        ownerEmail: `luis@${tag}.co`,
+      });
+      expect(result.emailSent).toBe(false);
+      expect(result.invitationUrl).toContain(`/${tag}-sincorreo/invitacion?token=`);
+      expect(await findMainBranch(result.companyId)).not.toBeNull();
+    } finally {
+      setMessageSenderForTesting(null);
+    }
   });
 });

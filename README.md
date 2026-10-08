@@ -116,7 +116,7 @@ Los archivos `.env*` no se versionan (salvo `.env.example`).
 | `npm run test:db:migrate` | Aplica migraciones a la BD de pruebas (`.env.test`) |
 | `npm run db:migrate:deploy` | Aplica migraciones pendientes |
 | `npm run db:seed` | Datos iniciales (idempotente) |
-| `npm run company:create -- --name ... --slug ... --owner-name ... --owner-email ...` | Alta de empresa: sucursal principal + enlace de invitación del propietario (72 h) |
+| `npm run company:create -- --name ... --slug ... --owner-name ... --owner-email ...` | Alta de empresa: sucursal principal + bienvenida al propietario por correo con su invitación (72 h); sin Resend o si el envío falla, muestra el enlace |
 | `npm run storage:setup` | Crea el bucket público `company-assets` y el privado `company-private` (idempotente, una vez por entorno) |
 
 ## Pruebas
