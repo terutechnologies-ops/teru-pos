@@ -67,6 +67,15 @@ export async function changeUserPassword(params: {
   });
 }
 
+// Nombre y correo para avisarle algo a la persona (p. ej. que su contraseña
+// cambió).
+export async function findUserContact(companyId: string, userId: string) {
+  return db.user.findFirst({
+    where: { id: userId, companyId },
+    select: { name: true, email: true },
+  });
+}
+
 export async function userExistsWithEmail(companyId: string, email: string) {
   const user = await db.user.findUnique({
     where: { companyId_email: { companyId, email } },

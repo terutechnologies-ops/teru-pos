@@ -8,6 +8,8 @@ import {
   PASSWORD_CHANGE_BLOCKED_MESSAGE,
 } from "@/server/services/auth/password-change";
 import { getStaffSession, loginStaff } from "@/server/services/auth/staff-auth";
+import { setMessageSenderForTesting } from "@/server/services/messaging";
+import { listDevOutbox } from "@/server/services/messaging/dev-outbox";
 
 import { cleanupCompanies, createCompany, createUser, ctx, uniqueTag } from "../helpers";
 
@@ -20,7 +22,10 @@ beforeAll(async () => {
   a = await createCompany(`${tag}-a`);
   b = await createCompany(`${tag}-b`);
 });
-afterAll(() => cleanupCompanies(tag));
+afterAll(() => {
+  setMessageSenderForTesting(null);
+  return cleanupCompanies(tag);
+});
 
 // Persona nueva por prueba (el límite de intentos es por persona).
 async function person(name: string, company = a) {
@@ -77,8 +82,9 @@ describe("cambiar la propia contraseña", () => {
       ok: false,
       fieldErrors: { password: "La nueva contraseña debe ser distinta de la actual." },
     });
-    // Nada cambió: sigue entrando con la de siempre.
+    // Nada cambió: sigue entrando con la de siempre y no hubo aviso.
     expect(await login(`val@${tag}.co`)).not.toBeNull();
+    expect(listDevOutbox().some((entry) => entry.to === `val@${tag}.co`)).toBe(false);
   });
 
   it("cambia la contraseña, mantiene esta sesión, cierra las demás e invalida los enlaces pendientes", async () => {
@@ -110,6 +116,28 @@ describe("cambiar la propia contraseña", () => {
       where: { companyId: a.id, actorId: session.user.id, action: AUTH_EVENTS.PASSWORD_CHANGED },
     });
     expect(events).toHaveLength(1);
+
+    // Aviso de seguridad a la persona, con el botón para recuperarla.
+    const notice = listDevOutbox().find((entry) => entry.to === email);
+    expect(notice?.subject).toContain("cambió");
+    expect(notice?.text).toContain("Desde Mi cuenta");
+    expect(notice?.html).toContain(`/${a.slug}/recuperar`);
+  });
+
+  it("si el aviso no se puede enviar, el cambio igual queda hecho", async () => {
+    const email = await person("sinaviso");
+    const session = await sessionOf((await login(email))!);
+    setMessageSenderForTesting({
+      sendEmail: async () => {
+        throw new Error("proveedor caído");
+      },
+    });
+    try {
+      expect(await change(session, {})).toEqual({ ok: true, closedSessions: 0 });
+    } finally {
+      setMessageSenderForTesting(null);
+    }
+    expect(await login(email, "Nueva-Clave-9")).not.toBeNull();
   });
 
   it("bloquea tras 5 contraseñas actuales incorrectas", async () => {

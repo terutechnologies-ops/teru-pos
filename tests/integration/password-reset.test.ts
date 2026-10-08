@@ -196,5 +196,12 @@ describe("restablecer contraseña", () => {
         where: { actorId: user.id, action: "PASSWORD_RESET_COMPLETED" },
       }),
     ).toBe(1);
+
+    // Un solo aviso de seguridad (solo ganó un restablecimiento).
+    const notices = listDevOutbox().filter(
+      (entry) => entry.to === email && entry.subject.includes("cambió"),
+    );
+    expect(notices).toHaveLength(1);
+    expect(notices[0].text).toContain("Con un enlace de recuperación");
   });
 });

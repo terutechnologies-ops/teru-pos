@@ -12,11 +12,12 @@ import type { RequestContext, StaffSessionDto } from "@/server/dto/auth";
 import { passwordChangeSchema, type PasswordChangeInput } from "@/server/validations/auth";
 
 import { AUTH_EVENTS, MAX_FAILED_PASSWORD_CHANGES, PASSWORD_CHANGE_WINDOW_MS } from "./config";
+import { sendPasswordChangedNotice } from "./password-notice";
 import { hashPassword, verifyPassword } from "./passwords";
 
 // Cambio de la propia contraseña desde "Mi cuenta" (cualquier rol). Pide la
 // actual, con límite de intentos fallidos, y cierra las demás sesiones de
-// la persona; la actual sigue abierta.
+// la persona; la actual sigue abierta. Después le avisa por correo.
 
 export type PasswordChangeField = keyof PasswordChangeInput;
 
@@ -102,5 +103,6 @@ export async function changeOwnPassword(
     return { ok: false, error: "Tu cuenta ya no está activa.", fieldErrors: {} };
   }
   await audit(AUTH_EVENTS.PASSWORD_CHANGED);
+  await sendPasswordChangedNotice({ companyId, userId: session.user.id, via: "ACCOUNT" });
   return { ok: true, closedSessions };
 }

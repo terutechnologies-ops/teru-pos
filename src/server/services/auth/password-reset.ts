@@ -30,6 +30,7 @@ import {
   RESET_TOKEN_TTL_MS,
   RESET_WINDOW_MS,
 } from "./config";
+import { sendPasswordChangedNotice } from "./password-notice";
 import { hashPassword } from "./passwords";
 import { generateToken, hashToken } from "./tokens";
 
@@ -201,5 +202,6 @@ export async function resetStaffPassword(
     ipAddress: ctx.ipAddress,
     userAgent: ctx.userAgent,
   });
+  await sendPasswordChangedNotice({ companyId: company.id, userId, via: "RESET_LINK" });
   return { ok: true, companySlug: company.slug };
 }
