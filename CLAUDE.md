@@ -3478,3 +3478,50 @@ compra el dominio).
 
 **Próximo paso recomendado:** revisar con el usuario el diseño de los
 demás correos (su pedido) y luego el cierre de la fase 12.
+
+## Sesión 2026-10-07 — Revisión de los correos del sistema
+
+Al iniciar: `prisma generate`, typecheck, suite 449/449 y `next dev`
+levantado. Árbol limpio y sincronizado con `origin/master` (`32b73cf`).
+
+Decisiones del usuario (2026-10-07): agregar el aviso de contraseña
+cambiada y la bienvenida al propietario; **no** avisar por ahora al cambiar
+los destinatarios del reporte ni al desactivar o reactivar una cuenta (poco
+valor y gasto del límite de 100 correos por día de Resend). Agregar el
+bloque "Tu acceso" a la invitación.
+
+**Implementado (3 componentes aprobados, con commit y subidos):**
+1. **"Tu acceso" en la invitación** (`b05fc48`): `simpleEmail` acepta
+   `details` opcional (filas etiqueta / valor, `href` opcional), debajo del
+   botón y del enlace de respaldo. La invitación muestra correo, rol y
+   `/{slug}/login`, también en el texto plano.
+2. **Aviso de contraseña cambiada** (`92a632e`):
+   `services/auth/password-notice.ts` (`sendPasswordChangedNotice`, vía
+   `ACCOUNT` o `RESET_LINK`), llamado después de guardar en
+   `changeOwnPassword` y `resetStaffPassword`. Fecha en el formato y la zona
+   de la empresa (hora con espacios duros y en medio de la frase para evitar
+   "p. m.."). Botón "No fui yo: recuperar contraseña" → `/{slug}/recuperar`.
+   Nunca lanza: un fallo del correo no bloquea el cambio. Nueva
+   `findUserContact` en `data/users.ts`.
+3. **Bienvenida al propietario** (`92f5878`): `services/owner-welcome.ts`;
+   `createCompany` la envía y devuelve `emailSent` y `ownerEmail`.
+   `company:create` solo muestra el enlace si el envío falló o no hay
+   proveedor real (sin `RESEND_API_KEY` iría al outbox en la memoria del
+   script). README actualizado.
+
+Verificado: typecheck, lint y suite 453/453. Vistas previas revisadas en
+escritorio y a 390 px (Chrome sin interfaz). No probado en Gmail real ni
+`company:create` contra `su-arepa-dev` (crearía una empresa).
+
+**Pendiente:**
+- Fase 12, componente 6 — cierre: revisión de la fase, ADR 0012 (incluir
+  lo de hoy: aviso de contraseña y bienvenida que nunca lanzan, "Tu acceso"
+  en `simpleEmail`) y README (lista de compras, reporte, Resend, dominio).
+- Después: fase 13 (cartera), preparación para producción, despliegue.
+
+**Errores y riesgos conocidos:**
+- Con Resend activo en desarrollo, cambiar o restablecer una contraseña
+  también envía el aviso real (además de invitaciones y recuperación).
+- Siguen los de sesiones anteriores.
+
+**Próximo paso recomendado:** cierre de la fase 12 (componente 6).
