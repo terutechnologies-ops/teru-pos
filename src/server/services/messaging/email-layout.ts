@@ -165,26 +165,52 @@ export function card(content: string, padding = "18px 20px") {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.card};border:1px solid ${C.border};border-radius:12px"><tr><td style="padding:${padding}">${content}</td></tr></table>`;
 }
 
+export type EmailDetail = { label: string; value: string; href?: string };
+
+// Bloque de datos clave (p. ej. "Tu acceso": correo, rol, dirección) en
+// filas etiqueta / valor sobre fondo gris claro.
+function detailsBlock(title: string, rows: EmailDetail[]) {
+  const rowHtml = rows
+    .map(({ label, value, href }) => {
+      const shown = href
+        ? `<a href="${escapeHtml(href)}" style="color:${C.accentText};word-break:break-all">${escapeHtml(value)}</a>`
+        : escapeHtml(value);
+      return `<tr>
+<td class="stack" valign="top" width="120" style="padding:6px 12px 0 0;font-size:12px;color:${C.muted};white-space:nowrap">${escapeHtml(label)}</td>
+<td class="stack" valign="top" style="padding:6px 0 0;font-size:14px;font-weight:600;color:${C.text};word-break:break-word">${shown}</td>
+</tr>`;
+    })
+    .join("");
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 14px;background:${C.surface};border:1px solid ${C.border};border-radius:10px"><tr><td style="padding:14px 16px 16px">
+<div style="font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:${C.text}">${escapeHtml(title)}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rowHtml}</table>
+</td></tr></table>`;
+}
+
 // Correo sencillo con una acción (recuperar contraseña, invitación): saludo,
-// párrafos, botón y el enlace en texto por si el botón no abre.
+// párrafos, botón, el enlace en texto por si el botón no abre y, si hay,
+// los datos clave para guardar.
 export function simpleEmail(input: {
   title: string;
   preheader: string;
   header: EmailHeader;
   greeting: string;
   paragraphs: string[];
+  details?: { title: string; rows: EmailDetail[] };
   action: { href: string; label: string };
   note: string;
 }) {
   const paragraphs = input.paragraphs
     .map((text) => `<p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:${C.text}">${escapeHtml(text)}</p>`)
     .join("");
+  const details = input.details ? detailsBlock(input.details.title, input.details.rows) : "";
   const content = card(
     `<p style="margin:0 0 12px;font-size:16px;font-weight:700;color:${C.text}">${escapeHtml(input.greeting)}</p>
 ${paragraphs}
 <div style="margin:20px 0 18px">${button(input.action.href, input.action.label)}</div>
 <p style="margin:0 0 6px;font-size:12px;color:${C.muted}">Si el botón no abre, copia este enlace en el navegador:</p>
 <p style="margin:0 0 14px;font-size:12px;word-break:break-all"><a href="${escapeHtml(input.action.href)}" style="color:${C.accentText}">${escapeHtml(input.action.href)}</a></p>
+${details}
 <p style="margin:0;font-size:12px;color:${C.muted}">${escapeHtml(input.note)}</p>`,
     "24px 24px",
   );

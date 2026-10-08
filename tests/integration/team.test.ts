@@ -80,6 +80,14 @@ describe("invitar y aceptar", () => {
     ).toEqual({ ok: true });
 
     const token = lastTokenFor(email);
+    // "Tu acceso": correo, rol y dirección de inicio de sesión de la empresa.
+    const message = listDevOutbox().find((entry) => entry.to === email);
+    const loginUrl = `/${a.slug}/login`;
+    expect(message?.text).toContain(`- Correo: ${email}`);
+    expect(message?.text).toContain("- Rol: Administrador");
+    expect(message?.text).toContain(loginUrl);
+    expect(message?.html).toContain("Tu acceso");
+    expect(message?.html).toContain(loginUrl);
     expect(await getInvitationPreview(a.slug, token)).toEqual({
       name: "Carlos Méndez",
       email,

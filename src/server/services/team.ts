@@ -114,12 +114,14 @@ async function sendInvitation(
   const hours = STAFF_INVITATION_TTL_MS / 3_600_000;
   const subject = `${user.name} te invitó al equipo de ${company.name}`;
   const link = `${appUrl}/${company.slug}/invitacion?token=${token}`;
+  const loginUrl = `${appUrl}/${company.slug}/login`;
+  const role = STAFF_ROLE_LABELS[invitee.role];
   await sender.sendEmail({
     to: invitee.email,
     subject,
     html: simpleEmail({
       title: subject,
-      preheader: `Únete a ${company.name} como ${STAFF_ROLE_LABELS[invitee.role]} (el enlace vence en ${hours} horas).`,
+      preheader: `Únete a ${company.name} como ${role} (el enlace vence en ${hours} horas).`,
       header: {
         companyName: company.name,
         logoUrl: publicFileUrl(company.logoPath),
@@ -127,19 +129,32 @@ async function sendInvitation(
       },
       greeting: `Hola ${invitee.name},`,
       paragraphs: [
-        `${user.name} te invitó a unirte al equipo de ${company.name} como ${STAFF_ROLE_LABELS[invitee.role]}.`,
+        `${user.name} te invitó a unirte al equipo de ${company.name} como ${role}.`,
         `Usa el botón para crear tu contraseña. El enlace vence en ${hours} horas.`,
       ],
+      details: {
+        title: "Tu acceso",
+        rows: [
+          { label: "Correo", value: invitee.email },
+          { label: "Rol", value: role },
+          { label: "Inicio de sesión", value: loginUrl, href: loginUrl },
+        ],
+      },
       action: { href: link, label: "Aceptar invitación" },
       note: "Si no esperabas esta invitación, ignora este correo.",
     }),
     text: [
       `Hola ${invitee.name},`,
       "",
-      `${user.name} te invitó a unirte al equipo de ${company.name} como ${STAFF_ROLE_LABELS[invitee.role]}.`,
+      `${user.name} te invitó a unirte al equipo de ${company.name} como ${role}.`,
       `Abre este enlace para crear tu contraseña (vence en ${hours} horas):`,
       "",
       link,
+      "",
+      "Tu acceso:",
+      `- Correo: ${invitee.email}`,
+      `- Rol: ${role}`,
+      `- Inicio de sesión: ${loginUrl}`,
       "",
       "Si no esperabas esta invitación, ignora este correo.",
     ].join("\n"),
