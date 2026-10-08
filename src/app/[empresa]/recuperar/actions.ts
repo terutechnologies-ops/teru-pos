@@ -1,5 +1,7 @@
 "use server";
 
+import { after } from "next/server";
+
 import { getRequestContext } from "@/server/http/staff-session";
 import { requestStaffPasswordReset } from "@/server/services/auth/password-reset";
 
@@ -20,6 +22,7 @@ export async function requestResetAction(
       companySlug,
       { email },
       await getRequestContext(),
+      after,
     );
     if (result.ok) return { status: "sent", message: null, email };
     const message =

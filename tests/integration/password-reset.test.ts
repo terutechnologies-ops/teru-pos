@@ -11,6 +11,7 @@ import {
   getStaffSession,
   loginStaff,
 } from "@/server/services/auth/staff-auth";
+import { setMessageSenderForTesting } from "@/server/services/messaging";
 import { listDevOutbox } from "@/server/services/messaging/dev-outbox";
 
 import {
@@ -113,6 +114,38 @@ describe("solicitud de recuperación", () => {
       ok: false,
       error: "TOO_MANY_ATTEMPTS",
     });
+  });
+
+  it("un fallo del correo no cambia la respuesta ni revela la cuenta", async () => {
+    await createUser({ companyId: a.id, email: `falla@${tag}.co` });
+    setMessageSenderForTesting({
+      sendEmail: async () => {
+        throw new Error("Resend rechazó el correo (429)");
+      },
+    });
+    try {
+      expect(await request(`falla@${tag}.co`, "falla")).toEqual({ ok: true });
+      expect(await request(`nadie-falla@${tag}.co`, "falla")).toEqual({ ok: true });
+    } finally {
+      setMessageSenderForTesting(null);
+    }
+  });
+
+  it("con defer el correo sale después de responder", async () => {
+    await createUser({ companyId: a.id, email: `despues@${tag}.co` });
+    const tasks: (() => Promise<void>)[] = [];
+    const before = listDevOutbox().length;
+    const result = await requestStaffPasswordReset(
+      a.slug,
+      { email: `despues@${tag}.co` },
+      ctx(tag, "despues"),
+      (task) => tasks.push(task),
+    );
+    expect(result).toEqual({ ok: true });
+    expect(listDevOutbox().length).toBe(before);
+    expect(tasks).toHaveLength(1);
+    await tasks[0]();
+    expect(listDevOutbox()[0].to).toBe(`despues@${tag}.co`);
   });
 });
 

@@ -41,12 +41,19 @@ export type PasswordResetRequestResult =
       error: "INVALID_INPUT" | "COMPANY_NOT_FOUND" | "TOO_MANY_ATTEMPTS";
     };
 
+// Cómo se entrega el correo. La acción pasa `after` de Next: el envío corre
+// después de responder, así que la respuesta tarda lo mismo exista o no la
+// cuenta. Sin él (pruebas, scripts), se envía antes de responder.
+export type DeferTask = (task: () => Promise<void>) => void;
+
 // La respuesta es la misma exista o no la cuenta: nunca revela qué correos
-// están registrados. El límite por cuenta también se aplica en silencio.
+// están registrados. El límite por cuenta también se aplica en silencio, y
+// un fallo del proveedor de correo no cambia la respuesta (queda en el log).
 export async function requestStaffPasswordReset(
   companySlug: string,
   rawInput: unknown,
   ctx: RequestContext,
+  defer?: DeferTask,
 ): Promise<PasswordResetRequestResult> {
   const input = passwordResetRequestSchema.safeParse(rawInput);
   if (!input.success) return { ok: false, error: "INVALID_INPUT" };
@@ -110,7 +117,7 @@ export async function requestStaffPasswordReset(
   const link = `${appUrl}/${company.slug}/restablecer?token=${token}`;
   const minutes = RESET_TOKEN_TTL_MS / 60_000;
   const subject = `Restablece tu contraseña de ${company.name}`;
-  await sender.sendEmail({
+  const email = {
     to: user.email,
     subject,
     html: simpleEmail({
@@ -139,7 +146,16 @@ export async function requestStaffPasswordReset(
       "",
       "Si no la solicitaste, ignora este correo: tu contraseña no cambiará.",
     ].join("\n"),
-  });
+  };
+  const deliver = async () => {
+    try {
+      await sender.sendEmail(email);
+    } catch (error) {
+      console.error("requestStaffPasswordReset: envío fallido", (error as Error).name);
+    }
+  };
+  if (defer) defer(deliver);
+  else await deliver();
 
   return { ok: true };
 }

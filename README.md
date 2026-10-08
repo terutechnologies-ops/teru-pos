@@ -4,7 +4,7 @@ Plataforma de gestión multiempresa de TERU (ventas, inventario, caja, etc.).
 Cada negocio es una empresa cliente con su propia URL; la arepería
 **Su Arepa** es la primera, no el modelo del sistema.
 
-**Estado:** fase 11 cerrada (autenticación del personal, configuración
+**Estado:** fase 12 cerrada (autenticación del personal, configuración
 inicial de la empresa, panel con menú por rol, configuración de negocio y
 equipo, logo, catálogo de venta con categorías y productos con precio y
 foto, inventario con insumos, bodegas, carga inicial, ajustes y kardex,
@@ -16,7 +16,9 @@ ponderado, y anulación; y conteo físico por bodega: borrador, confirmación
 que corrige el inventario y resultado teórico vs. real valorizado; y
 movimientos de caja: gastos con categoría y foto del recibo, retiros e
 ingresos en el turno, con su revisión, anulación y totales en el panel;
-y "Mi cuenta" para cambiar la propia contraseña).
+"Mi cuenta" para cambiar la propia contraseña; y lista de compras con
+existencia ideal por insumo, reporte de cierre del día por correo y
+correos con la marca por Resend).
 
 ## Stack
 
@@ -45,7 +47,7 @@ npm run dev
   Confirmar).
 - Panel `/<slug-empresa>`: menú lateral según el rol. Ventas > Vender,
   Ventas, Cierres de caja y Gastos, Compras > Compras y Proveedores, Catálogo >
-  Productos y Categorías, Inventario > Insumos, Bodegas y Conteos
+  Productos y Categorías, Inventario > Insumos, Lista de compras, Bodegas y Conteos
   (propietario y administrador), Configuración > Negocio
   (propietario), Equipo, Métodos de pago y Categorías de gasto
   (propietario y administrador).
@@ -82,14 +84,26 @@ npm run dev
   el consumo real, la diferencia sobre lo vendido y su valor, con el
   faltante, el sobrante y el neto. Sin anulación: se corrige con otro
   conteo o un ajuste.
+- Lista de compras (`/inventario/lista-de-compras`): cuánto comprar de
+  cada insumo para volver a su **stock ideal** (se define en el insumo),
+  sumando todas las bodegas; un saldo negativo cuenta como 0. Se imprime
+  en 80/58 mm o Carta con la columna "Comprado".
+- Reporte de cierre del día: al cerrar el **último turno abierto de la
+  empresa** (POS o panel), sale por correo a los destinatarios de
+  Configuración > Negocio (hasta 5; vacío = no se envía): cuadre de caja
+  por turno, resumen de ventas y movimientos, y lista de compras. Se envía
+  después de responder al cierre y nunca lo afecta; la tarjeta de Negocio
+  muestra el resultado del último envío.
 - Montos de dinero (precio de productos, POS, compras, caja): punto de
   miles y coma decimal ("16.500", "4,50"), también sin separadores.
 - Recetas: cada producto tiene la pestaña Receta
   (`/catalogo/productos/<id>/receta`) con los insumos que lleva una unidad
   vendida, su costo y el margen sobre el precio.
-- Correos (recuperación de contraseña, invitaciones y reporte de cierre):
-  con `RESEND_API_KEY` salen por Resend; sin ella, en desarrollo se ven en
-  `http://localhost:3000/dev/outbox` y en producción el envío falla.
+- Correos (recuperación de contraseña, invitaciones, aviso de contraseña
+  cambiada, bienvenida al propietario y reporte de cierre): con
+  `RESEND_API_KEY` salen por Resend, **también en desarrollo**; sin ella,
+  en desarrollo se ven en `http://localhost:3000/dev/outbox` y en
+  producción el envío falla. Ver "Correo" abajo.
 
 ### Variables de entorno
 
@@ -171,6 +185,24 @@ ajustan en "Impresión" (se guardan en ese navegador).
 - **Cajón de dinero:** se abre con la opción del driver de la impresora
   (p. ej. "Abrir cajón al imprimir" / *Cash drawer*).
 
+## Correo
+
+Resend envía desde un subdominio verificado (`envios.teruwork.com`,
+región São Paulo) para cuidar la reputación del dominio principal. Para
+configurar otro entorno o dominio:
+
+1. En Resend, Domains → Add Domain con el subdominio de envío.
+2. Copiar en el DNS (Cloudflare, "DNS only") los registros MX y TXT (SPF,
+   DKIM) que muestra Resend, más DMARC (`_dmarc`, TXT `v=DMARC1; p=none;`),
+   y verificar.
+3. Crear una API key con permiso "Sending access" solo para ese dominio,
+   **una por entorno**, y ponerla en `RESEND_API_KEY` junto con
+   `MAIL_FROM` (`Teru POS <reportes@envios.dominio.com>`).
+
+El plan gratuito permite 100 correos por día. Los correos se arman con
+tablas y estilos en línea (`server/services/messaging/email-layout.ts`) y
+siempre llevan también la versión en texto plano.
+
 ## Estructura
 
 ```
@@ -181,10 +213,11 @@ src/
                         (panel): inicio, cuenta, ventas, caja, gastos,
                         compras (con proveedores),
                         catalogo/{productos (con [id]/receta),categorias},
-                        inventario/{insumos,bodegas,conteos} y
+                        inventario/{insumos,lista-de-compras,bodegas,conteos} y
                         configuracion/{negocio,equipo,pagos,gastos};
                         pos (venta, caja, cierre, turno y cuenta),
-                        imprimir/{comanda,soporte,cierre,existencias} y
+                        imprimir/{comanda,soporte,cierre,existencias,
+                        lista-compras} y
                         recibos/[id] (enlace firmado al recibo)
     dev/outbox/         Bandeja de correos (solo desarrollo)
   components/
@@ -194,8 +227,9 @@ src/
     cash/               Cierres de caja, movimientos de caja y gastos
     expenses/           Categorías de gasto
     catalog/            Categorías, productos, fotos, recetas y costos
-    company/            Formularios de datos y logo de la empresa
-    inventory/          Bodegas, insumos, movimientos, kardex y conteos
+    company/            Datos, logo y destinatarios del reporte de la empresa
+    inventory/          Bodegas, insumos, movimientos, kardex, conteos y
+                        lista de compras
     payments/           Métodos de pago
     pos/                Turno de caja y pantalla de venta
     printing/           Hojas impresas y ajustes de impresión del equipo
@@ -208,11 +242,13 @@ src/
   server/
     data/               Único acceso a Prisma; filtra siempre por empresa
     services/           Lógica de negocio (auth y permisos, empresas, equipo,
-                        catálogo, inventario y conteos, recetas y costos,
+                        catálogo, inventario, conteos y lista de compras,
+                        recetas y costos,
                         ventas, caja y sus movimientos, categorías de
                         gasto, métodos de pago, alertas,
                         compras y terceros,
-                        mensajería, imágenes y almacenamiento)
+                        reporte de cierre, mensajería y correos con la
+                        marca, imágenes y almacenamiento)
     http/               Adaptador Next: cookies, cabeceras, sesión actual
     validations/        Esquemas Zod
     dto/                Tipos expuestos fuera de los servicios
@@ -235,3 +271,4 @@ docs/decisiones/        Decisiones de arquitectura (ADR)
 - [ADR 0009 — Conteo físico y consumo teórico vs. real](docs/decisiones/0009-conteo-fisico.md)
 - [ADR 0010 — Movimientos de caja](docs/decisiones/0010-movimientos-de-caja.md)
 - [ADR 0011 — Pendientes del cliente: kardex, precio y Mi cuenta](docs/decisiones/0011-pendientes-del-cliente.md)
+- [ADR 0012 — Lista de compras, reporte de cierre y correo](docs/decisiones/0012-lista-de-compras-y-correo.md)

@@ -3525,3 +3525,35 @@ escritorio y a 390 px (Chrome sin interfaz). No probado en Gmail real ni
 - Siguen los de sesiones anteriores.
 
 **Próximo paso recomendado:** cierre de la fase 12 (componente 6).
+
+## Sesión 2026-10-08 — Cierre de la fase 12
+
+Al iniciar: `prisma generate`, typecheck, suite 453/453 y `next dev`
+levantado. Árbol limpio y sincronizado con `origin/master` (`d1fc406`).
+
+### Componente 6 — Cierre de la fase 12 (aprobado 2026-10-08)
+
+**Fase 12 aprobada** (2026-10-08).
+
+- **Revisión de la fase** (existencia ideal, lista de compras y su hoja,
+  destinatarios, reserva y envío del reporte, Resend, plantillas HTML,
+  outbox, avisos de contraseña y bienvenida): páginas y acciones con
+  sesión y permiso de la empresa enviada, datos filtrados por empresa,
+  HTML escapado en todos los puntos con datos, outbox en `iframe`
+  `sandbox=""`, errores de Resend sin la clave.
+- **Hallazgo corregido:** con Resend, "Recuperar contraseña" revelaba qué
+  correos tienen cuenta: para una cuenta existente la respuesta esperaba
+  la llamada a Resend y, si fallaba (p. ej. límite diario), mostraba error;
+  sin cuenta respondía "enviado" al instante. `requestStaffPasswordReset`
+  recibe `defer` (la acción pasa `after`): el correo sale después de
+  responder y un fallo solo va al log. Era el riesgo del ADR 0001 ("se
+  resuelve enviando en segundo plano al conectar el proveedor real").
+  Dos pruebas nuevas en `password-reset.test.ts`: fallan con el código
+  anterior y pasan con la corrección.
+- `docs/decisiones/0012-lista-de-compras-y-correo.md`; notas en los ADR
+  0001 y 0002 (proveedor de correo ya conectado); README (estado, menú,
+  lista de compras, reporte, correos, sección "Correo" con el dominio y
+  Resend, estructura, ADR).
+- Verificado: typecheck, lint, suite **455/455**, build.
+- No probado en el navegador: el formulario de recuperar contraseña con
+  `after` (con la clave de Resend en `.env` enviaría un correo real).

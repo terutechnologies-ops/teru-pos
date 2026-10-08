@@ -106,7 +106,9 @@ considera fijo porque viaja en enlaces enviados por correo.
 ## Riesgos conocidos
 
 - **Proveedor de correo:** sin él, las invitaciones (igual que la
-  recuperación) no funcionan fuera de desarrollo.
+  recuperación) no funcionan fuera de desarrollo. *(Fase 12: Resend; el
+  alta de empresa también envía la bienvenida al propietario. Ver ADR
+  0012.)*
 - **Envío fallido:** la invitación se guarda antes de enviar el correo; si
   el envío falla queda pendiente sin entregar y se puede reenviar.
 - **Auditoría sin objetivo:** `auth_audit_logs` registra quién hizo cada

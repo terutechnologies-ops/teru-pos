@@ -110,6 +110,8 @@ recuperación y cambio de contraseña, con IP y user agent.
   cuentas existentes.
 - **Tiempo de respuesta de la recuperación:** es algo mayor cuando la cuenta
   existe (crea token y envía correo). Se resuelve enviando en segundo plano
-  al conectar el proveedor real.
+  al conectar el proveedor real. *(Fase 12: el correo sale con `after()`
+  después de responder y un fallo del envío no cambia la respuesta; queda
+  la diferencia de crear el token y auditar. Ver ADR 0012.)*
 - **Proveedor de correo:** pendiente; sin él la recuperación no funciona
-  fuera de desarrollo.
+  fuera de desarrollo. *(Fase 12: Resend. Ver ADR 0012.)*
