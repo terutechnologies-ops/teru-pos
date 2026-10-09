@@ -83,3 +83,10 @@ export const COMPANY_EVENTS = {
   LOGO_REMOVED: "COMPANY_LOGO_REMOVED",
   REPORT_RECIPIENTS_UPDATED: "COMPANY_REPORT_RECIPIENTS_UPDATED",
 } as const;
+
+// Cuentas del equipo Teru (panel /teru). Las crea y restablece el script
+// teru:create-admin (actor SYSTEM, sin empresa; target PLATFORM_USER).
+export const PLATFORM_EVENTS = {
+  USER_CREATED: "PLATFORM_USER_CREATED",
+  PASSWORD_RESET: "PLATFORM_PASSWORD_RESET",
+} as const;

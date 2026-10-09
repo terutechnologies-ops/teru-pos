@@ -3557,3 +3557,60 @@ levantado. Árbol limpio y sincronizado con `origin/master` (`d1fc406`).
 - Verificado: typecheck, lint, suite **455/455**, build.
 - No probado en el navegador: el formulario de recuperar contraseña con
   `after` (con la clave de Resend en `.env` enviaría un correo real).
+
+Commit `ef8b2da` (subido).
+
+## Fase 13 — Panel del equipo Teru (empresas de la plataforma)
+
+Pedido del usuario (2026-10-08): ver qué empresas tiene la plataforma, como
+en sus otros proyectos. Referencias: TERU-RRHH (`SUPER_ADMIN` en usuarios,
+Supabase Auth, `/teru/login` y `/teru`) y TERU-PREDIOS (`SUPERADMIN` sin
+empresa con CHECK, cookie `predios_teru` path `/teru`, lista, ficha, alta
+con primer admin, desactivar/reactivar cerrando sesiones; el equipo Teru no
+entra a las empresas). Cartera pasa a ser la fase 14.
+
+Decisiones del usuario (2026-10-08):
+- **Tablas propias** `platform_users` / `platform_sessions` (no un rol en
+  `users`: allí `companyId` es obligatorio y todo el código lo asume).
+- Alcance: ver empresas, crear empresa, desactivar/reactivar e
+  **indicadores de uso** (solo cifras: ventas 30 días, última venta, último
+  ingreso; nunca el detalle).
+
+Componentes aprobados: 1) modelo de datos; 2) login del equipo Teru
+(`/teru/login`, cookie `teru_session` path `/teru`, 8 h sin "recordar",
+límite de intentos, proxy); 3) lista y ficha de empresas con indicadores;
+4) crear empresa desde el panel + reenviar bienvenida del propietario;
+5) desactivar/reactivar con motivo (cierra sesiones); 6) cierre (ADR 0013,
+README). Fuera: entrar como la empresa, recuperación por correo de la cuenta
+Teru, 2FA, editar datos de la empresa desde `/teru`.
+
+### Componente 1 — Modelo de datos (aprobado 2026-10-08)
+
+- Migración `20261008120000_add_platform_users` (**aplicada en test y
+  dev**; diff vacío; RLS verificado en dev): `ActorType.PLATFORM`,
+  `platform_users` (nombre 2–120, correo único con `CHECK` de minúsculas,
+  hash, activo, último ingreso) y `platform_sessions` (hash del token,
+  vence, último uso, revocada, IP, agente; cascada al borrar la cuenta).
+- Slug `teru` reservado (`RESERVED_SLUGS`); verificado que ninguna empresa
+  de dev lo usa. El proxy se ajusta en el componente 2.
+- `validations/platform.ts` (`platformUserSchema`,
+  `platformPasswordResetSchema`); `newPasswordSchema` ahora exportado.
+- `data/platform.ts`: `createPlatformUser` (`EMAIL_TAKEN`),
+  `findPlatformUserCredentials`, `markPlatformUserLogin`,
+  `resetPlatformUserPassword` (hash + revoca todas sus sesiones en una
+  transacción), `createPlatformSession`, `findActivePlatformSession`
+  (vigente, no revocada, cuenta activa), `extendPlatformSession`,
+  `revokePlatformSession`.
+- `services/platform/accounts.ts`: `createPlatformAdmin`,
+  `resetPlatformAdminPassword`; auditoría `PLATFORM_EVENTS`
+  (`PLATFORM_USER_CREATED`, `PLATFORM_PASSWORD_RESET`) con actor SYSTEM,
+  sin empresa, target `PLATFORM_USER`.
+- Script `npm run teru:create-admin -- --name ... --email ...` (con
+  `--reset` cambia la contraseña y cierra sus sesiones). La contraseña sale
+  de `TERU_ADMIN_PASSWORD` (nunca de la línea de comandos); documentada en
+  `.env.example`. Probado contra la base de pruebas (crear, repetido,
+  reset, sin variable); la cuenta de prueba se borró. **No se creó ninguna
+  cuenta en dev** (la crea el usuario con su correo y contraseña).
+- Pruebas: `platform-accounts.test.ts` (6) y `cleanupPlatformUsers` en
+  `tests/helpers.ts`. Verificado: typecheck, lint, suite **461/461**,
+  build.

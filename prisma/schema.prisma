@@ -903,6 +903,7 @@ enum ActorType {
   STAFF
   CUSTOMER
   SYSTEM
+  PLATFORM
 }
 
 model AuthAuditLog {
@@ -926,4 +927,42 @@ model AuthAuditLog {
   // Límite de intentos: conteo de fallos recientes por IP y acción.
   @@index([ipAddress, action, createdAt])
   @@map("auth_audit_logs")
+}
+
+// --- Plataforma (equipo Teru) -------------------------------------------
+//
+// Cuentas del equipo Teru para el panel /teru (empresas de la plataforma).
+// Tablas propias, separadas de "User": no pertenecen a ninguna empresa y
+// nunca entran a los paneles de las empresas. Correo único y en minúsculas
+// (CHECK en la migración).
+
+model PlatformUser {
+  id           String    @id @default(cuid())
+  name         String
+  email        String    @unique
+  passwordHash String
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions PlatformSession[]
+
+  @@map("platform_users")
+}
+
+model PlatformSession {
+  id         String       @id @default(cuid())
+  userId     String
+  user       PlatformUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String       @unique
+  expiresAt  DateTime
+  lastUsedAt DateTime     @default(now())
+  revokedAt  DateTime?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime     @default(now())
+
+  @@index([userId])
+  @@map("platform_sessions")
 }

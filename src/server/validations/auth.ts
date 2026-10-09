@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 // Primeros segmentos de URL que usa la app y no pueden ser slug de empresa.
-export const RESERVED_SLUGS = new Set(["api", "dev", "_next"]);
+// "teru" es el panel del equipo Teru (/teru).
+export const RESERVED_SLUGS = new Set(["api", "dev", "_next", "teru"]);
 
 export const companySlugSchema = z
   .string()
@@ -42,7 +43,7 @@ export const PASSWORD_MIN_LENGTH = 8;
 export const passwordResetRequestSchema = z.object({ email: emailSchema });
 
 // Reglas de una contraseña nueva (restablecer, invitación y cambio).
-const newPasswordSchema = z
+export const newPasswordSchema = z
   .string()
   .min(PASSWORD_MIN_LENGTH, {
     error: `La contraseña debe tener al menos ${PASSWORD_MIN_LENGTH} caracteres.`,

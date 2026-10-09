@@ -88,3 +88,17 @@ export async function cleanupCompanies(tag: string) {
   await db.user.deleteMany({ where: { companyId: { in: ids } } });
   await db.company.deleteMany({ where: { id: { in: ids } } });
 }
+
+// Cuentas del equipo Teru creadas por una prueba (correo con el prefijo),
+// con su auditoría; las sesiones se borran en cascada.
+export async function cleanupPlatformUsers(tag: string) {
+  const users = await db.platformUser.findMany({
+    where: { email: { startsWith: tag } },
+    select: { id: true },
+  });
+  const ids = users.map((user) => user.id);
+  await db.authAuditLog.deleteMany({
+    where: { OR: [{ targetType: "PLATFORM_USER", targetId: { in: ids } }, { actorType: "PLATFORM", actorId: { in: ids } }] },
+  });
+  await db.platformUser.deleteMany({ where: { id: { in: ids } } });
+}
