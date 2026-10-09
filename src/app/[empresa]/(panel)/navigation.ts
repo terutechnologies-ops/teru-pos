@@ -5,6 +5,7 @@ import {
   Boxes,
   ClipboardCheck,
   ClipboardList,
+  Contact,
   FolderTree,
   HandCoins,
   House,
@@ -119,6 +120,15 @@ export const NAV_ITEMS: readonly NavItem[] = [
     icon: Banknote,
     group: "sales",
     permission: "cash.review",
+  },
+  {
+    id: "sales-customers",
+    label: "Clientes",
+    description: "Clientes de crédito: cupo, plazo y cuánto debe cada uno.",
+    path: "clientes",
+    icon: Contact,
+    group: "sales",
+    permission: "customers.manage",
   },
   {
     id: "purchases-list",

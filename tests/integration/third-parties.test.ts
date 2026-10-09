@@ -83,17 +83,17 @@ describe("proveedores (servicio)", () => {
 
     expect(await create({ name: "LÁCTEOS la vaca" })).toEqual({
       ok: false,
-      fieldErrors: { name: "Ya existe un proveedor con ese nombre." },
+      fieldErrors: { name: "Ya existe un proveedor o cliente con ese nombre." },
     });
     expect(await create({ name: "Otro lácteo", taxId: "900111222-1" })).toEqual({
       ok: false,
-      fieldErrors: { taxId: "Ya existe un proveedor con ese NIT." },
+      fieldErrors: { taxId: "Ya existe un proveedor o cliente con ese NIT." },
     });
 
     const plaza = (await getSupplierList(admin(), { search: "Plaza" }))[0].id;
     expect(await update(plaza, { name: "Plaza de mercado", taxId: "900111222-1" })).toEqual({
       ok: false,
-      fieldErrors: { taxId: "Ya existe un proveedor con ese NIT." },
+      fieldErrors: { taxId: "Ya existe un proveedor o cliente con ese NIT." },
     });
     expect(await update(plaza, { name: "Lácteos La Vaca" })).toMatchObject({
       ok: false,

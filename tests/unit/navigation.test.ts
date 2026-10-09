@@ -103,6 +103,16 @@ describe("navigationFor", () => {
     expect(ids("CASHIER")).not.toContain("cash-movements");
   });
 
+  it("propietario y administrador ven Clientes (en Ventas); personal y cajeros no", () => {
+    const ids = (role: StaffRole) => navigationFor(role).map((item) => item.id);
+    expect(ids("OWNER")).toContain("sales-customers");
+    expect(ids("ADMIN")).toContain("sales-customers");
+    expect(ids("STAFF")).not.toContain("sales-customers");
+    expect(ids("CASHIER")).not.toContain("sales-customers");
+    expect(NAV_ITEMS.find((item) => item.id === "sales-customers")?.group).toBe("sales");
+    expect(activeNavItemId("su-arepa", "/su-arepa/clientes/abc/editar", NAV_ITEMS)).toBe("sales-customers");
+  });
+
   it("propietario y administrador ven Compras y Proveedores; personal y cajeros no", () => {
     const ids = (role: StaffRole) => navigationFor(role).map((item) => item.id);
     expect(ids("OWNER")).toContain("purchases-list");

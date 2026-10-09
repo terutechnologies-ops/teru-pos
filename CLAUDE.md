@@ -3923,3 +3923,80 @@ desde el panel, cuentas por pagar.
   cliente de otra empresa) y ajustes por el cuarto método (métodos de pago,
   datos de ventas, alta desde el panel Teru, catálogo del POS, permisos).
   Verificado: typecheck, lint, suite **485/485**, build.
+
+Commit `b8105f7` (subido).
+
+### Componente 2 — Clientes en el panel (aprobado 2026-10-08)
+
+- Menú "Clientes" (`sales-customers`, grupo Ventas, `clientes`, ícono
+  `Contact`, `customers.manage`). Páginas `/clientes` (búsqueda por nombre
+  o NIT, pestañas Activos/Archivados, avisos), `/clientes/nuevo` y
+  `/clientes/[id]/editar` (la ficha `/clientes/[id]` queda para el estado de
+  cuenta del componente 5).
+- Validación: `customerSchema(currency)` comparte los campos de contacto con
+  `supplierSchema`; cupo con `amountSchema` ("1.500.000"; vacío = error,
+  el formulario arranca en 0) y plazo entero 0–365.
+- Datos `data/customers.ts`: `customerBalances` (ventas COMPLETADAS, solo la
+  parte pagada con Crédito, por `customerId`, en SQL agrupado, menos abonos
+  RECORDED con `groupBy`), lista, búsqueda, crear, editar y
+  `setCustomerArchived` (bloquea el cliente `FOR UPDATE`; no archiva con
+  saldo: `HAS_BALANCE`). `uniqueStatus` exportado de `third-parties.ts`.
+- Servicio `services/customers.ts` (`customers.manage`): DTO con cupo,
+  plazo, saldo y disponible (= cupo − saldo, nunca negativo); auditoría
+  `CUSTOMER_CREDIT_CHANGED` (target `THIRD_PARTY`) al crear con cupo > 0 y
+  cuando cambian cupo o plazo.
+- Nombre/NIT repetido: "Ya existe un proveedor o cliente con ese …" en
+  clientes y en proveedores (la tabla es la misma); ayuda del formulario de
+  proveedores ajustada.
+- UI `components/customers/` (campos, acciones, formulario con secciones
+  "Datos del cliente" —correo con la nota de que recibe el registro de cada
+  compra a crédito— y "Crédito" con `MoneyField` y plazo; lista con cupo,
+  debe, disponible, plazo e insignias "Sin crédito" / "Sin correo"; archivar
+  y restaurar).
+- Pruebas: `customers.test.ts` (6: mensajes, alta con miles y auditoría,
+  choque con proveedor, edición auditada solo con cambios de crédito,
+  saldo con anuladas y disponible, archivar con saldo, otra empresa,
+  proveedores y permisos), menú y proveedores ajustados. Verificado:
+  typecheck, lint, suite **492/492**, build; sin sesión las rutas redirigen
+  al login. Revisión visual con sesión: la hace el usuario.
+
+## Cierre de la sesión 2026-10-08 (final)
+
+**Implementado hoy (todo con commit y subido a `origin/master`):**
+- Fase 12 cerrada (`ef8b2da`) y fase 13 completa y cerrada — panel del
+  equipo Teru (`a340f58` … `408a101`).
+- Fase 14 — cartera: alcance aprobado; componentes 1 (modelo y permiso,
+  `b8105f7`) y 2 (clientes en el panel, último commit de la sesión).
+
+**Pendiente (mañana):**
+- Fase 14, componente 3 — **venta a crédito en el POS** (diseñar y aprobar
+  antes): elegir el cliente (búsqueda), ver su disponible, bloquear por cupo
+  en la transacción con el cliente bloqueado (`FOR UPDATE`; quitar
+  `CREDIT_REQUIRES_CUSTOMER` como rechazo fijo y ofrecer Crédito en el POS
+  cuando esté activo), cliente en el soporte impreso y en el detalle de la
+  venta, y **correo de la compra a crédito** al cliente (pedido, valor,
+  "Venta #N", con `after()`; memoria `correo-compra-credito`). Decidir qué
+  pasa al anular una venta a crédito ya cubierta por abonos (no hay saldo a
+  favor).
+- Componentes 4 (abonos en el POS), 5 (estado de cuenta, cartera, alerta de
+  vencidos) y 6 (cierre, ADR 0014).
+- Usuario: revisar con sesión `/teru` (cuenta Teru ya existe en dev) y
+  `/su-arepa/clientes`; activar "Crédito" en Métodos de pago cuando se
+  pruebe el componente 3.
+- Después: preparación para producción (incluye 2FA Teru y lo de los
+  correos en spam) y despliegue.
+
+**Decisiones técnicas de hoy:** ver fases 12, 13 y 14 arriba. Resumen de la
+cartera: Crédito como método de pago del sistema (inactivo por defecto),
+saldo calculado (no guardado) = ventas a crédito completadas − abonos
+registrados, cupo/plazo auditados, clientes y proveedores comparten nombre y
+NIT únicos.
+
+**Errores y riesgos conocidos:**
+- Los heredoc largos en Bash fallan ("unexpected EOF"): usar Write.
+- Prisma no acepta `create` anidado de `salePayment` con FK compuesta en una
+  venta creada con escalares: crear la venta y luego `createMany`.
+- Siguen los de sesiones anteriores.
+
+**Próximo paso recomendado:** diseño del componente 3 de la fase 14 (venta
+a crédito en el POS y correo de la compra).

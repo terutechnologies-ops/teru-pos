@@ -97,6 +97,12 @@ export const PLATFORM_SESSION_TTL_MS = 8 * HOUR;
 // Las cuentas las crea y restablece el script teru:create-admin (actor
 // SYSTEM, sin empresa; target PLATFORM_USER). Los eventos de sesión van con
 // actor PLATFORM y sin empresa.
+// Clientes de crédito: el cupo y el plazo controlan dinero, así que cada
+// cambio (y el alta con crédito) se audita, con target THIRD_PARTY.
+export const CUSTOMER_EVENTS = {
+  CREDIT_CHANGED: "CUSTOMER_CREDIT_CHANGED",
+} as const;
+
 export const PLATFORM_USER_TARGET = "PLATFORM_USER";
 
 export const PLATFORM_EVENTS = {

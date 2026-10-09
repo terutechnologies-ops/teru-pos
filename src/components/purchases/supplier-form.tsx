@@ -87,7 +87,7 @@ export function SupplierForm({
         <SectionTitle
           icon={<Truck className="size-5" aria-hidden />}
           title="Datos del proveedor"
-          description="El nombre y el NIT no se pueden repetir entre tus proveedores."
+          description="El nombre y el NIT no se pueden repetir entre tus proveedores y clientes."
         />
 
         <FormField name="name" label="Nombre" required error={fieldErrors.name}>

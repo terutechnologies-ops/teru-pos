@@ -13,8 +13,8 @@ import {
 import { assertPermission } from "@/server/services/auth/permissions";
 import { supplierSchema, type SupplierInput } from "@/server/validations/third-parties";
 
-// Terceros. Por ahora solo proveedores, con purchases.manage y dentro de la
-// empresa de la sesión. Sin auditoría (como las bodegas): no mueven dinero
+// Proveedores, con purchases.manage y dentro de la empresa de la sesión
+// (los clientes de crédito están en customers.ts). Sin auditoría (como las bodegas): no mueven dinero
 // ni existencias.
 
 export type SupplierDto = Awaited<ReturnType<typeof listSuppliers>>[number];
@@ -51,11 +51,11 @@ const SUPPLIER_GONE = "El proveedor ya no existe. Actualiza la página.";
 const TAKEN: Record<"NAME_TAKEN" | "TAX_ID_TAKEN", SaveSupplierResult> = {
   NAME_TAKEN: {
     ok: false,
-    fieldErrors: { name: "Ya existe un proveedor con ese nombre." },
+    fieldErrors: { name: "Ya existe un proveedor o cliente con ese nombre." },
   },
   TAX_ID_TAKEN: {
     ok: false,
-    fieldErrors: { taxId: "Ya existe un proveedor con ese NIT." },
+    fieldErrors: { taxId: "Ya existe un proveedor o cliente con ese NIT." },
   },
 };
 

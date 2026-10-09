@@ -4,13 +4,14 @@ import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import type { SupplierData } from "@/server/validations/third-parties";
 
-// Terceros. Por ahora solo proveedores (isSupplier); no se borran: se
-// archivan. Nombre y NIT únicos por empresa (índices de la migración).
+// Terceros: proveedores (isSupplier) aquí y clientes de crédito en
+// customers.ts. No se borran: se archivan. Nombre y NIT únicos por empresa
+// (índices de la migración), sin importar el papel.
 
 export type ThirdPartyWriteStatus = "OK" | "NOT_FOUND" | "NAME_TAKEN" | "TAX_ID_TAKEN";
 
 // P2002 en el índice del NIT o en el del nombre.
-function uniqueStatus(error: unknown): ThirdPartyWriteStatus | null {
+export function uniqueStatus(error: unknown): ThirdPartyWriteStatus | null {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") {
     return null;
   }
