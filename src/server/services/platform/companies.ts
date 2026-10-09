@@ -11,22 +11,25 @@ import type { RequestContext } from "@/server/dto/auth";
 import { recordAuthEvent } from "@/server/data/auth-audit";
 import {
   companyHasOwnerAccount,
+  deactivateCompany,
   findCompanyForPlatform,
   findPendingOwnerInvitation,
   findPlatformCompany,
   isCompanySlugTaken,
   listPlatformCompanies,
+  reactivateCompany,
   type PlatformCompanyRow,
 } from "@/server/data/platform-companies";
 import { replaceStaffInvitation } from "@/server/data/staff-invitations";
 import { getAppUrl } from "@/server/env";
-import { STAFF_EVENTS, STAFF_INVITATION_TTL_MS } from "@/server/services/auth/config";
+import { COMPANY_EVENTS, STAFF_EVENTS, STAFF_INVITATION_TTL_MS } from "@/server/services/auth/config";
 import { generateToken, hashToken } from "@/server/services/auth/tokens";
 import { createCompany } from "@/server/services/companies";
 import { publicFileUrl } from "@/server/services/images";
 import { sendOwnerWelcome } from "@/server/services/owner-welcome";
 import type { PlatformSessionDto } from "@/server/services/platform/auth";
 import { createCompanySchema } from "@/server/validations/companies";
+import { deactivationReasonSchema } from "@/server/validations/platform";
 
 // Empresas de la plataforma para el panel del equipo Teru. Cada función pide
 // la sesión Teru (la página ya la validó; así ningún otro código puede
@@ -106,6 +109,13 @@ export async function getPlatformCompany(
     setupCompletedAt: when(row.setupCompletedAt),
     branches: row.branches,
     usersByRole: row.usersByRole,
+    deactivation: row.deactivatedAt
+      ? {
+          at: when(row.deactivatedAt)!,
+          reason: row.deactivationReason ?? "",
+          by: row.deactivatedBy?.name ?? null,
+        }
+      : null,
     // Solo mientras el propietario no haya creado su cuenta.
     ownerInvitation:
       !row.owner && row.ownerInvitation
@@ -205,14 +215,7 @@ export async function resendOwnerWelcome(
     expiresAt: new Date(Date.now() + STAFF_INVITATION_TTL_MS),
     invitedById: null,
   });
-  await recordAuthEvent({
-    companyId: company.id,
-    actorType: "PLATFORM",
-    actorId: session.user.id,
-    action: STAFF_EVENTS.INVITATION_RESENT,
-    ipAddress: ctx.ipAddress,
-    userAgent: ctx.userAgent,
-  });
+  await platformAudit(session, company.id, STAFF_EVENTS.INVITATION_RESENT, ctx);
   const sent = await sendOwnerWelcome({
     companyName: company.name,
     slug: company.slug,
@@ -223,4 +226,57 @@ export async function resendOwnerWelcome(
   return sent
     ? { ok: true }
     : { ok: false, error: "No se pudo enviar el correo. Intenta de nuevo en un momento." };
+}
+
+// --- Desactivar y reactivar ------------------------------------------------
+
+export type CompanyStateResult =
+  | { ok: true; revokedSessions: number }
+  | { ok: false; error: string };
+
+function platformAudit(session: PlatformSessionDto, companyId: string, action: string, ctx: RequestContext) {
+  return recordAuthEvent({
+    companyId,
+    actorType: "PLATFORM",
+    actorId: session.user.id,
+    action,
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
+  });
+}
+
+const validCompanyId = (id: string) => id.length > 0 && id.length <= 64;
+
+// Con motivo: nadie de la empresa puede volver a entrar y se cierran todas
+// sus sesiones. Los datos se conservan.
+export async function deactivatePlatformCompany(
+  session: PlatformSessionDto,
+  companyId: string,
+  reasonInput: string,
+  ctx: RequestContext,
+): Promise<CompanyStateResult> {
+  assertPlatformSession(session);
+  const reason = deactivationReasonSchema.safeParse(reasonInput);
+  if (!reason.success) return { ok: false, error: reason.error.issues[0].message };
+  if (!validCompanyId(companyId)) return { ok: false, error: "Esta empresa no existe." };
+
+  const result = await deactivateCompany(companyId, { reason: reason.data, byId: session.user.id });
+  if (result.status === "NOT_FOUND") return { ok: false, error: "Esta empresa no existe." };
+  if (result.status === "UNCHANGED") return { ok: false, error: "La empresa ya estaba desactivada." };
+  await platformAudit(session, companyId, COMPANY_EVENTS.DEACTIVATED, ctx);
+  return { ok: true, revokedSessions: result.revokedSessions };
+}
+
+export async function reactivatePlatformCompany(
+  session: PlatformSessionDto,
+  companyId: string,
+  ctx: RequestContext,
+): Promise<CompanyStateResult> {
+  assertPlatformSession(session);
+  if (!validCompanyId(companyId)) return { ok: false, error: "Esta empresa no existe." };
+  const result = await reactivateCompany(companyId);
+  if (result.status === "NOT_FOUND") return { ok: false, error: "Esta empresa no existe." };
+  if (result.status === "UNCHANGED") return { ok: false, error: "La empresa ya estaba activa." };
+  await platformAudit(session, companyId, COMPANY_EVENTS.REACTIVATED, ctx);
+  return { ok: true, revokedSessions: 0 };
 }

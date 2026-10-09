@@ -18,3 +18,5 @@ export const initialNewCompanyState: NewCompanyFormState = {
 };
 
 export type ResendWelcomeState = { error: string | null };
+
+export type CompanyStateFormState = { error: string | null; reason: string };

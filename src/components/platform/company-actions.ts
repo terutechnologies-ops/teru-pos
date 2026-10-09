@@ -4,9 +4,19 @@ import { redirect } from "next/navigation";
 
 import { requirePlatformSession } from "@/server/http/platform-session";
 import { getRequestContext } from "@/server/http/staff-session";
-import { createCompanyFromPanel, resendOwnerWelcome } from "@/server/services/platform/companies";
+import {
+  createCompanyFromPanel,
+  deactivatePlatformCompany,
+  reactivatePlatformCompany,
+  resendOwnerWelcome,
+} from "@/server/services/platform/companies";
 
-import type { NewCompanyFormState, NewCompanyValues, ResendWelcomeState } from "./company-fields";
+import type {
+  CompanyStateFormState,
+  NewCompanyFormState,
+  NewCompanyValues,
+  ResendWelcomeState,
+} from "./company-fields";
 
 export async function createCompanyAction(
   _prev: NewCompanyFormState,
@@ -45,4 +55,28 @@ export async function resendWelcomeAction(
   }
   if (!result.ok) return { error: result.error };
   redirect(`/teru/empresas/${encodeURIComponent(companyId)}?aviso=reenviada`);
+}
+
+// Desactivar (con motivo) y reactivar. Vuelven a la ficha con un aviso.
+export async function setCompanyActiveAction(
+  _prev: CompanyStateFormState,
+  formData: FormData,
+): Promise<CompanyStateFormState> {
+  const session = await requirePlatformSession();
+  const companyId = String(formData.get("company") ?? "");
+  const reason = String(formData.get("reason") ?? "");
+  const activate = formData.get("intent") === "reactivate";
+  let result;
+  try {
+    const ctx = await getRequestContext();
+    result = activate
+      ? await reactivatePlatformCompany(session, companyId, ctx)
+      : await deactivatePlatformCompany(session, companyId, reason, ctx);
+  } catch (error) {
+    console.error("setCompanyActiveAction: error inesperado", (error as Error).name);
+    return { error: "No se pudo guardar el cambio. Intenta de nuevo.", reason };
+  }
+  if (!result.ok) return { error: result.error, reason };
+  const notice = activate ? "reactivada" : `desactivada&sesiones=${result.revokedSessions}`;
+  redirect(`/teru/empresas/${encodeURIComponent(companyId)}?aviso=${notice}`);
 }

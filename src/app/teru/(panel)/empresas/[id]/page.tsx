@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CircleCheck, TriangleAlert } from "lucide-react";
 
+import { CompanyAccess } from "@/components/platform/company-access";
 import { CompanyData, CompanyTeam, CompanyUsage } from "@/components/platform/company-detail";
 import { CompanyStatusBadge } from "@/components/platform/company-list";
 import { CompanyMark } from "@/components/shared/company-mark";
@@ -22,6 +23,8 @@ const NOTICES: Record<string, { text: string; warning?: boolean }> = {
     warning: true,
   },
   reenviada: { text: "Bienvenida reenviada con un enlace nuevo. El anterior ya no sirve." },
+  desactivada: { text: "Empresa desactivada. Nadie de la empresa puede entrar." },
+  reactivada: { text: "Empresa reactivada. Su personal ya puede entrar de nuevo." },
 };
 
 // Ficha de una empresa para el equipo Teru: datos, equipo (cuántos por rol)
@@ -32,8 +35,13 @@ export default async function PlatformCompanyPage({
 }: PageProps<"/teru/empresas/[id]">) {
   const session = await requirePlatformSession();
   const { id } = await params;
-  const { aviso } = await searchParams;
-  const notice = typeof aviso === "string" ? NOTICES[aviso] : undefined;
+  const { aviso, sesiones } = await searchParams;
+  const base = typeof aviso === "string" ? NOTICES[aviso] : undefined;
+  const closed = Number(sesiones);
+  const notice =
+    base && aviso === "desactivada" && closed > 0
+      ? { ...base, text: `${base.text} Se ${closed === 1 ? "cerró 1 sesión abierta" : `cerraron ${closed} sesiones abiertas`}.` }
+      : base;
   const company = await getPlatformCompany(session, id);
   if (!company) notFound();
 
@@ -68,6 +76,9 @@ export default async function PlatformCompanyPage({
         <CompanyData company={company} />
         <CompanyTeam company={company} />
       </div>
+      <CompanyAccess
+        company={{ id: company.id, name: company.name, slug: company.slug, deactivation: company.deactivation }}
+      />
     </>
   );
 }

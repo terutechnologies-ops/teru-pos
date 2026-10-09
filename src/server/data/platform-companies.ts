@@ -85,6 +85,9 @@ export async function findPlatformCompany(companyId: string, since: Date) {
         email: true,
         address: true,
         timeZone: true,
+        deactivatedAt: true,
+        deactivationReason: true,
+        deactivatedBy: { select: { name: true } },
       },
     }),
     usageByCompany(since, { companyId }),
@@ -129,4 +132,51 @@ export async function findCompanyForPlatform(companyId: string) {
     where: { id: companyId },
     select: { id: true, name: true, slug: true, isActive: true },
   });
+}
+
+// --- Desactivar y reactivar ------------------------------------------------
+
+export type CompanyStateChange =
+  | { status: "OK"; revokedSessions: number }
+  | { status: "NOT_FOUND" }
+  | { status: "UNCHANGED" };
+
+// Desactiva y cierra todas las sesiones del personal en una transacción. Su
+// login deja de existir (solo se buscan empresas activas); los datos se
+// conservan. UNCHANGED si ya estaba desactivada.
+export async function deactivateCompany(
+  companyId: string,
+  input: { reason: string; byId: string },
+  now: Date = new Date(),
+): Promise<CompanyStateChange> {
+  return db.$transaction(async (tx) => {
+    const updated = await tx.company.updateMany({
+      where: { id: companyId, isActive: true },
+      data: {
+        isActive: false,
+        deactivatedAt: now,
+        deactivationReason: input.reason,
+        deactivatedById: input.byId,
+      },
+    });
+    if (updated.count === 0) {
+      const exists = await tx.company.count({ where: { id: companyId } });
+      return { status: exists ? "UNCHANGED" : "NOT_FOUND" } as const;
+    }
+    const revoked = await tx.userSession.updateMany({
+      where: { companyId, revokedAt: null },
+      data: { revokedAt: now },
+    });
+    return { status: "OK", revokedSessions: revoked.count } as const;
+  });
+}
+
+export async function reactivateCompany(companyId: string): Promise<CompanyStateChange> {
+  const updated = await db.company.updateMany({
+    where: { id: companyId, isActive: false },
+    data: { isActive: true, deactivatedAt: null, deactivationReason: null, deactivatedById: null },
+  });
+  if (updated.count === 1) return { status: "OK", revokedSessions: 0 };
+  const exists = await db.company.count({ where: { id: companyId } });
+  return { status: exists ? "UNCHANGED" : "NOT_FOUND" };
 }

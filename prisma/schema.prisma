@@ -49,15 +49,21 @@ model Company {
   // Correos que reciben el reporte al cerrar el último turno del día (en
   // minúsculas, sin repetidos). Vacío = no se envía. CHECK de máximo 5 en
   // la migración.
-  closingReportEmails      String[]  @default([])
+  closingReportEmails      String[]      @default([])
+  // Desactivación desde el panel del equipo Teru (CHECK: inactiva <=> con
+  // fecha y motivo). Reactivar los borra; el historial queda en auditoría.
+  deactivatedAt            DateTime?
+  deactivationReason       String?
+  deactivatedById          String?
+  deactivatedBy            PlatformUser? @relation(fields: [deactivatedById], references: [id], onDelete: SetNull)
   // Último número de venta usado. Se incrementa dentro de la transacción de
   // la venta: el consecutivo queda sin huecos.
-  lastSaleNumber           Int       @default(0)
+  lastSaleNumber           Int           @default(0)
   // Último número de compra confirmada (se asigna al confirmar, no al
   // crear el borrador: borrar un borrador no deja huecos).
-  lastPurchaseNumber       Int       @default(0)
+  lastPurchaseNumber       Int           @default(0)
   // Último número de conteo físico confirmado (se asigna al confirmar).
-  lastInventoryCountNumber Int       @default(0)
+  lastInventoryCountNumber Int           @default(0)
 
   users               User[]
   userSessions        UserSession[]
@@ -946,7 +952,8 @@ model PlatformUser {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  sessions PlatformSession[]
+  sessions             PlatformSession[]
+  deactivatedCompanies Company[]
 
   @@map("platform_users")
 }

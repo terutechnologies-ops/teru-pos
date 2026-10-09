@@ -138,7 +138,10 @@ describe("alta de empresas desde el panel Teru", () => {
     const inactive = await createCompanyFromPanel(teru, input("apagada"), ctx(tag));
     if (!withOwner.ok || !inactive.ok) throw new Error("no se creó");
     await createUser({ companyId: withOwner.companyId, email: `sara-con-dueno@${tag}.co`, role: "OWNER" });
-    await db.company.update({ where: { id: inactive.companyId }, data: { isActive: false } });
+    await db.company.update({
+      where: { id: inactive.companyId },
+      data: { isActive: false, deactivatedAt: new Date(), deactivationReason: "Prueba" },
+    });
 
     expect(await resendOwnerWelcome(teru, withOwner.companyId, ctx(tag))).toEqual({
       ok: false,

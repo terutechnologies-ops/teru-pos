@@ -3734,3 +3734,40 @@ Commit `02f0b9d` (subido).
   `teruwork.com`, Google Postmaster Tools, DMARC a `p=quarantine` con `rua`
   tras unas semanas en PASS y un Reply-To real (p. ej.
   `soporte@teruwork.com`).
+
+Commit `cddf96d` (subido).
+
+### Componente 5 — Desactivar y reactivar empresas (aprobado 2026-10-08)
+
+- Migración `20261008130000_add_company_deactivation` (**aplicada en test
+  y dev**; diff vacío; en dev no había empresas inactivas):
+  `companies.deactivatedAt`, `deactivationReason` (3–200) y
+  `deactivatedById` (FK a `platform_users`, `SET NULL`). CHECK: inactiva ⇔
+  con fecha ⇔ con motivo. Las ya inactivas reciben `updatedAt` y un motivo
+  genérico.
+- Datos (`data/platform-companies.ts`): `deactivateCompany` (en una
+  transacción: solo si está activa, guarda fecha, motivo y quién, y
+  **revoca todas las sesiones del personal**; `UNCHANGED` si ya estaba) y
+  `reactivateCompany` (borra los tres campos). La ficha trae fecha, motivo
+  y nombre de quien desactivó.
+- Servicio: `deactivatePlatformCompany` (motivo con
+  `deactivationReasonSchema`) y `reactivatePlatformCompany`; auditoría
+  `COMPANY_DEACTIVATED` / `COMPANY_REACTIVATED` con actor PLATFORM e IP
+  (`platformAudit`, que ahora usa también el reenvío). El motivo vigente
+  queda en la empresa; el historial de cambios, en la auditoría (sin el
+  motivo).
+- Con la empresa inactiva: su login da 404 (solo se buscan empresas
+  activas), las sesiones cerradas no reviven al reactivar, la bienvenida no
+  se reenvía. Los turnos de caja abiertos quedan abiertos hasta reactivarla.
+- UI `components/platform/company-access.tsx` (sección "Acceso de la
+  empresa" en la ficha): activa → `<details>` "Desactivar empresa" con
+  motivo y botón de confirmación; inactiva → fecha, quién, motivo y
+  "Reactivar empresa". Acción `setCompanyActiveAction` (`intent`), avisos
+  `?aviso=desactivada&sesiones=N` y `reactivada`.
+- Pruebas: `platform-company-access.test.ts` (5: motivo, desactivar con
+  sesiones cerradas, login bloqueado, otra empresa intacta, ficha, lista y
+  auditoría; reactivar sin revivir sesiones; CHECK de la base; sin sesión
+  Teru). Ajustadas las dos pruebas del panel que desactivaban empresas
+  directamente. Verificado: typecheck, lint, suite **481/481**, build. Por
+  HTTP sin JS contra `next start` con la base de pruebas: 13/13
+  (`t_teru_acceso.py` del scratchpad); datos temporales borrados.

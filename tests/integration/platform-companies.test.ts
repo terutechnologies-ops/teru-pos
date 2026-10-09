@@ -34,7 +34,7 @@ beforeAll(async () => {
   nueva = await createCompany(`${tag}-nueva`, "Recién Creada");
   apagada = await createCompany(`${tag}-apagada`, "Apagada");
   await db.company.update({ where: { id: vende.id }, data: { setupCompletedAt: new Date(), taxId: "900.123.456-7" } });
-  await db.company.update({ where: { id: apagada.id }, data: { isActive: false, setupCompletedAt: new Date() } });
+  await db.company.update({ where: { id: apagada.id }, data: { isActive: false, setupCompletedAt: new Date(), deactivatedAt: new Date(), deactivationReason: "Prueba" } });
 
   await createMainBranch(vende.id);
   await db.$transaction((tx) => createDefaultPaymentMethods(tx, vende.id));

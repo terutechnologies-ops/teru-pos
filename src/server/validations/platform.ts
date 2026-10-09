@@ -23,3 +23,11 @@ export const platformPasswordResetSchema = z.object({
 
 // Mismas reglas que el login del personal, sin "recordar".
 export const platformLoginSchema = staffLoginSchema.pick({ email: true, password: true });
+
+// Motivo de desactivar una empresa (queda en la empresa mientras esté
+// desactivada).
+export const deactivationReasonSchema = z
+  .string()
+  .trim()
+  .min(3, { error: "Escribe el motivo (mínimo 3 caracteres)." })
+  .max(200, { error: "El motivo no puede superar 200 caracteres." });
