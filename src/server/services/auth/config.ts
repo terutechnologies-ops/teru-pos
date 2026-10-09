@@ -84,9 +84,22 @@ export const COMPANY_EVENTS = {
   REPORT_RECIPIENTS_UPDATED: "COMPANY_REPORT_RECIPIENTS_UPDATED",
 } as const;
 
-// Cuentas del equipo Teru (panel /teru). Las crea y restablece el script
-// teru:create-admin (actor SYSTEM, sin empresa; target PLATFORM_USER).
+// Equipo Teru (panel /teru): sesión de 8 h sin "recordar" (deslizante,
+// como la del personal). El límite de intentos usa los mismos números que el
+// login del personal, con sus propios eventos: los fallos de un login no
+// cuentan para el otro.
+export const PLATFORM_SESSION_TTL_MS = 8 * HOUR;
+
+// Las cuentas las crea y restablece el script teru:create-admin (actor
+// SYSTEM, sin empresa; target PLATFORM_USER). Los eventos de sesión van con
+// actor PLATFORM y sin empresa.
+export const PLATFORM_USER_TARGET = "PLATFORM_USER";
+
 export const PLATFORM_EVENTS = {
   USER_CREATED: "PLATFORM_USER_CREATED",
   PASSWORD_RESET: "PLATFORM_PASSWORD_RESET",
+  LOGIN_SUCCESS: "PLATFORM_LOGIN_SUCCESS",
+  LOGIN_FAILED: "PLATFORM_LOGIN_FAILED",
+  LOGIN_BLOCKED: "PLATFORM_LOGIN_BLOCKED",
+  LOGOUT: "PLATFORM_LOGOUT",
 } as const;

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { emailSchema, newPasswordSchema } from "@/server/validations/auth";
+import { emailSchema, newPasswordSchema, staffLoginSchema } from "@/server/validations/auth";
 
 // Cuentas del equipo Teru (panel /teru).
 
@@ -20,3 +20,6 @@ export const platformPasswordResetSchema = z.object({
   email: emailSchema,
   password: newPasswordSchema,
 });
+
+// Mismas reglas que el login del personal, sin "recordar".
+export const platformLoginSchema = staffLoginSchema.pick({ email: true, password: true });

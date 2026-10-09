@@ -7,6 +7,8 @@ import { NextResponse, type NextRequest } from "next/server";
 // Debe coincidir con STAFF_SESSION_COOKIE (src/server/http/staff-session.ts);
 // no se importa porque ese módulo es server-only y depende de next/headers.
 const STAFF_SESSION_COOKIE = "staff_session";
+// Igual con PLATFORM_SESSION_COOKIE (src/server/http/platform-session.ts).
+const PLATFORM_SESSION_COOKIE = "teru_session";
 
 // Primeros segmentos que no son empresas (ver RESERVED_SLUGS en
 // src/server/validations/auth.ts).
@@ -24,6 +26,14 @@ export function proxy(request: NextRequest) {
   const [companySlug, section] = request.nextUrl.pathname
     .split("/")
     .filter(Boolean);
+
+  // Panel del equipo Teru: su propia cookie y su propio login.
+  if (companySlug === "teru") {
+    if (section === "login" || request.cookies.has(PLATFORM_SESSION_COOKIE)) {
+      return NextResponse.next();
+    }
+    return NextResponse.redirect(new URL("/teru/login", request.url));
+  }
 
   if (
     !companySlug ||

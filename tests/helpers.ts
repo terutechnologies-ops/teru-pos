@@ -90,7 +90,8 @@ export async function cleanupCompanies(tag: string) {
 }
 
 // Cuentas del equipo Teru creadas por una prueba (correo con el prefijo),
-// con su auditoría; las sesiones se borran en cascada.
+// con su auditoría (también la escrita por IP con el prefijo, p. ej. un
+// login con un correo inexistente); las sesiones se borran en cascada.
 export async function cleanupPlatformUsers(tag: string) {
   const users = await db.platformUser.findMany({
     where: { email: { startsWith: tag } },
@@ -98,7 +99,13 @@ export async function cleanupPlatformUsers(tag: string) {
   });
   const ids = users.map((user) => user.id);
   await db.authAuditLog.deleteMany({
-    where: { OR: [{ targetType: "PLATFORM_USER", targetId: { in: ids } }, { actorType: "PLATFORM", actorId: { in: ids } }] },
+    where: {
+      OR: [
+        { targetType: "PLATFORM_USER", targetId: { in: ids } },
+        { actorType: "PLATFORM", actorId: { in: ids } },
+        { ipAddress: { startsWith: tag } },
+      ],
+    },
   });
   await db.platformUser.deleteMany({ where: { id: { in: ids } } });
 }

@@ -3614,3 +3614,40 @@ Teru, 2FA, editar datos de la empresa desde `/teru`.
 - Pruebas: `platform-accounts.test.ts` (6) y `cleanupPlatformUsers` en
   `tests/helpers.ts`. Verificado: typecheck, lint, suite **461/461**,
   build.
+
+Commit `a340f58` (subido).
+
+### Componente 2 — Login del equipo Teru (aprobado 2026-10-08)
+
+- **Servicio** `services/platform/auth.ts`: `loginPlatform` (mismo esquema
+  que el personal: verificación contra hash ficticio si el correo no
+  existe, mismo error para cuenta inactiva, límite 5 por cuenta y 20 por
+  IP en 15 min con **eventos propios** `PLATFORM_LOGIN_*`: los fallos del
+  login del personal no cuentan y viceversa; el restablecimiento con el
+  script desbloquea la cuenta), `getPlatformSession` (8 h deslizante,
+  renueva con menos de la mitad), `logoutPlatform`. Auditoría con actor
+  `PLATFORM` y sin empresa. `findLatestAuthEventAt` acepta `target` además
+  de `actor`; `PLATFORM_USER_TARGET` y `PLATFORM_SESSION_TTL_MS` en
+  `auth/config.ts`; `platformLoginSchema`.
+- **HTTP** `server/http/platform-session.ts`: cookie `teru_session`
+  (httpOnly, `Secure` en producción, `SameSite=lax`, **path `/teru`**, sin
+  `expires`), `getCurrentPlatformSession` (con `cache`) y
+  `requirePlatformSession`.
+- **Proxy:** `/teru` sin `teru_session` → `/teru/login` (excepto el login).
+- **Rutas:** `/teru/login` (`AuthShell` con el logo de Teru POS, "Equipo
+  Teru"; sin "recordar" ni "¿Olvidaste tu contraseña?"; con sesión va al
+  panel) y `/teru` (layout con barra morada: logo, "Equipo Teru", cuenta y
+  "Salir"; la página por ahora solo tiene el encabezado "Empresas").
+- Pruebas: `platform-auth.test.ts` (6: login y sesión con solo el hash,
+  errores iguales, bloqueo por cuenta y desbloqueo al restablecer, bloqueo
+  por IP sin contar los fallos del personal, renovación y cierre, una
+  sesión del personal no sirve). Verificado: typecheck, lint, suite
+  **467/467**, build. Por HTTP contra `next start` con la **base de
+  pruebas** (cuenta temporal ya borrada; `t_teru_login.py` del
+  scratchpad): 14/14 (error, cookie con path y Secure, panel, login con
+  sesión, el token no sirve en una empresa, salir y token revocado). Con
+  `next dev`: `/teru` y `/teru/empresas/x` sin cookie o con cookie falsa →
+  login; `/su-arepa/login` sigue igual.
+- Nota de pruebas: con `next start` (`NODE_ENV=production`) la cookie lleva
+  `Secure`; `requests` no la envía por http (el navegador sí en
+  `localhost`): se copia a mano.

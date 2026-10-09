@@ -43,17 +43,23 @@ export async function countRecentAuthEvents(params: {
   });
 }
 
+// Último evento de una acción hecha por un actor o sobre un elemento (p. ej.
+// el restablecimiento de una cuenta Teru, que hace el script y no la
+// persona).
 export async function findLatestAuthEventAt(params: {
   action: string;
-  actor: { type: ActorType; id: string };
   since: Date;
-}): Promise<Date | null> {
+} & (
+  | { actor: { type: ActorType; id: string }; target?: never }
+  | { target: { type: string; id: string }; actor?: never }
+)): Promise<Date | null> {
+  const { actor, target } = params;
   const event = await db.authAuditLog.findFirst({
     where: {
       action: params.action,
-      actorType: params.actor.type,
-      actorId: params.actor.id,
       createdAt: { gte: params.since },
+      ...(actor ? { actorType: actor.type, actorId: actor.id } : {}),
+      ...(target ? { targetType: target.type, targetId: target.id } : {}),
     },
     orderBy: { createdAt: "desc" },
     select: { createdAt: true },

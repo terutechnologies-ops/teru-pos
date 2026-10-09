@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { recordAuthEvent } from "@/server/data/auth-audit";
 import { createPlatformUser, resetPlatformUserPassword } from "@/server/data/platform";
-import { PLATFORM_EVENTS } from "@/server/services/auth/config";
+import { PLATFORM_EVENTS, PLATFORM_USER_TARGET } from "@/server/services/auth/config";
 import { hashPassword } from "@/server/services/auth/passwords";
 import {
   platformPasswordResetSchema,
@@ -14,8 +14,6 @@ import {
 
 // Alta y restablecimiento de cuentas del equipo Teru. Solo los usa el script
 // de soporte teru:create-admin: no hay registro ni recuperación por correo.
-
-const TARGET = "PLATFORM_USER";
 
 function firstIssue(error: z.ZodError) {
   const issue = error.issues[0];
@@ -40,7 +38,7 @@ export async function createPlatformAdmin(input: PlatformUserInput): Promise<Pla
     actorType: "SYSTEM",
     actorId: null,
     action: PLATFORM_EVENTS.USER_CREATED,
-    target: { type: TARGET, id: result.id },
+    target: { type: PLATFORM_USER_TARGET, id: result.id },
   });
   return { ok: true, userId: result.id };
 }
@@ -63,7 +61,7 @@ export async function resetPlatformAdminPassword(input: {
     actorType: "SYSTEM",
     actorId: null,
     action: PLATFORM_EVENTS.PASSWORD_RESET,
-    target: { type: TARGET, id: result.userId },
+    target: { type: PLATFORM_USER_TARGET, id: result.userId },
   });
   return { ok: true, userId: result.userId, revokedSessions: result.revokedSessions };
 }
