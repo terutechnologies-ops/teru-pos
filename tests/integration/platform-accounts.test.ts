@@ -12,10 +12,12 @@ import { verifyPassword } from "@/server/services/auth/passwords";
 import {
   createPlatformAdmin,
   resetPlatformAdminPassword,
+  setPlatformAdminActive,
 } from "@/server/services/platform/accounts";
+import { loginPlatform } from "@/server/services/platform/auth";
 import { companySlugSchema } from "@/server/validations/auth";
 
-import { cleanupPlatformUsers, uniqueTag } from "../helpers";
+import { cleanupPlatformUsers, ctx, uniqueTag } from "../helpers";
 
 const tag = uniqueTag("teru");
 afterAll(() => cleanupPlatformUsers(tag));
@@ -117,6 +119,45 @@ describe("cuentas del equipo Teru", () => {
       ok: false,
       error: "No existe una cuenta del equipo Teru con ese correo.",
     });
+  });
+
+  it("desactivar quita el acceso y cierra sus sesiones; activar lo devuelve", async () => {
+    const userId = await newAdmin("baja");
+    await createPlatformSession({ userId, tokenHash: `${tag}-b1`, expiresAt: new Date(Date.now() + HOUR) });
+
+    expect(await setPlatformAdminActive({ email: email("BAJA"), active: false })).toEqual({ ok: true, revokedSessions: 1 });
+    expect(await findActivePlatformSession(`${tag}-b1`)).toBeNull();
+    expect(await loginPlatform({ email: email("baja"), password: PASSWORD }, ctx(tag, "baja"))).toEqual({
+      ok: false,
+      error: "INVALID_CREDENTIALS",
+    });
+    expect(await setPlatformAdminActive({ email: email("baja"), active: false })).toEqual({
+      ok: false,
+      error: "La cuenta ya estaba desactivada.",
+    });
+
+    expect(await setPlatformAdminActive({ email: email("baja"), active: true })).toEqual({ ok: true, revokedSessions: 0 });
+    expect((await loginPlatform({ email: email("baja"), password: PASSWORD }, ctx(tag, "baja-2"))).ok).toBe(true);
+    expect(await setPlatformAdminActive({ email: email("baja"), active: true })).toEqual({
+      ok: false,
+      error: "La cuenta ya estaba activa.",
+    });
+
+    const actions = await db.authAuditLog.findMany({
+      where: { targetType: "PLATFORM_USER", targetId: userId },
+      orderBy: { createdAt: "asc" },
+      select: { action: true, actorType: true },
+    });
+    expect(actions.map((a) => a.action)).toEqual([
+      "PLATFORM_USER_CREATED",
+      "PLATFORM_USER_DEACTIVATED",
+      "PLATFORM_USER_ACTIVATED",
+    ]);
+    expect(await setPlatformAdminActive({ email: email("nadie"), active: false })).toEqual({
+      ok: false,
+      error: "No existe una cuenta del equipo Teru con ese correo.",
+    });
+    expect((await setPlatformAdminActive({ email: "malo", active: false })).ok).toBe(false);
   });
 
   it("el slug teru está reservado para el panel", () => {

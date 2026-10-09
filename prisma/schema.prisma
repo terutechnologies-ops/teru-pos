@@ -90,6 +90,7 @@ model Company {
   expenseCategories   ExpenseCategory[]
   cashMovements       CashMovement[]
   closingReports      ClosingReport[]
+  statusChanges       CompanyStatusChange[]
 
   @@map("companies")
 }
@@ -954,6 +955,7 @@ model PlatformUser {
 
   sessions             PlatformSession[]
   deactivatedCompanies Company[]
+  companyStatusChanges CompanyStatusChange[]
 
   @@map("platform_users")
 }
@@ -972,4 +974,21 @@ model PlatformSession {
 
   @@index([userId])
   @@map("platform_sessions")
+}
+
+// Historial de desactivaciones y reactivaciones de una empresa desde el
+// panel Teru (la empresa guarda solo el estado vigente). Motivo obligatorio
+// al desactivar y vacío al reactivar (CHECK en la migración).
+model CompanyStatusChange {
+  id        String        @id @default(cuid())
+  companyId String
+  company   Company       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  isActive  Boolean
+  reason    String?
+  byId      String?
+  by        PlatformUser? @relation(fields: [byId], references: [id], onDelete: SetNull)
+  createdAt DateTime      @default(now())
+
+  @@index([companyId, createdAt])
+  @@map("company_status_changes")
 }

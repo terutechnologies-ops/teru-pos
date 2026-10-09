@@ -20,6 +20,9 @@ const companySelect = {
 
 type UsageFilter = { companyId?: string };
 
+// Últimos cambios de estado que muestra la ficha.
+export const STATUS_HISTORY_LIMIT = 20;
+
 // Ventas completadas desde `since`, última venta completada y último
 // ingreso del personal, por empresa.
 async function usageByCompany(since: Date, filter: UsageFilter) {
@@ -75,7 +78,7 @@ export async function listPlatformCompanies(since: Date) {
 export type PlatformCompanyRow = Awaited<ReturnType<typeof listPlatformCompanies>>[number];
 
 export async function findPlatformCompany(companyId: string, since: Date) {
-  const [company, usage, usersByRole, branches, ownerInvitation] = await Promise.all([
+  const [company, usage, usersByRole, branches, ownerInvitation, openShifts, statusChanges] = await Promise.all([
     db.company.findUnique({
       where: { id: companyId },
       select: {
@@ -98,6 +101,13 @@ export async function findPlatformCompany(companyId: string, since: Date) {
     }),
     db.branch.count({ where: { companyId } }),
     findPendingOwnerInvitation(companyId),
+    db.cashSession.count({ where: { companyId, closedAt: null } }),
+    db.companyStatusChange.findMany({
+      where: { companyId },
+      orderBy: { createdAt: "desc" },
+      take: STATUS_HISTORY_LIMIT,
+      select: { isActive: true, reason: true, createdAt: true, by: { select: { name: true } } },
+    }),
   ]);
   if (!company) return null;
   return {
@@ -106,6 +116,8 @@ export async function findPlatformCompany(companyId: string, since: Date) {
     usersByRole: usersByRole.map((row) => ({ role: row.role, isActive: row.isActive, count: row._count })),
     branches,
     ownerInvitation,
+    openShifts,
+    statusChanges,
   };
 }
 
@@ -163,6 +175,9 @@ export async function deactivateCompany(
       const exists = await tx.company.count({ where: { id: companyId } });
       return { status: exists ? "UNCHANGED" : "NOT_FOUND" } as const;
     }
+    await tx.companyStatusChange.create({
+      data: { companyId, isActive: false, reason: input.reason, byId: input.byId, createdAt: now },
+    });
     const revoked = await tx.userSession.updateMany({
       where: { companyId, revokedAt: null },
       data: { revokedAt: now },
@@ -171,12 +186,23 @@ export async function deactivateCompany(
   });
 }
 
-export async function reactivateCompany(companyId: string): Promise<CompanyStateChange> {
-  const updated = await db.company.updateMany({
-    where: { id: companyId, isActive: false },
-    data: { isActive: true, deactivatedAt: null, deactivationReason: null, deactivatedById: null },
+export async function reactivateCompany(
+  companyId: string,
+  input: { byId: string },
+  now: Date = new Date(),
+): Promise<CompanyStateChange> {
+  return db.$transaction(async (tx) => {
+    const updated = await tx.company.updateMany({
+      where: { id: companyId, isActive: false },
+      data: { isActive: true, deactivatedAt: null, deactivationReason: null, deactivatedById: null },
+    });
+    if (updated.count === 0) {
+      const exists = await tx.company.count({ where: { id: companyId } });
+      return { status: exists ? "UNCHANGED" : "NOT_FOUND" } as const;
+    }
+    await tx.companyStatusChange.create({
+      data: { companyId, isActive: true, byId: input.byId, createdAt: now },
+    });
+    return { status: "OK", revokedSessions: 0 } as const;
   });
-  if (updated.count === 1) return { status: "OK", revokedSessions: 0 };
-  const exists = await db.company.count({ where: { id: companyId } });
-  return { status: exists ? "UNCHANGED" : "NOT_FOUND" };
 }

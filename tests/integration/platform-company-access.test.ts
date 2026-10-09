@@ -11,7 +11,18 @@ import {
   reactivatePlatformCompany,
 } from "@/server/services/platform/companies";
 
-import { cleanupCompanies, cleanupPlatformUsers, createCompany, createUser, ctx, uniqueTag } from "../helpers";
+import type { StaffSessionDto } from "@/server/dto/auth";
+import { openShift } from "@/server/services/cash-sessions";
+
+import {
+  cleanupCompanies,
+  cleanupPlatformUsers,
+  createCompany,
+  createMainBranch,
+  createUser,
+  ctx,
+  uniqueTag,
+} from "../helpers";
 
 const tag = uniqueTag("teru-acceso");
 const PASSWORD = "Clave-Segura-1";
@@ -33,7 +44,15 @@ beforeAll(async () => {
   teru = { sessionId: "s", expiresAt: new Date(), user: { id: admin.userId, name: "Ana Teru", email: `${tag}-ana@teru.co` } };
   company = await createCompany(`${tag}-a`, "Empresa A");
   other = await createCompany(`${tag}-b`, "Empresa B");
-  await createUser({ companyId: company.id, email: `uno@${tag}.co` });
+  const uno = await createUser({ companyId: company.id, email: `uno@${tag}.co`, role: "OWNER" });
+  await createMainBranch(company.id);
+  const staff: StaffSessionDto = {
+    sessionId: "s",
+    expiresAt: new Date(),
+    user: { id: uno.id, name: "Uno", email: uno.email, role: "OWNER" },
+    company: { id: company.id, name: "Empresa A", slug: company.slug, setupCompletedAt: new Date(), logoPath: null },
+  };
+  expect(await openShift(staff, { branchId: "", openingAmount: "0" })).toMatchObject({ ok: true });
   await createUser({ companyId: company.id, email: `dos@${tag}.co` });
   await createUser({ companyId: other.id, email: `otra@${tag}.co` });
 });
@@ -71,6 +90,9 @@ describe("desactivar y reactivar empresas desde el panel Teru", () => {
     expect(detail).toMatchObject({
       status: "INACTIVE",
       deactivation: { reason: "Suscripción vencida", by: "Ana Teru" },
+      // El turno abierto antes de desactivar sigue abierto.
+      openShifts: 1,
+      statusChanges: [{ isActive: false, reason: "Suscripción vencida", by: "Ana Teru" }],
     });
     const { companies } = await getPlatformCompanies(teru);
     expect(companies.find((c) => c.id === company.id)?.status).toBe("INACTIVE");
@@ -90,7 +112,13 @@ describe("desactivar y reactivar empresas desde el panel Teru", () => {
 
     const row = await db.company.findUniqueOrThrow({ where: { id: company.id } });
     expect(row).toMatchObject({ isActive: true, deactivatedAt: null, deactivationReason: null, deactivatedById: null });
-    expect((await getPlatformCompany(teru, company.id))?.deactivation).toBeNull();
+    const detail = await getPlatformCompany(teru, company.id);
+    expect(detail?.deactivation).toBeNull();
+    // Historial completo, el más reciente primero.
+    expect(detail?.statusChanges.map((c) => [c.isActive, c.reason, c.by])).toEqual([
+      [true, null, "Ana Teru"],
+      [false, "Suscripción vencida", "Ana Teru"],
+    ]);
     expect((await db.userSession.findUniqueOrThrow({ where: { id: before.id } })).revokedAt).not.toBeNull();
     expect((await staffLogin(company.slug, `uno@${tag}.co`)).ok).toBe(true);
     expect(
@@ -103,7 +131,13 @@ describe("desactivar y reactivar empresas desde el panel Teru", () => {
     });
   });
 
-  it("la base exige fecha y motivo en una empresa inactiva", async () => {
+  it("la base exige fecha y motivo en una empresa inactiva y motivo solo al desactivar", async () => {
+    await expect(
+      db.companyStatusChange.create({ data: { companyId: other.id, isActive: false, reason: null } }),
+    ).rejects.toThrow();
+    await expect(
+      db.companyStatusChange.create({ data: { companyId: other.id, isActive: true, reason: "Motivo" } }),
+    ).rejects.toThrow();
     await expect(db.company.update({ where: { id: other.id }, data: { isActive: false } })).rejects.toThrow();
     await expect(
       db.company.update({ where: { id: other.id }, data: { deactivatedAt: new Date(), deactivationReason: "Motivo" } }),

@@ -77,7 +77,14 @@ export default async function PlatformCompanyPage({
         <CompanyTeam company={company} />
       </div>
       <CompanyAccess
-        company={{ id: company.id, name: company.name, slug: company.slug, deactivation: company.deactivation }}
+        company={{
+          id: company.id,
+          name: company.name,
+          slug: company.slug,
+          deactivation: company.deactivation,
+          openShifts: company.openShifts,
+          statusChanges: company.statusChanges,
+        }}
       />
     </>
   );

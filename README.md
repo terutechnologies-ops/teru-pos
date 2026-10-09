@@ -4,7 +4,7 @@ Plataforma de gestión multiempresa de TERU (ventas, inventario, caja, etc.).
 Cada negocio es una empresa cliente con su propia URL; la arepería
 **Su Arepa** es la primera, no el modelo del sistema.
 
-**Estado:** fase 12 cerrada (autenticación del personal, configuración
+**Estado:** fase 13 cerrada (autenticación del personal, configuración
 inicial de la empresa, panel con menú por rol, configuración de negocio y
 equipo, logo, catálogo de venta con categorías y productos con precio y
 foto, inventario con insumos, bodegas, carga inicial, ajustes y kardex,
@@ -18,7 +18,8 @@ movimientos de caja: gastos con categoría y foto del recibo, retiros e
 ingresos en el turno, con su revisión, anulación y totales en el panel;
 "Mi cuenta" para cambiar la propia contraseña; y lista de compras con
 existencia ideal por insumo, reporte de cierre del día por correo y
-correos con la marca por Resend).
+correos con la marca por Resend; y el panel del equipo Teru en `/teru`
+para ver, crear, desactivar y reactivar las empresas de la plataforma).
 
 ## Stack
 
@@ -42,6 +43,8 @@ npm run dev
 - Inicio: `http://localhost:3000/` (buscador "Ingresa a tu empresa").
 - Login del personal: `http://localhost:3000/<slug-empresa>/login`
   (ej. `/su-arepa/login`).
+- Panel del equipo Teru: `http://localhost:3000/teru/login` (ver "Equipo
+  Teru" abajo).
 - Mientras la empresa no termine su configuración, el propietario entra al
   asistente `/<slug-empresa>/configuracion-inicial` (Negocio → Equipo →
   Confirmar).
@@ -115,6 +118,7 @@ npm run dev
 | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | Almacenamiento de archivos en Supabase Storage (logos y fotos de productos en un bucket público; recibos de gastos en uno privado). Opcionales: sin ellas no se suben archivos. La clave es secreta (`sb_secret_...`) |
 | `RESEND_API_KEY`, `MAIL_FROM` | Correo por Resend. La clave (`re_...`, permiso "Sending access" solo para el dominio de envío) es secreta; `MAIL_FROM` es el remitente de un dominio verificado (`Teru POS <reportes@envios.dominio.com>`). Sin clave: outbox en desarrollo, error en producción |
 | `SEED_OWNER_EMAIL`, `SEED_OWNER_NAME`, `SEED_OWNER_PASSWORD` | Solo para `npm run db:seed` |
+| `TERU_ADMIN_PASSWORD` | Solo para `npm run teru:create-admin`; quitarla después |
 
 Los archivos `.env*` no se versionan (salvo `.env.example`).
 
@@ -130,7 +134,8 @@ Los archivos `.env*` no se versionan (salvo `.env.example`).
 | `npm run test:db:migrate` | Aplica migraciones a la BD de pruebas (`.env.test`) |
 | `npm run db:migrate:deploy` | Aplica migraciones pendientes |
 | `npm run db:seed` | Datos iniciales (idempotente) |
-| `npm run company:create -- --name ... --slug ... --owner-name ... --owner-email ...` | Alta de empresa: sucursal principal + bienvenida al propietario por correo con su invitación (72 h); sin Resend o si el envío falla, muestra el enlace |
+| `npm run company:create -- --name ... --slug ... --owner-name ... --owner-email ...` | Alta de empresa: sucursal principal + bienvenida al propietario por correo con su invitación (72 h); sin Resend o si el envío falla, muestra el enlace. También se puede desde el panel Teru |
+| `npm run teru:create-admin -- --name ... --email ...` | Crea una cuenta del equipo Teru (contraseña en `TERU_ADMIN_PASSWORD`); con `--email ... --reset` cambia su contraseña, y con `--deactivate` / `--activate` le quita o devuelve el acceso (`--reset` y `--deactivate` cierran sus sesiones) |
 | `npm run storage:setup` | Crea el bucket público `company-assets` y el privado `company-private` (idempotente, una vez por entorno) |
 
 ## Pruebas
@@ -185,6 +190,27 @@ ajustan en "Impresión" (se guardan en ese navegador).
 - **Cajón de dinero:** se abre con la opción del driver de la impresora
   (p. ej. "Abrir cajón al imprimir" / *Cash drawer*).
 
+## Equipo Teru
+
+Panel de la plataforma en `/teru`, separado de las empresas: cuentas y
+sesiones propias (cookie `teru_session` solo en `/teru`, 8 h) y sin acceso
+a los paneles de las empresas.
+
+- **Cuenta:** poner `TERU_ADMIN_PASSWORD` en `.env`, correr
+  `npm run teru:create-admin -- --name "Nombre" --email correo@...` y quitar
+  la variable. La contraseña nunca va en el comando (quedaría en el
+  historial). No hay recuperación por correo: se restablece con `--reset`;
+  para quitarle el acceso a alguien, `--deactivate`.
+- **Empresas** (`/teru`): estado, propietario, usuarios activos y ventas de
+  los últimos 30 días; la ficha suma última venta, último ingreso, datos y
+  equipo por rol. Solo cifras: nunca el detalle de ventas ni del personal.
+- **Nueva empresa:** igual que `company:create`; el enlace de invitación no
+  se muestra en el panel, se usa "Reenviar bienvenida".
+- **Desactivar** (con motivo; avisa si hay turnos de caja abiertos) cierra
+  todas las sesiones de la empresa y su login deja de existir;
+  **reactivar** lo devuelve. La ficha muestra el historial y todo queda en
+  auditoría a nombre de la cuenta Teru.
+
 ## Correo
 
 Resend envía desde un subdominio verificado (`envios.teruwork.com`,
@@ -219,6 +245,8 @@ src/
                         imprimir/{comanda,soporte,cierre,existencias,
                         lista-compras} y
                         recibos/[id] (enlace firmado al recibo)
+    teru/               Panel del equipo Teru: login, empresas
+                        (lista, nueva y ficha)
     dev/outbox/         Bandeja de correos (solo desarrollo)
   components/
     ui/                 Componentes shadcn/ui
@@ -236,12 +264,15 @@ src/
     purchases/          Proveedores y compras (borrador, lista, anulación)
     sales/              Ventas en el panel y anulación
     team/               Invitaciones y lista del equipo
+    platform/           Panel Teru: empresas, alta, bienvenida y acceso
   lib/                  Cliente Prisma, marca, formatos, roles, imágenes,
                         unidades de medida y utilidades
   proxy.ts              Redirección optimista a login (no es autorización)
   server/
     data/               Único acceso a Prisma; filtra siempre por empresa
+                        (salvo el panel Teru: ver su README)
     services/           Lógica de negocio (auth y permisos, empresas, equipo,
+                        panel Teru en platform/,
                         catálogo, inventario, conteos y lista de compras,
                         recetas y costos,
                         ventas, caja y sus movimientos, categorías de
@@ -272,3 +303,4 @@ docs/decisiones/        Decisiones de arquitectura (ADR)
 - [ADR 0010 — Movimientos de caja](docs/decisiones/0010-movimientos-de-caja.md)
 - [ADR 0011 — Pendientes del cliente: kardex, precio y Mi cuenta](docs/decisiones/0011-pendientes-del-cliente.md)
 - [ADR 0012 — Lista de compras, reporte de cierre y correo](docs/decisiones/0012-lista-de-compras-y-correo.md)
+- [ADR 0013 — Panel del equipo Teru](docs/decisiones/0013-panel-del-equipo-teru.md)

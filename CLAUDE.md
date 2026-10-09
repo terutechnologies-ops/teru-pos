@@ -3771,3 +3771,101 @@ Commit `cddf96d` (subido).
   directamente. Verificado: typecheck, lint, suite **481/481**, build. Por
   HTTP sin JS contra `next start` con la base de pruebas: 13/13
   (`t_teru_acceso.py` del scratchpad); datos temporales borrados.
+
+Commit `bdec547` (subido).
+
+### Componente 6 — Cierre de la fase 13 (aprobado 2026-10-08)
+
+**Fase 13 aprobada** (2026-10-08).
+
+- **Revisión de la fase** (39 archivos: modelo, script, login y sesión,
+  proxy, lista, ficha, alta, reenvío, desactivar/reactivar, pruebas): todas
+  las páginas y acciones de `/teru` (salvo el login) exigen la sesión Teru
+  en el servidor y los servicios la vuelven a exigir; cookies con path
+  distinto y tablas distintas (una sesión Teru no sirve en una empresa ni
+  al revés, probado por HTTP); el panel no expone ventas, personal ni el
+  enlace de invitación. Sin hallazgos de seguridad. Corrección menor:
+  `src/server/data/README.md` decía que todo se filtra por empresa; ahora
+  documenta la excepción del panel Teru.
+- `docs/decisiones/0013-panel-del-equipo-teru.md`; nota en el ADR 0002
+  ("sin superadmin"); README (estado, acceso a `/teru/login`, variable
+  `TERU_ADMIN_PASSWORD`, script `teru:create-admin`, sección "Equipo Teru",
+  estructura, ADR).
+- Solo documentación: la verificación del componente 5 sigue vigente
+  (typecheck, lint, suite 481/481, build).
+
+### Componente 6b — Riesgos del panel Teru (aprobado 2026-10-08)
+
+Pedido del usuario (2026-10-08): qué hacer con los riesgos. Aprobada la
+propuesta: hacer ya 2, 3 y 4; 1 (2FA) como requisito de la preparación para
+producción; 5 (paginar) y 6 (último ingreso con desactivados) anotados.
+- **Cuentas Teru por script:** `teru:create-admin --deactivate` /
+  `--activate` (`setPlatformUserActive` en datos: transacción que revoca sus
+  sesiones al desactivar; `setPlatformAdminActive` en el servicio con
+  auditoría `PLATFORM_USER_DEACTIVATED` / `PLATFORM_USER_ACTIVATED`, actor
+  SYSTEM). Una sola opción a la vez; solo crear y `--reset` piden
+  `TERU_ADMIN_PASSWORD`. Probado contra la base de pruebas.
+- **Turnos abiertos:** la ficha trae `openShifts` y el formulario de
+  desactivar avisa cuántos quedarán abiertos.
+- **Historial:** migración `20261008140000_add_company_status_changes`
+  (**aplicada en test y dev**; diff vacío; RLS verificado en dev):
+  `company_status_changes` (empresa, activa o no, motivo, quién —FK a
+  `platform_users`, `SET NULL`—, fecha), CHECK de motivo solo al
+  desactivar (3–200), copia la desactivación vigente de las empresas ya
+  inactivas. Se escribe en la misma transacción que desactivar y reactivar
+  (`reactivateCompany` ahora recibe quién). La ficha muestra los últimos 20
+  en "Historial" dentro de "Acceso de la empresa". `cleanupCompanies` lo
+  borra.
+- ADR 0013 (decisiones y riesgos revisados) y README actualizados.
+- Pruebas: `platform-accounts.test.ts` (+1: desactivar cierra sesiones y
+  bloquea el login, activar, ya estaba, auditoría, inexistente) y
+  `platform-company-access.test.ts` (turno abierto, historial ordenado,
+  CHECK del motivo). Verificado: typecheck, lint, suite **482/482**, build.
+  Por HTTP contra `next start` con la base de pruebas: 14/14 (con el
+  historial); datos temporales borrados.
+
+## Cierre de la sesión 2026-10-08
+
+**Implementado hoy (con commit y subido, salvo el componente 6 de la fase
+13, pendiente de aprobación):**
+- Fase 12, componente 6 — cierre (`ef8b2da`): corrección de "Recuperar
+  contraseña" (revelaba qué correos tienen cuenta con Resend), ADR 0012,
+  README. **Fase 12 cerrada.**
+- Fase 13 — panel del equipo Teru: modelo y script (`a340f58`), login
+  (`2d94071`), lista y ficha con indicadores (`02f0b9d`), alta y reenvío de
+  la bienvenida (`cddf96d`), desactivar/reactivar (`bdec547`), cierre
+  (ADR 0013, README) y riesgos (cuentas Teru por script, aviso de turnos
+  abiertos, historial de estado).
+
+**Pendiente:**
+- (Hecho) Cierre de la fase 13 aprobado y subido.
+- Verificación en dos pasos (TOTP) para las cuentas Teru: requisito de la
+  preparación para producción.
+- Usuario: revisar el panel con su cuenta Teru (en dev ya existe una
+  cuenta Teru, que no creó Claude) y probar en el navegador la propuesta de
+  dirección con JS al crear empresa.
+- Fase 14 — cartera (propuesta inicial en la sección de la fase 13 de la
+  hoja de ruta del 2026-10-05; por analizar y diseñar).
+- Preparación para producción (con lo de los correos en spam: `APP_URL`
+  https en un subdominio de `teruwork.com`, Postmaster Tools, DMARC
+  `p=quarantine` con `rua`, Reply-To real) y despliegue.
+
+**Decisiones técnicas de hoy:** recuperación con `after()` y sin revelar
+fallos del correo; cuentas Teru en tablas propias con cookie solo en
+`/teru` y eventos de login propios; panel solo con cifras agregadas; el
+enlace de invitación nunca se muestra; `createCompany` con actor; desactivar
+cierra sesiones y guarda motivo con CHECK.
+
+**Errores y riesgos conocidos:**
+- Los del ADR 0013 (sin 2FA hasta producción, cuentas Teru solo por
+  script, turnos abiertos al desactivar, lista sin paginar).
+- Con `next start` la cookie lleva `Secure`: los scripts de prueba en
+  Python la copian a mano. Para no enviar correos reales en esas pruebas,
+  pasar `-v RESEND_API_KEY=re_invalida -v MAIL_FROM=invalido` a dotenv
+  (en Windows una variable vacía se borra y Next cargaría la clave real
+  del `.env`).
+- Siguen los de sesiones anteriores.
+
+**Próximo paso recomendado:** aprobar el cierre de la fase 13 y, con el
+usuario, revisar el panel con su cuenta; luego analizar la fase 14
+(cartera).

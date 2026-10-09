@@ -32,7 +32,8 @@ esta fase.
 
 `npm run company:create` crea empresa, sucursal principal e invitación del
 propietario en una transacción e imprime el enlace. No hay registro público
-ni superadministrador de la plataforma por ahora.
+ni superadministrador de la plataforma por ahora. *(Fase 13: panel del
+equipo Teru en `/teru`, que también crea empresas. Ver ADR 0013.)*
 
 ### 3. Modelo de datos
 

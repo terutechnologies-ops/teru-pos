@@ -116,6 +116,13 @@ export async function getPlatformCompany(
           by: row.deactivatedBy?.name ?? null,
         }
       : null,
+    openShifts: row.openShifts,
+    statusChanges: row.statusChanges.map((change) => ({
+      isActive: change.isActive,
+      reason: change.reason,
+      at: when(change.createdAt)!,
+      by: change.by?.name ?? null,
+    })),
     // Solo mientras el propietario no haya creado su cuenta.
     ownerInvitation:
       !row.owner && row.ownerInvitation
@@ -274,7 +281,7 @@ export async function reactivatePlatformCompany(
 ): Promise<CompanyStateResult> {
   assertPlatformSession(session);
   if (!validCompanyId(companyId)) return { ok: false, error: "Esta empresa no existe." };
-  const result = await reactivateCompany(companyId);
+  const result = await reactivateCompany(companyId, { byId: session.user.id });
   if (result.status === "NOT_FOUND") return { ok: false, error: "Esta empresa no existe." };
   if (result.status === "UNCHANGED") return { ok: false, error: "La empresa ya estaba activa." };
   await platformAudit(session, companyId, COMPANY_EVENTS.REACTIVATED, ctx);

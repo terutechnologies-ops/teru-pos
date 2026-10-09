@@ -18,7 +18,10 @@ const initialState: CompanyStateFormState = { error: null, reason: "" };
 export function CompanyAccess({
   company,
 }: {
-  company: Pick<PlatformCompanyDetail, "id" | "name" | "slug" | "deactivation">;
+  company: Pick<
+    PlatformCompanyDetail,
+    "id" | "name" | "slug" | "deactivation" | "openShifts" | "statusChanges"
+  >;
 }) {
   const [state, formAction, pending] = useActionState(setCompanyActiveAction, initialState);
   const deactivation = company.deactivation;
@@ -68,6 +71,13 @@ export function CompanyAccess({
                 (también los turnos de caja dejan de poder usarse hasta reactivarla). Sus datos se
                 conservan y se puede reactivar cuando quieras.
               </p>
+              {company.openShifts > 0 && (
+                <p role="note" className="rounded-lg bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive">
+                  {company.openShifts === 1
+                    ? "Hay 1 turno de caja abierto: quedará abierto hasta reactivar la empresa y cerrarlo."
+                    : `Hay ${company.openShifts} turnos de caja abiertos: quedarán abiertos hasta reactivar la empresa y cerrarlos.`}
+                </p>
+              )}
               <FormField name="deactivation-reason" label="Motivo" required>
                 <Input
                   id="deactivation-reason"
@@ -87,6 +97,26 @@ export function CompanyAccess({
             </form>
           </details>
         </>
+      )}
+
+      {company.statusChanges.length > 0 && (
+        <div className="mt-5 border-t pt-4">
+          <h3 className="mb-2 text-sm font-bold">Historial</h3>
+          <ul className="flex flex-col gap-2 text-sm">
+            {company.statusChanges.map((change, index) => (
+              <li key={index} className="flex flex-col sm:flex-row sm:gap-3">
+                <span className="w-40 shrink-0 text-muted-foreground tabular-nums">{change.at}</span>
+                <span>
+                  <span className={change.isActive ? "font-semibold" : "font-semibold text-destructive"}>
+                    {change.isActive ? "Reactivada" : "Desactivada"}
+                  </span>
+                  {change.by && ` por ${change.by}`}
+                  {change.reason && <span className="text-muted-foreground"> · {change.reason}</span>}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </section>
   );

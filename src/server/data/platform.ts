@@ -63,6 +63,40 @@ export async function resetPlatformUserPassword(
   });
 }
 
+// Activa o desactiva la cuenta; al desactivar cierra todas sus sesiones (en
+// la misma transacción). UNCHANGED si ya estaba así.
+export async function setPlatformUserActive(
+  email: string,
+  isActive: boolean,
+  now: Date = new Date(),
+): Promise<
+  | { status: "OK"; userId: string; revokedSessions: number }
+  | { status: "NOT_FOUND" }
+  | { status: "UNCHANGED" }
+> {
+  return db.$transaction(async (tx) => {
+    const updated = await tx.platformUser.updateManyAndReturn({
+      where: { email, isActive: !isActive },
+      data: { isActive },
+      select: { id: true },
+    });
+    if (updated.length === 0) {
+      const exists = await tx.platformUser.count({ where: { email } });
+      return { status: exists ? "UNCHANGED" : "NOT_FOUND" } as const;
+    }
+    const userId = updated[0].id;
+    let revokedSessions = 0;
+    if (!isActive) {
+      const revoked = await tx.platformSession.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: now },
+      });
+      revokedSessions = revoked.count;
+    }
+    return { status: "OK", userId, revokedSessions } as const;
+  });
+}
+
 // --- Sesiones ------------------------------------------------------------
 
 export async function createPlatformSession(input: {
