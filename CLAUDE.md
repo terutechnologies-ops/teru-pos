@@ -3651,3 +3651,39 @@ Commit `a340f58` (subido).
 - Nota de pruebas: con `next start` (`NODE_ENV=production`) la cookie lleva
   `Secure`; `requests` no la envía por http (el navegador sí en
   `localhost`): se copia a mano.
+
+Commit `2d94071` (subido).
+
+### Componente 3 — Lista y ficha de empresas (aprobado 2026-10-08)
+
+- **Datos** `data/platform-companies.ts`: `listPlatformCompanies(since)` y
+  `findPlatformCompany(id, since)` con consultas agrupadas (no una por
+  empresa): ventas **completadas** desde `since` (cantidad y total), última
+  venta completada, último ingreso del personal (`users.lastLoginAt`),
+  usuarios activos, propietario (primer OWNER); la ficha suma datos de la
+  empresa, usuarios por rol y activo, y número de sucursales. Solo cifras:
+  ni ventas, ni productos, ni la lista del personal.
+- **Servicio** `services/platform/companies.ts`: `getPlatformCompanies`
+  (estado `ACTIVE` / `SETUP_PENDING` / `INACTIVE`, montos con la moneda de
+  cada empresa, conteos: activas, pendientes, desactivadas y cuántas
+  vendieron) y `getPlatformCompany` (null si no existe o id > 64). Ambas
+  exigen la sesión Teru. Período `PLATFORM_USAGE_DAYS` = 30. Fechas en
+  `DD/MM/YYYY` y hora de Colombia (`DEFAULT_TIME_ZONE`), donde está el
+  equipo, no en la zona de cada empresa.
+- **UI** `components/platform/` (`CompanyList`, `CompanyStatusBadge`,
+  `CompanyUsage`, `CompanyData`, `CompanyTeam`). `/teru`: resumen en la
+  descripción ("N activas · … · N vendieron en los últimos 30 días"), lista
+  (marca, nombre, insignia, `/slug`, propietario, usuarios activos, fecha de
+  creación; ventas de 30 días a la derecha en pantallas medianas) y estado
+  vacío. `/teru/empresas/[id]`: volver, encabezado, Uso (ventas 30 días,
+  última venta, último ingreso, usuarios activos y sucursales), Datos
+  (acceso `/slug/login`, NIT, teléfono, correo, dirección, moneda, zona,
+  creada, configuración inicial) y Equipo (propietario y cuántos por rol,
+  activos y desactivados). 404 si no existe.
+- Pruebas: `platform-companies.test.ts` (3: lista con estados, propietario,
+  usuarios activos, ventas de 30 días sin anuladas ni antiguas, último
+  ingreso; ficha con datos, roles y sucursales y sin detalle; sin sesión
+  Teru lanza). Verificado: typecheck, lint, suite **470/470**, build. Por
+  HTTP contra `next start` con la base de pruebas (cuenta y empresa
+  temporales ya borradas; `t_teru_empresas.py` del scratchpad): 11/11.
+  No probado con los datos de dev (requiere la cuenta Teru del usuario).
