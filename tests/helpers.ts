@@ -69,6 +69,7 @@ export async function cleanupCompanies(tag: string) {
   await db.salePayment.deleteMany({ where: { companyId: { in: ids } } });
   await db.saleLine.deleteMany({ where: { companyId: { in: ids } } });
   await db.sale.deleteMany({ where: { companyId: { in: ids } } });
+  await db.customerPayment.deleteMany({ where: { companyId: { in: ids } } });
   await db.purchaseLine.deleteMany({ where: { companyId: { in: ids } } });
   await db.purchase.deleteMany({ where: { companyId: { in: ids } } });
   await db.inventoryCountLine.deleteMany({ where: { companyId: { in: ids } } });

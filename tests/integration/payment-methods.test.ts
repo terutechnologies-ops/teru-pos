@@ -53,7 +53,8 @@ describe("métodos de pago", () => {
       error: "Ya existe un método de pago con ese nombre.",
     });
     expect(await createPaymentMethod(admin, "N", ctx(tag))).toMatchObject({ ok: false });
-    expect(await names()).toEqual(["Efectivo", "Tarjeta", "Transferencia", "Nequi"]);
+    // Crédito lo crea el sistema (inactivo); los nuevos van al final.
+    expect(await names()).toEqual(["Efectivo", "Tarjeta", "Transferencia", "Crédito", "Nequi"]);
 
     const nequi = await idOf("Nequi");
     expect(
@@ -85,8 +86,13 @@ describe("métodos de pago", () => {
       ["Efectivo", true],
       ["Tarjeta", true],
       ["Transferencia", true],
+      ["Crédito", false],
       ["Nequi QR", false],
     ]);
+    // Crédito sí se activa y desactiva (así una empresa decide si fía).
+    const credit = await idOf("Crédito");
+    expect(await setPaymentMethodActive(admin, credit, true, ctx(tag))).toEqual({ ok: true });
+    expect(await setPaymentMethodActive(admin, credit, false, ctx(tag))).toEqual({ ok: true });
     expect(
       await db.authAuditLog.count({
         where: { targetId: nequi, action: { in: [PAYMENT_METHOD_EVENTS.RENAMED, PAYMENT_METHOD_EVENTS.DEACTIVATED] } },
@@ -101,7 +107,7 @@ describe("métodos de pago", () => {
     expect(await movePaymentMethod(admin, await idOf("Efectivo"), "up")).toMatchObject({
       ok: false,
     });
-    expect(await names()).toEqual(["Efectivo", "Tarjeta", "Nequi QR", "Transferencia"]);
+    expect(await names()).toEqual(["Efectivo", "Tarjeta", "Transferencia", "Nequi QR", "Crédito"]);
   });
 
   it("no tocan métodos de otra empresa", async () => {
@@ -111,7 +117,7 @@ describe("métodos de pago", () => {
     expect(await renamePaymentMethod(adminB, nequi, "Robado", ctx(tag))).toEqual(gone);
     expect(await setPaymentMethodActive(adminB, nequi, true, ctx(tag))).toEqual(gone);
     expect(await movePaymentMethod(adminB, nequi, "down")).toMatchObject({ ok: false });
-    expect(await names(b)).toEqual(["Efectivo", "Tarjeta", "Transferencia"]);
+    expect(await names(b)).toEqual(["Efectivo", "Tarjeta", "Transferencia", "Crédito"]);
   });
 
   it("solo quien tiene payments.manage los gestiona", async () => {
@@ -120,6 +126,6 @@ describe("métodos de pago", () => {
       await expect(getPaymentMethods(session)).rejects.toThrow(ForbiddenError);
       await expect(createPaymentMethod(session, "Bono", ctx(tag))).rejects.toThrow(ForbiddenError);
     }
-    expect(await getPaymentMethods(sessionFor(a, "OWNER"))).toHaveLength(4);
+    expect(await getPaymentMethods(sessionFor(a, "OWNER"))).toHaveLength(5);
   });
 });

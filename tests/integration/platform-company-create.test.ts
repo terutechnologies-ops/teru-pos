@@ -72,7 +72,8 @@ describe("alta de empresas desde el panel Teru", () => {
     const companyId = result.companyId;
     expect(await db.branch.count({ where: { companyId, isMain: true } })).toBe(1);
     expect(await db.warehouse.count({ where: { companyId, isMain: true } })).toBe(1);
-    expect(await db.paymentMethod.count({ where: { companyId } })).toBe(3);
+    expect(await db.paymentMethod.count({ where: { companyId } })).toBe(4);
+    expect(await db.paymentMethod.count({ where: { companyId, isCredit: true, isActive: false } })).toBe(1);
     expect(await db.expenseCategory.count({ where: { companyId } })).toBeGreaterThan(0);
 
     expect(sent).toHaveLength(1);

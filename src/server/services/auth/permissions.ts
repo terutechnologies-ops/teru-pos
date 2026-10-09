@@ -21,7 +21,9 @@ export type Permission =
   | "expenses.manage"
   | "payments.manage"
   // Proveedores y compras de insumos.
-  | "purchases.manage";
+  | "purchases.manage"
+  // Clientes de crédito: crear, editar, cupo y plazo (cartera).
+  | "customers.manage";
 
 // Lo que comparten OWNER y ADMIN: administración del negocio y ventas.
 const MANAGEMENT: readonly Permission[] = [
@@ -37,6 +39,7 @@ const MANAGEMENT: readonly Permission[] = [
   "expenses.manage",
   "payments.manage",
   "purchases.manage",
+  "customers.manage",
 ];
 
 const ROLE_PERMISSIONS = {

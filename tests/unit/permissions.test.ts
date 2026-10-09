@@ -39,7 +39,7 @@ describe("hasPermission", () => {
     expect(hasPermission("STAFF", "sales.charge")).toBe(false);
   });
 
-  it("solo OWNER y ADMIN ven y anulan ventas, revisan y cierran turnos, anulan movimientos de caja, configuran pagos y gastos y compran", () => {
+  it("solo OWNER y ADMIN ven y anulan ventas, revisan y cierran turnos, anulan movimientos de caja, configuran pagos y gastos, compran y gestionan clientes de crédito", () => {
     const admin = [
       "sales.view",
       "sales.void",
@@ -49,6 +49,7 @@ describe("hasPermission", () => {
       "expenses.manage",
       "payments.manage",
       "purchases.manage",
+      "customers.manage",
     ] as const;
     for (const permission of admin) {
       expect(hasPermission("OWNER", permission)).toBe(true);

@@ -60,7 +60,11 @@ export async function getPosCatalog(session: StaffSessionDto) {
         };
       }),
     })),
-    paymentMethods: methods.map(({ id, name, isCash }) => ({ id, name, isCash })),
+    // Crédito todavía no se ofrece en el POS: llega con la venta a crédito
+    // (cliente y cupo) de la cartera.
+    paymentMethods: methods
+      .filter((method) => !method.isCredit)
+      .map(({ id, name, isCash }) => ({ id, name, isCash })),
   };
 }
 
@@ -134,6 +138,8 @@ export async function checkout(session: StaffSessionDto, input: unknown): Promis
       return fail("Solo el efectivo admite valor recibido.");
     case "TENDERED_SHORT":
       return fail("El valor recibido en efectivo no alcanza a cubrir su monto.");
+    case "CREDIT_REQUIRES_CUSTOMER":
+      return fail("Para vender a crédito hay que elegir el cliente.", true);
     case "EMPTY_SALE":
       return fail("Agrega al menos un producto.");
     case "CASH_SESSION_NOT_FOUND":

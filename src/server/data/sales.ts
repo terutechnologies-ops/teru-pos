@@ -53,7 +53,10 @@ export type CreateSaleResult =
         | "PAYMENT_METHOD_NOT_FOUND"
         | "TENDERED_NOT_CASH"
         | "TENDERED_SHORT"
-        | "PAYMENTS_MISMATCH";
+        | "PAYMENTS_MISMATCH"
+        // Pago con el método Crédito sin cliente (la venta a crédito llega
+        // con la cartera).
+        | "CREDIT_REQUIRES_CUSTOMER";
     }
   | { status: "PRODUCT_NOT_FOUND" | "PRODUCT_UNAVAILABLE" | "NO_RECIPE"; productId: string };
 
@@ -158,9 +161,10 @@ async function recordSale(companyId: string, input: CreateSaleInput): Promise<Cr
     const methodIds = [...new Set(input.payments.map((payment) => payment.paymentMethodId))];
     const methods = await tx.paymentMethod.findMany({
       where: { companyId, id: { in: methodIds }, isActive: true },
-      select: { id: true, isCash: true },
+      select: { id: true, isCash: true, isCredit: true },
     });
     if (methods.length !== methodIds.length) return { status: "PAYMENT_METHOD_NOT_FOUND" };
+    if (methods.some((method) => method.isCredit)) return { status: "CREDIT_REQUIRES_CUSTOMER" };
     const isCash = new Map(methods.map((method) => [method.id, method.isCash]));
     let paid = new Prisma.Decimal(0);
     let change = new Prisma.Decimal(0);

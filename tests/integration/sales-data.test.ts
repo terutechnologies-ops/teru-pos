@@ -126,13 +126,24 @@ beforeAll(async () => {
 afterAll(() => cleanupCompanies(tag));
 
 describe("métodos de pago", () => {
-  it("cada empresa arranca con Efectivo, Tarjeta y Transferencia, con un solo efectivo", async () => {
+  it("cada empresa arranca con Efectivo, Tarjeta, Transferencia y Crédito (inactivo), con un solo efectivo y un solo crédito", async () => {
     const methods = await listPaymentMethods(a.id);
-    expect(methods.map((m) => [m.name, m.isCash])).toEqual([
-      ["Efectivo", true],
-      ["Tarjeta", false],
-      ["Transferencia", false],
+    expect(methods.map((m) => [m.name, m.isCash, m.isCredit, m.isActive])).toEqual([
+      ["Efectivo", true, false, true],
+      ["Tarjeta", false, false, true],
+      ["Transferencia", false, false, true],
+      ["Crédito", false, true, false],
     ]);
+    await expect(
+      db.paymentMethod.create({
+        data: { companyId: a.id, name: "Fiado", isCredit: true, position: 8 },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      db.paymentMethod.create({
+        data: { companyId: b.id, name: "Mixto", isCash: true, isCredit: true, position: 8 },
+      }),
+    ).rejects.toThrow();
     await expect(
       db.paymentMethod.create({
         data: { companyId: a.id, name: "Caja menor", isCash: true, position: 9 },
@@ -245,6 +256,13 @@ describe("ventas", () => {
     expect(
       await createSale(a.id, withPayments([{ paymentMethodId: b.cash, amount: "16500", tendered: null }])),
     ).toEqual({ status: "PAYMENT_METHOD_NOT_FOUND" });
+    // Crédito: inactivo no existe para la venta; activo exige cliente.
+    const credit = (await db.paymentMethod.findFirstOrThrow({ where: { companyId: a.id, isCredit: true } })).id;
+    const onCredit = withPayments([{ paymentMethodId: credit, amount: "16500", tendered: null }]);
+    expect(await createSale(a.id, onCredit)).toEqual({ status: "PAYMENT_METHOD_NOT_FOUND" });
+    await db.paymentMethod.update({ where: { id: credit }, data: { isActive: true } });
+    expect(await createSale(a.id, onCredit)).toEqual({ status: "CREDIT_REQUIRES_CUSTOMER" });
+    await db.paymentMethod.update({ where: { id: credit }, data: { isActive: false } });
     // Un rechazo no consume número.
     expect(await db.company.findUniqueOrThrow({ where: { id: a.id } })).toMatchObject({
       lastSaleNumber: 1,

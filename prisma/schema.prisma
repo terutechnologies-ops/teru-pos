@@ -37,33 +37,35 @@ model Company {
 
   // Datos del asistente de configuración; opcionales y sin formato de un
   // país en particular.
-  taxId                    String?
-  phone                    String?
-  email                    String?
-  address                  String?
+  taxId                     String?
+  phone                     String?
+  email                     String?
+  address                   String?
   // null = el propietario aún no completa el asistente de configuración.
-  setupCompletedAt         DateTime?
+  setupCompletedAt          DateTime?
   // Ruta del logo en el almacenamiento de archivos (no la URL: la URL
   // pública depende del proveedor configurado). null = sin logo.
-  logoPath                 String?
+  logoPath                  String?
   // Correos que reciben el reporte al cerrar el último turno del día (en
   // minúsculas, sin repetidos). Vacío = no se envía. CHECK de máximo 5 en
   // la migración.
-  closingReportEmails      String[]      @default([])
+  closingReportEmails       String[]      @default([])
   // Desactivación desde el panel del equipo Teru (CHECK: inactiva <=> con
   // fecha y motivo). Reactivar los borra; el historial queda en auditoría.
-  deactivatedAt            DateTime?
-  deactivationReason       String?
-  deactivatedById          String?
-  deactivatedBy            PlatformUser? @relation(fields: [deactivatedById], references: [id], onDelete: SetNull)
+  deactivatedAt             DateTime?
+  deactivationReason        String?
+  deactivatedById           String?
+  deactivatedBy             PlatformUser? @relation(fields: [deactivatedById], references: [id], onDelete: SetNull)
   // Último número de venta usado. Se incrementa dentro de la transacción de
   // la venta: el consecutivo queda sin huecos.
-  lastSaleNumber           Int           @default(0)
+  lastSaleNumber            Int           @default(0)
   // Último número de compra confirmada (se asigna al confirmar, no al
   // crear el borrador: borrar un borrador no deja huecos).
-  lastPurchaseNumber       Int           @default(0)
+  lastPurchaseNumber        Int           @default(0)
   // Último número de conteo físico confirmado (se asigna al confirmar).
-  lastInventoryCountNumber Int           @default(0)
+  lastInventoryCountNumber  Int           @default(0)
+  // Consecutivo de abonos de cartera ("Abono #N").
+  lastCustomerPaymentNumber Int           @default(0)
 
   users               User[]
   userSessions        UserSession[]
@@ -91,6 +93,7 @@ model Company {
   cashMovements       CashMovement[]
   closingReports      ClosingReport[]
   statusChanges       CompanyStatusChange[]
+  customerPayments    CustomerPayment[]
 
   @@map("companies")
 }
@@ -354,12 +357,16 @@ model PaymentMethod {
   name      String
   // Efectivo: cuenta en la caja del turno y admite cambio.
   isCash    Boolean  @default(false)
+  // "Crédito" (cartera): uno por empresa, lo crea el sistema inactivo; la
+  // venta con este método exige cliente. Nunca efectivo y crédito a la vez.
+  isCredit  Boolean  @default(false)
   position  Int
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  payments SalePayment[]
+  payments         SalePayment[]
+  customerPayments CustomerPayment[]
 
   @@unique([companyId, id])
   @@index([companyId, position])
@@ -389,9 +396,10 @@ model CashSession {
   countedCash   Decimal?  @db.Decimal(12, 2)
   closingNote   String?
 
-  sales          Sale[]
-  movements      CashMovement[]
-  closingReports ClosingReport[]
+  sales            Sale[]
+  movements        CashMovement[]
+  customerPayments CustomerPayment[]
+  closingReports   ClosingReport[]
 
   @@unique([companyId, id])
   @@index([companyId, openedAt])
@@ -528,6 +536,9 @@ model Sale {
   // Clave del pedido que genera el POS: si el mismo pedido llega dos veces
   // (reintento tras una caída de red, doble toque), no se crea otra venta.
   clientKey     String?
+  // Cliente de la venta a crédito (solo si se pagó con el método Crédito).
+  customerId    String?
+  customer      ThirdParty? @relation(fields: [companyId, customerId], references: [companyId, id], onDelete: Restrict)
 
   lines          SaleLine[]
   payments       SalePayment[]
@@ -590,20 +601,26 @@ model SalePayment {
 // empresa sobre lower(name), NIT único por empresa si se escribe y al
 // menos un papel (proveedor o cliente).
 model ThirdParty {
-  id         String   @id @default(cuid())
-  companyId  String
-  company    Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
-  name       String
-  taxId      String?
-  phone      String?
-  email      String?
-  isSupplier Boolean  @default(false)
-  isCustomer Boolean  @default(false)
-  isArchived Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id          String   @id @default(cuid())
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  name        String
+  taxId       String?
+  phone       String?
+  email       String?
+  isSupplier  Boolean  @default(false)
+  isCustomer  Boolean  @default(false)
+  isArchived  Boolean  @default(false)
+  // Cartera (solo clientes): cupo = deuda máxima (0 = sin crédito) y plazo
+  // en días para pagar cada venta a crédito.
+  creditLimit Decimal  @default(0) @db.Decimal(12, 2)
+  creditDays  Int      @default(30)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  purchases Purchase[]
+  purchases        Purchase[]
+  sales            Sale[]
+  customerPayments CustomerPayment[]
 
   @@unique([companyId, id])
   @@index([companyId])
@@ -793,6 +810,8 @@ model User {
   confirmedInventoryCounts InventoryCount[]         @relation("InventoryCountConfirmedBy")
   recordedCashMovements    CashMovement[]           @relation("CashMovementRecordedBy")
   voidedCashMovements      CashMovement[]           @relation("CashMovementVoidedBy")
+  recordedCustomerPayments CustomerPayment[]        @relation("CustomerPaymentRecordedBy")
+  voidedCustomerPayments   CustomerPayment[]        @relation("CustomerPaymentVoidedBy")
 
   @@unique([companyId, email])
   @@index([companyId])
@@ -991,4 +1010,47 @@ model CompanyStatusChange {
 
   @@index([companyId, createdAt])
   @@map("company_status_changes")
+}
+
+// --- Cartera --------------------------------------------------------------
+
+enum CustomerPaymentStatus {
+  RECORDED
+  VOIDED
+}
+
+// Abono de un cliente a su deuda, registrado en el POS dentro de un turno
+// abierto (los de efectivo cuentan en el cuadre). Se aplica a la cuenta, a
+// lo más viejo primero. No se borra: se anula (quién, cuándo y por qué)
+// mientras el turno siga abierto. Reglas en la migración.
+model CustomerPayment {
+  id              String                @id @default(cuid())
+  companyId       String
+  company         Company               @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  // Consecutivo por empresa (companies.lastCustomerPaymentNumber).
+  number          Int
+  customerId      String
+  customer        ThirdParty            @relation(fields: [companyId, customerId], references: [companyId, id], onDelete: Restrict)
+  cashSessionId   String
+  cashSession     CashSession           @relation(fields: [companyId, cashSessionId], references: [companyId, id], onDelete: Restrict)
+  paymentMethodId String
+  paymentMethod   PaymentMethod         @relation(fields: [companyId, paymentMethodId], references: [companyId, id], onDelete: Restrict)
+  amount          Decimal               @db.Decimal(12, 2)
+  // Recibido en efectivo cuando hubo cambio.
+  tendered        Decimal?              @db.Decimal(12, 2)
+  note            String?
+  userId          String
+  user            User                  @relation("CustomerPaymentRecordedBy", fields: [userId], references: [id], onDelete: Restrict)
+  createdAt       DateTime              @default(now())
+  status          CustomerPaymentStatus @default(RECORDED)
+  voidedAt        DateTime?
+  voidedById      String?
+  voidedBy        User?                 @relation("CustomerPaymentVoidedBy", fields: [voidedById], references: [id], onDelete: Restrict)
+  voidReason      String?
+
+  @@unique([companyId, number])
+  @@unique([companyId, id])
+  @@index([companyId, customerId, createdAt])
+  @@index([cashSessionId])
+  @@map("customer_payments")
 }

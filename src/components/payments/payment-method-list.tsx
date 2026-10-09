@@ -47,9 +47,15 @@ export function PaymentMethodList({
             >
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="truncate font-bold">{method.name}</span>
-                {method.isCash && <Badge variant="secondary">Del sistema</Badge>}
+                {(method.isCash || method.isCredit) && <Badge variant="secondary">Del sistema</Badge>}
                 {!method.isActive && <Badge variant="destructive">Inactivo</Badge>}
               </div>
+              {method.isCredit && (
+                <p className="text-xs text-muted-foreground">
+                  Para vender a crédito a los clientes de cartera (pide elegir el cliente y
+                  respeta su cupo). Actívalo cuando lo vayas a usar.
+                </p>
+              )}
               {method.isCash ? (
                 <p className="text-xs text-muted-foreground">
                   Cuenta en el cuadre de caja y permite dar cambio. No se renombra ni se

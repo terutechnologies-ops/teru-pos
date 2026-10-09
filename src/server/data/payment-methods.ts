@@ -3,13 +3,15 @@ import "server-only";
 import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 
-// Métodos de pago de cada empresa. El de efectivo es único por empresa
-// (índice parcial en la BD) y lo crea el sistema.
+// Métodos de pago de cada empresa. El de efectivo y el de crédito son únicos
+// por empresa (índices parciales en la BD) y los crea el sistema. Crédito
+// nace inactivo: se activa en Métodos de pago para vender a crédito.
 
 export const DEFAULT_PAYMENT_METHODS = [
-  { name: "Efectivo", isCash: true },
-  { name: "Tarjeta", isCash: false },
-  { name: "Transferencia", isCash: false },
+  { name: "Efectivo", isCash: true, isCredit: false, isActive: true },
+  { name: "Tarjeta", isCash: false, isCredit: false, isActive: true },
+  { name: "Transferencia", isCash: false, isCredit: false, isActive: true },
+  { name: "Crédito", isCash: false, isCredit: true, isActive: false },
 ] as const;
 
 // Los crea el alta de la empresa (y la migración, para las existentes).
@@ -33,7 +35,7 @@ export async function listPaymentMethods(
   return db.paymentMethod.findMany({
     where: { companyId, ...(filters.activeOnly && { isActive: true }) },
     orderBy: [{ position: "asc" }, { name: "asc" }],
-    select: { id: true, name: true, isCash: true, isActive: true },
+    select: { id: true, name: true, isCash: true, isCredit: true, isActive: true },
   });
 }
 

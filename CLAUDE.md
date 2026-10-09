@@ -3869,3 +3869,57 @@ cierra sesiones y guarda motivo con CHECK.
 **Próximo paso recomendado:** aprobar el cierre de la fase 13 y, con el
 usuario, revisar el panel con su cuenta; luego analizar la fase 14
 (cartera).
+
+Commit `408a101` (subido).
+
+## Fase 14 — Cartera (cuentas por cobrar)
+
+Decisiones del usuario (2026-10-08), todas las recomendadas: **abonos solo
+en el POS** dentro del turno (los de efectivo al cuadre); **cupo bloquea**
+(no se vende a crédito por encima del disponible); abonos **a la cuenta, lo
+más viejo primero** (vencido calculado); clientes, cupo y plazo los
+gestionan **OWNER y ADMIN** (`customers.manage`).
+
+Pedido adicional del usuario (memoria `correo-compra-credito`): el cliente
+de crédito tiene **correo** y **cada venta a crédito se le envía por
+correo** (pedido, valor, identificador). Solo clientes de crédito; con
+facturación electrónica, a quien lo solicite.
+
+Alcance aprobado: clientes en `third_parties` con cupo y plazo (cupo 0 = sin
+crédito); método de pago "Crédito" del sistema (uno por empresa, se crea
+**inactivo**: se activa en Métodos de pago), combinable, que exige cliente;
+cupo revisado en la transacción con el cliente bloqueado; abonos con
+cualquier método activo menos Crédito, sin abonar más que el saldo (sin
+saldo a favor); vencido = lo no cubierto (FIFO) cuya fecha + plazo pasó;
+anular venta a crédito baja la deuda; anular abono desde el panel con motivo
+y turno abierto. Componentes: 1) modelo y permiso; 2) clientes en el panel;
+3) venta a crédito en el POS (+ correo de la compra); 4) abonos en el POS
+(cuadre, hoja del cierre, anulación en el panel); 5) estado de cuenta,
+cartera y alerta de vencidos; 6) cierre (ADR 0014, README). Fuera:
+intereses, estado de cuenta por correo o impreso, saldo a favor, crédito
+desde el panel, cuentas por pagar.
+
+### Componente 1 — Modelo de datos y permiso (aprobado 2026-10-08)
+
+- Migración `20261008150000_add_customer_credit` (**aplicada en test y
+  dev**; diff vacío; RLS verificado en dev): `payment_methods.isCredit`
+  (índice parcial: uno por empresa; CHECK: nunca efectivo y crédito a la
+  vez); `third_parties.creditLimit` `Decimal(12,2)` (default 0, ≥ 0) y
+  `creditDays` (default 30, 0–365); `sales.customerId` (FK compuesta a
+  terceros); enum `CustomerPaymentStatus` y tabla `customer_payments`
+  (número por empresa con `companies.lastCustomerPaymentNumber`, cliente,
+  turno, método, monto > 0, recibido ≥ monto, nota ≤ 200, quién, anulación
+  completa por CHECK; FK compuestas). Crea "Crédito" **inactivo** al final
+  en las empresas existentes (dev: Su Arepa y prueba-brand).
+- `DEFAULT_PAYMENT_METHODS` + Crédito inactivo (alta de empresa y seed);
+  `listPaymentMethods` trae `isCredit`. Métodos de pago: Crédito con
+  insignia "Del sistema" y explicación; se renombra, activa y desactiva.
+- `createSale`: con el método Crédito devuelve `CREDIT_REQUIRES_CUSTOMER`
+  ("Para vender a crédito hay que elegir el cliente.") hasta el componente
+  3; el catálogo del POS **no ofrece Crédito** aunque esté activo.
+- Permiso `customers.manage` (OWNER, ADMIN).
+- `tests/helpers.ts` borra `customer_payments`. Pruebas:
+  `customer-credit-data.test.ts` (3: cupo y plazo, reglas del abono,
+  cliente de otra empresa) y ajustes por el cuarto método (métodos de pago,
+  datos de ventas, alta desde el panel Teru, catálogo del POS, permisos).
+  Verificado: typecheck, lint, suite **485/485**, build.
