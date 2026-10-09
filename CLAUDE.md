@@ -3687,3 +3687,50 @@ Commit `2d94071` (subido).
   HTTP contra `next start` con la base de pruebas (cuenta y empresa
   temporales ya borradas; `t_teru_empresas.py` del scratchpad): 11/11.
   No probado con los datos de dev (requiere la cuenta Teru del usuario).
+
+Commit `02f0b9d` (subido).
+
+### Componente 4 — Crear empresa y reenviar la bienvenida (aprobado 2026-10-08)
+
+- `createCompany(input, creator)`: `creator` = `{ type: "SYSTEM" }` (script,
+  por defecto) o `{ type: "PLATFORM", userId, ctx }` (panel). Registra el
+  nuevo `COMPANY_EVENTS.CREATED` y `STAFF_INVITATION_CREATED` con ese actor
+  (y la IP en el panel).
+- Datos (`data/platform-companies.ts`): `findPendingOwnerInvitation` (la
+  última sin aceptar ni revocar, aunque esté vencida),
+  `companyHasOwnerAccount`, `isCompanySlugTaken`, `findCompanyForPlatform`;
+  la ficha trae la invitación pendiente del propietario.
+- Servicio (`services/platform/companies.ts`): `createCompanyFromPanel`
+  (`createCompanySchema` con un mensaje en español por campo; dirección
+  usada o reservada en el campo; carrera P2002 = usada) y
+  `resendOwnerWelcome` (empresa activa, sin cuenta de propietario y con
+  invitación pendiente; `replaceStaffInvitation` con token nuevo y 72 h —
+  revoca la anterior—, `STAFF_INVITATION_RESENT` con actor PLATFORM y la
+  bienvenida). **El enlace de la invitación nunca se muestra en el panel**
+  (es una credencial): si el correo falla, se usa "Reenviar bienvenida".
+- UI `components/platform/` (`company-fields`, `company-actions`,
+  `new-company-form` —con JS la dirección se propone desde el nombre con
+  `toCompanySlug` hasta que se edite; sin JS se escribe—,
+  `resend-welcome-form`). `/teru/empresas/nueva`; botón "Nueva empresa" en
+  la lista; ficha con avisos `?aviso=creada|creada-sin-correo|reenviada` y,
+  en Equipo, la invitación pendiente (vence / venció) con "Reenviar
+  bienvenida" si la empresa está activa.
+- Pruebas: `platform-company-create.test.ts` (6: mensajes por campo,
+  reservada y usada; alta completa con sucursal, bodega, métodos,
+  categorías, invitación con el token del correo y auditoría PLATFORM con
+  IP; correo fallido; reenvío con enlace nuevo, anterior revocado,
+  vencida y auditoría; no reenvía con propietario, desactivada o
+  inexistente; sin sesión Teru). Verificado: typecheck, lint, suite
+  **476/476**, build. Por HTTP sin JS contra `next start` con la base de
+  pruebas y `MAIL_FROM` inválido (no sale ningún correo; prueba el aviso
+  sin correo): 12/12 (`t_teru_alta.py` del scratchpad); empresa y cuenta
+  temporales borradas. **No probado:** la propuesta de dirección con JS en
+  el navegador.
+- Pregunta del usuario (2026-10-08): la bienvenida le llegó a spam.
+  Revisado: SPF y DKIM de Resend publicados en `envios.teruwork.com` y
+  DMARC `p=none` en `teruwork.com`. Causas: dominio de 2 días sin
+  reputación y enlaces a `http://localhost:3000` (`APP_URL` de dev). Para la
+  preparación a producción: `APP_URL` https en un subdominio de
+  `teruwork.com`, Google Postmaster Tools, DMARC a `p=quarantine` con `rua`
+  tras unas semanas en PASS y un Reply-To real (p. ej.
+  `soporte@teruwork.com`).

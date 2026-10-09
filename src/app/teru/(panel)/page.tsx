@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
-import { Building2 } from "lucide-react";
+import Link from "next/link";
+import { Building2, Plus } from "lucide-react";
 
 import { CompanyList } from "@/components/platform/company-list";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
+import { Button } from "@/components/ui/button";
 import { requirePlatformSession } from "@/server/http/platform-session";
 import { getPlatformCompanies, PLATFORM_USAGE_DAYS } from "@/server/services/platform/companies";
 
@@ -30,16 +32,24 @@ export default async function PlatformHomePage() {
 
   return (
     <>
-      <PageHeader
-        eyebrow="Plataforma"
-        title="Empresas"
-        description={counts.total > 0 ? summary.join(" · ") : "Las empresas que usan Teru POS."}
-      />
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <PageHeader
+          eyebrow="Plataforma"
+          title="Empresas"
+          description={counts.total > 0 ? summary.join(" · ") : "Las empresas que usan Teru POS."}
+        />
+        <Button asChild className="gap-2 font-bold">
+          <Link href="/teru/empresas/nueva">
+            <Plus aria-hidden />
+            Nueva empresa
+          </Link>
+        </Button>
+      </div>
       {companies.length === 0 ? (
         <EmptyState
           icon={Building2}
           title="Aún no hay empresas"
-          text="Las empresas creadas con npm run company:create aparecerán aquí."
+          text="Crea la primera con «Nueva empresa»."
         />
       ) : (
         <CompanyList companies={companies} />

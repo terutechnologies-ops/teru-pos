@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CircleCheck, TriangleAlert } from "lucide-react";
 
 import { CompanyData, CompanyTeam, CompanyUsage } from "@/components/platform/company-detail";
 import { CompanyStatusBadge } from "@/components/platform/company-list";
 import { CompanyMark } from "@/components/shared/company-mark";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { requirePlatformSession } from "@/server/http/platform-session";
 import { getPlatformCompany } from "@/server/services/platform/companies";
 
@@ -14,11 +15,25 @@ export const metadata: Metadata = {
   robots: { index: false },
 };
 
+const NOTICES: Record<string, { text: string; warning?: boolean }> = {
+  creada: { text: "Empresa creada. Enviamos la bienvenida al propietario." },
+  "creada-sin-correo": {
+    text: "Empresa creada, pero la bienvenida no se pudo enviar. Usa «Reenviar bienvenida» en Equipo.",
+    warning: true,
+  },
+  reenviada: { text: "Bienvenida reenviada con un enlace nuevo. El anterior ya no sirve." },
+};
+
 // Ficha de una empresa para el equipo Teru: datos, equipo (cuántos por rol)
 // y uso. No da acceso al panel de la empresa.
-export default async function PlatformCompanyPage({ params }: PageProps<"/teru/empresas/[id]">) {
+export default async function PlatformCompanyPage({
+  params,
+  searchParams,
+}: PageProps<"/teru/empresas/[id]">) {
   const session = await requirePlatformSession();
   const { id } = await params;
+  const { aviso } = await searchParams;
+  const notice = typeof aviso === "string" ? NOTICES[aviso] : undefined;
   const company = await getPlatformCompany(session, id);
   if (!company) notFound();
 
@@ -42,6 +57,12 @@ export default async function PlatformCompanyPage({ params }: PageProps<"/teru/e
           </div>
         </div>
       </div>
+      {notice && (
+        <Alert variant={notice.warning ? "destructive" : "default"}>
+          {notice.warning ? <TriangleAlert /> : <CircleCheck className="text-success" />}
+          <AlertDescription>{notice.text}</AlertDescription>
+        </Alert>
+      )}
       <CompanyUsage company={company} />
       <div className="grid gap-6 lg:grid-cols-2">
         <CompanyData company={company} />

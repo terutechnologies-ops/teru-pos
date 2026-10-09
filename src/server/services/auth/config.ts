@@ -77,6 +77,8 @@ export const PAYMENT_METHOD_EVENTS = {
 } as const;
 
 export const COMPANY_EVENTS = {
+  // Alta (script o panel Teru); desactivar y reactivar, desde el panel Teru.
+  CREATED: "COMPANY_CREATED",
   SETUP_COMPLETED: "COMPANY_SETUP_COMPLETED",
   PROFILE_UPDATED: "COMPANY_PROFILE_UPDATED",
   LOGO_UPDATED: "COMPANY_LOGO_UPDATED",

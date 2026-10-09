@@ -75,7 +75,7 @@ export async function listPlatformCompanies(since: Date) {
 export type PlatformCompanyRow = Awaited<ReturnType<typeof listPlatformCompanies>>[number];
 
 export async function findPlatformCompany(companyId: string, since: Date) {
-  const [company, usage, usersByRole, branches] = await Promise.all([
+  const [company, usage, usersByRole, branches, ownerInvitation] = await Promise.all([
     db.company.findUnique({
       where: { id: companyId },
       select: {
@@ -94,6 +94,7 @@ export async function findPlatformCompany(companyId: string, since: Date) {
       _count: true,
     }),
     db.branch.count({ where: { companyId } }),
+    findPendingOwnerInvitation(companyId),
   ]);
   if (!company) return null;
   return {
@@ -101,5 +102,31 @@ export async function findPlatformCompany(companyId: string, since: Date) {
     ...usage(company.id),
     usersByRole: usersByRole.map((row) => ({ role: row.role, isActive: row.isActive, count: row._count })),
     branches,
+    ownerInvitation,
   };
+}
+
+// Invitación del propietario sin aceptar ni revocar (puede estar vencida):
+// la última, que es la única que sirve.
+export async function findPendingOwnerInvitation(companyId: string) {
+  return db.staffInvitation.findFirst({
+    where: { companyId, role: "OWNER", acceptedAt: null, revokedAt: null },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, email: true, name: true, expiresAt: true },
+  });
+}
+
+export async function companyHasOwnerAccount(companyId: string) {
+  return (await db.user.count({ where: { companyId, role: "OWNER" } })) > 0;
+}
+
+export async function isCompanySlugTaken(slug: string) {
+  return (await db.company.count({ where: { slug } })) > 0;
+}
+
+export async function findCompanyForPlatform(companyId: string) {
+  return db.company.findUnique({
+    where: { id: companyId },
+    select: { id: true, name: true, slug: true, isActive: true },
+  });
 }

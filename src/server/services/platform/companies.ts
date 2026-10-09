@@ -6,13 +6,27 @@ import {
   formatDateTime,
   formatMoney,
 } from "@/lib/company-formats";
+import { Prisma } from "@/generated/prisma/client";
+import type { RequestContext } from "@/server/dto/auth";
+import { recordAuthEvent } from "@/server/data/auth-audit";
 import {
+  companyHasOwnerAccount,
+  findCompanyForPlatform,
+  findPendingOwnerInvitation,
   findPlatformCompany,
+  isCompanySlugTaken,
   listPlatformCompanies,
   type PlatformCompanyRow,
 } from "@/server/data/platform-companies";
+import { replaceStaffInvitation } from "@/server/data/staff-invitations";
+import { getAppUrl } from "@/server/env";
+import { STAFF_EVENTS, STAFF_INVITATION_TTL_MS } from "@/server/services/auth/config";
+import { generateToken, hashToken } from "@/server/services/auth/tokens";
+import { createCompany } from "@/server/services/companies";
 import { publicFileUrl } from "@/server/services/images";
+import { sendOwnerWelcome } from "@/server/services/owner-welcome";
 import type { PlatformSessionDto } from "@/server/services/platform/auth";
+import { createCompanySchema } from "@/server/validations/companies";
 
 // Empresas de la plataforma para el panel del equipo Teru. Cada función pide
 // la sesión Teru (la página ya la validó; así ningún otro código puede
@@ -92,7 +106,121 @@ export async function getPlatformCompany(
     setupCompletedAt: when(row.setupCompletedAt),
     branches: row.branches,
     usersByRole: row.usersByRole,
+    // Solo mientras el propietario no haya creado su cuenta.
+    ownerInvitation:
+      !row.owner && row.ownerInvitation
+        ? {
+            email: row.ownerInvitation.email,
+            name: row.ownerInvitation.name,
+            expiresAt: when(row.ownerInvitation.expiresAt)!,
+            expired: row.ownerInvitation.expiresAt <= now,
+          }
+        : null,
   };
 }
 
 export type PlatformCompanyDetail = NonNullable<Awaited<ReturnType<typeof getPlatformCompany>>>;
+
+// --- Alta y bienvenida ---------------------------------------------------
+
+export type NewCompanyField = "name" | "slug" | "ownerName" | "ownerEmail";
+
+const FIELD_ERRORS: Record<NewCompanyField, string> = {
+  name: "Escribe el nombre de la empresa (2 a 120 caracteres).",
+  slug: "Usa minúsculas, números y guiones, sin espacios ni tildes (máximo 64). No puede ser api, dev ni teru.",
+  ownerName: "Escribe el nombre del propietario (2 a 120 caracteres).",
+  ownerEmail: "Escribe un correo válido.",
+};
+const SLUG_TAKEN = "Ya existe una empresa con esa dirección.";
+
+export type CreateCompanyFromPanelResult =
+  | { ok: true; companyId: string; emailSent: boolean }
+  | { ok: false; fieldErrors: Partial<Record<NewCompanyField, string>> };
+
+// Alta desde el panel: mismas reglas y el mismo createCompany que el script
+// company:create; la auditoría queda a nombre de la persona del equipo Teru.
+// El enlace de la invitación no se devuelve: si la bienvenida no sale, se
+// reenvía desde la ficha.
+export async function createCompanyFromPanel(
+  session: PlatformSessionDto,
+  input: Record<NewCompanyField, string>,
+  ctx: RequestContext,
+): Promise<CreateCompanyFromPanelResult> {
+  assertPlatformSession(session);
+  const parsed = createCompanySchema.safeParse(input);
+  if (!parsed.success) {
+    const fieldErrors: Partial<Record<NewCompanyField, string>> = {};
+    for (const issue of parsed.error.issues) {
+      const field = issue.path[0] as NewCompanyField;
+      if (field in FIELD_ERRORS) fieldErrors[field] = FIELD_ERRORS[field];
+    }
+    return { ok: false, fieldErrors };
+  }
+  if (await isCompanySlugTaken(parsed.data.slug)) {
+    return { ok: false, fieldErrors: { slug: SLUG_TAKEN } };
+  }
+
+  try {
+    const result = await createCompany(parsed.data, {
+      type: "PLATFORM",
+      userId: session.user.id,
+      ctx,
+    });
+    return { ok: true, companyId: result.companyId, emailSent: result.emailSent };
+  } catch (error) {
+    // Dos altas a la vez con la misma dirección: gana la primera.
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { ok: false, fieldErrors: { slug: SLUG_TAKEN } };
+    }
+    throw error;
+  }
+}
+
+export type ResendOwnerWelcomeResult = { ok: true } | { ok: false; error: string };
+
+// Nuevo enlace para el propietario que aún no crea su cuenta (el anterior
+// deja de servir) y la bienvenida otra vez.
+export async function resendOwnerWelcome(
+  session: PlatformSessionDto,
+  companyId: string,
+  ctx: RequestContext,
+): Promise<ResendOwnerWelcomeResult> {
+  assertPlatformSession(session);
+  const company = companyId && companyId.length <= 64 ? await findCompanyForPlatform(companyId) : null;
+  if (!company) return { ok: false, error: "Esta empresa no existe." };
+  if (!company.isActive) return { ok: false, error: "La empresa está desactivada." };
+  if (await companyHasOwnerAccount(company.id)) {
+    return { ok: false, error: "El propietario ya creó su cuenta." };
+  }
+  const invitation = await findPendingOwnerInvitation(company.id);
+  if (!invitation) return { ok: false, error: "No hay una invitación del propietario para reenviar." };
+
+  const token = generateToken();
+  await replaceStaffInvitation({
+    companyId: company.id,
+    email: invitation.email,
+    name: invitation.name,
+    role: "OWNER",
+    tokenHash: hashToken(token),
+    expiresAt: new Date(Date.now() + STAFF_INVITATION_TTL_MS),
+    invitedById: null,
+  });
+  await recordAuthEvent({
+    companyId: company.id,
+    actorType: "PLATFORM",
+    actorId: session.user.id,
+    action: STAFF_EVENTS.INVITATION_RESENT,
+    ipAddress: ctx.ipAddress,
+    userAgent: ctx.userAgent,
+  });
+  const sent = await sendOwnerWelcome({
+    companyName: company.name,
+    slug: company.slug,
+    ownerName: invitation.name,
+    ownerEmail: invitation.email,
+    invitationUrl: `${getAppUrl()}/${company.slug}/invitacion?token=${token}`,
+  });
+  return sent
+    ? { ok: true }
+    : { ok: false, error: "No se pudo enviar el correo. Intenta de nuevo en un momento." };
+}

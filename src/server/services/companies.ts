@@ -52,10 +52,19 @@ export async function getActiveCompanyBySlug(companySlug: string) {
   return findActiveCompanyBySlug(slug.data);
 }
 
+// Quién crea la empresa: el script de soporte (SYSTEM) o una persona del
+// equipo Teru desde el panel (PLATFORM, con su IP).
+export type CompanyCreator =
+  | { type: "SYSTEM" }
+  | { type: "PLATFORM"; userId: string; ctx: RequestContext };
+
 // Crea empresa, sucursal principal e invitación del propietario, y le envía
 // la bienvenida con el enlace. Devuelve el enlace (respaldo si el correo no
 // llega): nunca se guarda ni se registra el token en claro.
-export async function createCompany(input: CreateCompanyInput) {
+export async function createCompany(
+  input: CreateCompanyInput,
+  creator: CompanyCreator = { type: "SYSTEM" },
+) {
   const data = createCompanySchema.parse(input);
   const token = generateToken();
   const expiresAt = new Date(Date.now() + STAFF_INVITATION_TTL_MS);
@@ -67,12 +76,17 @@ export async function createCompany(input: CreateCompanyInput) {
     tokenHash: hashToken(token),
     expiresAt,
   });
-  await recordAuthEvent({
-    companyId,
-    actorType: "SYSTEM",
-    actorId: null,
-    action: STAFF_EVENTS.INVITATION_CREATED,
-  });
+  const actor =
+    creator.type === "PLATFORM"
+      ? {
+          actorType: "PLATFORM" as const,
+          actorId: creator.userId,
+          ipAddress: creator.ctx.ipAddress,
+          userAgent: creator.ctx.userAgent,
+        }
+      : { actorType: "SYSTEM" as const, actorId: null };
+  await recordAuthEvent({ companyId, ...actor, action: COMPANY_EVENTS.CREATED });
+  await recordAuthEvent({ companyId, ...actor, action: STAFF_EVENTS.INVITATION_CREATED });
 
   const invitationUrl = `${getAppUrl()}/${data.slug}/invitacion?token=${token}`;
   const emailSent = await sendOwnerWelcome({

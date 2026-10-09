@@ -5,6 +5,8 @@ import { STAFF_ROLE_LABELS } from "@/lib/staff-roles";
 import type { StaffRole } from "@/generated/prisma/enums";
 import type { PlatformCompanyDetail } from "@/server/services/platform/companies";
 
+import { ResendWelcomeForm } from "./resend-welcome-form";
+
 const ROLE_ORDER: StaffRole[] = ["OWNER", "ADMIN", "CASHIER", "STAFF"];
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -93,8 +95,27 @@ export function CompanyTeam({ company }: { company: PlatformCompanyDetail }) {
                 <span className="block font-normal text-muted-foreground">{company.owner.email}</span>
                 {!company.owner.isActive && <span className="block text-destructive">Cuenta desactivada</span>}
               </>
+            ) : company.ownerInvitation ? (
+              <>
+                {company.ownerInvitation.name}
+                <span className="block font-normal text-muted-foreground">{company.ownerInvitation.email}</span>
+                <span
+                  className={
+                    company.ownerInvitation.expired ? "block text-destructive" : "block font-normal text-muted-foreground"
+                  }
+                >
+                  {company.ownerInvitation.expired
+                    ? `Su invitación venció el ${company.ownerInvitation.expiresAt}`
+                    : `Invitado, aún sin cuenta · el enlace vence el ${company.ownerInvitation.expiresAt}`}
+                </span>
+                {company.status !== "INACTIVE" && (
+                  <div className="mt-3">
+                    <ResendWelcomeForm companyId={company.id} />
+                  </div>
+                )}
+              </>
             ) : (
-              "Sin cuenta todavía (invitación pendiente)"
+              "Sin cuenta ni invitación"
             )
           }
         />
