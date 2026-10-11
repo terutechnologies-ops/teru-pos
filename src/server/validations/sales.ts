@@ -37,6 +37,13 @@ export function saleSchema(currency: string) {
   return z.object({
     // La genera el POS por pedido (ver data/sales.ts).
     clientKey: z.uuid({ error: "El pedido no tiene clave. Recarga la página." }),
+    // Cliente de la parte a crédito; el servidor revisa su cupo.
+    customerId: z
+      .string()
+      .trim()
+      .max(64)
+      .nullish()
+      .transform((value) => value || null),
     lines: z
       .array(lineSchema)
       .min(1, { error: "Agrega al menos un producto." })

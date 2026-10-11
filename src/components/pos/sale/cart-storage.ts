@@ -1,4 +1,4 @@
-import type { PosCatalog } from "@/server/services/sales";
+import type { PosCatalog, PosCustomer } from "@/server/services/sales";
 
 import type { CartLine } from "./cart-panel";
 import type { PaymentDraft } from "./money";
@@ -11,7 +11,19 @@ export type SavedCart = {
   clientKey: string;
   lines: CartLine[];
   payments: PaymentDraft[];
+  // Cliente del pago a crédito (su disponible puede haber cambiado: el
+  // servidor lo revisa al cobrar).
+  customer: PosCustomer | null;
 };
+
+function readCustomer(value: unknown): PosCustomer | null {
+  if (!value || typeof value !== "object") return null;
+  const { id, name, taxId, available } = value as Partial<PosCustomer>;
+  if (typeof id !== "string" || typeof name !== "string" || typeof available !== "string") {
+    return null;
+  }
+  return { id, name, taxId: typeof taxId === "string" ? taxId : null, available };
+}
 
 export function cartStorageKey(companySlug: string, userId: string, shiftId: string) {
   return `teru-pos:pedido:${companySlug}:${userId}:${shiftId}`;
@@ -31,7 +43,7 @@ export function newClientKey() {
 // pueden vender y métodos inactivos, y toma nombres y precios vigentes.
 export function reconcileCart(saved: unknown, catalog: PosCatalog): SavedCart | null {
   if (!saved || typeof saved !== "object") return null;
-  const { clientKey, lines, payments } = saved as Partial<SavedCart>;
+  const { clientKey, lines, payments, customer } = saved as Partial<SavedCart>;
   if (typeof clientKey !== "string" || !Array.isArray(lines)) return null;
 
   const products = new Map(
@@ -58,7 +70,11 @@ export function reconcileCart(saved: unknown, catalog: PosCatalog): SavedCart | 
   const keptPayments = (Array.isArray(payments) ? payments : []).filter(
     (payment) => methods.has(payment?.paymentMethodId) && typeof payment.amount === "string",
   );
-  return { clientKey, lines: keptLines, payments: keptPayments };
+  const credit = catalog.paymentMethods.find((method) => method.isCredit);
+  const keptCustomer = keptPayments.some((payment) => payment.paymentMethodId === credit?.id)
+    ? readCustomer(customer)
+    : null;
+  return { clientKey, lines: keptLines, payments: keptPayments, customer: keptCustomer };
 }
 
 // El almacenamiento puede no existir o estar lleno (modo privado): el POS

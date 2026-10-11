@@ -56,6 +56,16 @@ export function SaleReceipt({ printable }: { printable: PrintableSale }) {
           className="hidden group-data-[paper=58]/sheet:flex"
         />
         <SheetRow label="Atendió" value={sale.cashierName} />
+        {sale.customer && (
+          <SheetRow
+            label="Cliente"
+            value={
+              sale.customer.taxId
+                ? `${sale.customer.name} (${taxIdText(sale.customer.taxId)})`
+                : sale.customer.name
+            }
+          />
+        )}
       </div>
 
       <DashedRule />

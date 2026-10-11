@@ -4000,3 +4000,64 @@ NIT únicos.
 
 **Próximo paso recomendado:** diseño del componente 3 de la fase 14 (venta
 a crédito en el POS y correo de la compra).
+
+## Sesión 2026-10-11 — Fase 14, componente 3
+
+Al iniciar: `next dev` levantado; árbol limpio y sincronizado con
+`origin/master` (`b066c64`).
+
+### Componente 3 — Venta a crédito en el POS (aprobado 2026-10-11)
+
+Diseño aprobado el 2026-10-11. Decisión del usuario: **anular una venta a
+crédito se bloquea si el saldo del cliente quedaría negativo** ("Primero
+anula el abono de este cliente"). Decisión de Claude, informada: el correo
+**no se registra** (solo log si falla; sin reenviar). Sin migración.
+- **Datos:** `data/customers.ts` → `searchCreditCustomers` (activos con cupo
+  > 0, nombre o NIT) y `lockCustomer` (`FOR UPDATE`; ahora también lo usa
+  `setCustomerArchived`). `createSale` recibe `customerId`: suma lo pagado
+  con Crédito; `CREDIT_REQUIRES_CUSTOMER` (crédito sin cliente),
+  `CUSTOMER_WITHOUT_CREDIT` (cliente sin crédito), `CUSTOMER_NOT_FOUND`
+  (archivado, otra empresa o inexistente), `CREDIT_LIMIT_EXCEEDED` con
+  nombre y disponible. Orden de bloqueo: turno → cliente → insumos →
+  empresa. `voidSale` bloquea el cliente y devuelve `CREDIT_ALREADY_PAID` si
+  saldo − crédito de la venta < 0. `findSaleDetail` trae el cliente (con
+  correo y plazo) e `isCredit` de cada pago.
+- **Ojo:** en decimal.js `isPositive()` es `true` para 0; usar
+  `greaterThan(0)` (lo detectó la suite).
+- **Servicio** `services/sales.ts`: el catálogo del POS ofrece Crédito si
+  está activo (`isCredit` en cada método); `searchPosCustomers`
+  (`sales.charge`, mínimo 2 caracteres, 8 resultados, solo nombre, NIT y
+  disponible); `checkout` devuelve `onCredit`; mensajes nuevos; el detalle
+  y el soporte imprimible traen `customer`; anulación con el mensaje del
+  abono.
+- **Correo** `services/credit-sale-email.ts`: `buildCreditSaleEmail` (puro;
+  texto + HTML con la marca: pedido, total, "Cargado a tu cuenta", otros
+  pagos, fecha límite = día de la venta en la zona de la empresa + plazo,
+  contacto con el teléfono de la empresa) y `sendCreditSaleEmail` (solo
+  venta completada con cliente con correo; nunca lanza). `checkoutAction`
+  lo envía con `after()` si `onCredit` y no es reintento.
+- **POS:** `CustomerPicker` (búsqueda con espera de 300 ms; resultados sin
+  disponible se ven deshabilitados; error distinto de "sin resultados",
+  `searchCustomersAction` devuelve null si falla). `PaymentPanel`: Crédito
+  abre el buscador; fila con cliente, disponible y "Cambiar"; propone lo que
+  falta sin pasar del disponible; bloquea "Cobrar" si lo supera o falta el
+  cliente; quitar Crédito quita el cliente. El cliente se guarda con el
+  pedido (`SavedCart.customer`, solo si sigue el pago a crédito). Resultado:
+  "Parte a crédito de X". Con un solo método activo y que sea Crédito no se
+  propone cobrar todo.
+- **Panel y soporte:** detalle de la venta con "A crédito de X" (enlace a
+  editar el cliente con `customers.manage`); soporte impreso con "Cliente:
+  nombre (NIT)".
+- Pruebas: `credit-sales.test.ts` (9: catálogo y buscador, venta dentro del
+  cupo con detalle y soporte, cupo excedido y pago mixto, rechazos, dos
+  ventas simultáneas, correo con contenido, sin correo / sin crédito /
+  anulada / fallo, texto escapado y fecha límite por zona, anulación
+  bloqueada por abonos y luego permitida), `cart-storage.test.ts` (+1) y
+  ajustes en `pos-sales.test.ts`. Verificado: typecheck, lint, suite
+  **502/502**, build. Correo revisado con Chrome sin interfaz a 720 px y
+  390 px.
+- **Sin probar en el navegador:** buscador y cobro a crédito en el POS
+  (activar "Crédito" en Métodos de pago y crear un cliente con cupo).
+
+**Próximo paso:** diseño del componente 4 (abonos en
+el POS).

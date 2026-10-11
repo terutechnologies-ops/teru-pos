@@ -5,6 +5,7 @@ import type { StockUnit } from "@/generated/prisma/enums";
 import { db } from "@/lib/db";
 import { convertQuantity } from "@/lib/units";
 import { CASH_TX_OPTIONS, lockCashSession } from "@/server/data/cash-sessions";
+import { customerBalances, lockCustomer } from "@/server/data/customers";
 import { lockSupply, stockBalance, writeStockMovement } from "@/server/data/inventory";
 
 // Ventas de mostrador: se crean cobradas y no se editan ni se borran; se
@@ -31,6 +32,8 @@ export type CreateSaleInput = {
   payments: SalePaymentInput[];
   // Clave del pedido (POS). Sin clave no hay protección contra duplicados.
   clientKey?: string | null;
+  // Cliente de la parte pagada con el método Crédito (solo con ese método).
+  customerId?: string | null;
 };
 
 type SaleSummary = {
@@ -38,6 +41,7 @@ type SaleSummary = {
   number: number;
   total: Prisma.Decimal;
   change: Prisma.Decimal;
+  customerId: string | null;
 };
 
 export type CreateSaleResult =
@@ -54,10 +58,15 @@ export type CreateSaleResult =
         | "TENDERED_NOT_CASH"
         | "TENDERED_SHORT"
         | "PAYMENTS_MISMATCH"
-        // Pago con el método Crédito sin cliente (la venta a crédito llega
-        // con la cartera).
-        | "CREDIT_REQUIRES_CUSTOMER";
+        // Pago con el método Crédito sin cliente.
+        | "CREDIT_REQUIRES_CUSTOMER"
+        // Cliente en una venta sin pago a crédito.
+        | "CUSTOMER_WITHOUT_CREDIT"
+        // Cliente inexistente, de otra empresa o archivado.
+        | "CUSTOMER_NOT_FOUND";
     }
+  // Lo cobrado a crédito supera el disponible (cupo − saldo) del cliente.
+  | { status: "CREDIT_LIMIT_EXCEEDED"; customerName: string; available: Prisma.Decimal }
   | { status: "PRODUCT_NOT_FOUND" | "PRODUCT_UNAVAILABLE" | "NO_RECIPE"; productId: string };
 
 type Consumption = { quantity: Prisma.Decimal; unit: StockUnit };
@@ -75,6 +84,7 @@ async function findRecordedSale(
       number: true,
       total: true,
       userId: true,
+      customerId: true,
       payments: { select: { amount: true, tendered: true } },
     },
   });
@@ -83,7 +93,13 @@ async function findRecordedSale(
     (sum, payment) => (payment.tendered ? sum.plus(payment.tendered.minus(payment.amount)) : sum),
     new Prisma.Decimal(0),
   );
-  return { saleId: sale.id, number: sale.number, total: sale.total, change };
+  return {
+    saleId: sale.id,
+    number: sale.number,
+    total: sale.total,
+    change,
+    customerId: sale.customerId,
+  };
 }
 
 export async function createSale(
@@ -164,13 +180,15 @@ async function recordSale(companyId: string, input: CreateSaleInput): Promise<Cr
       select: { id: true, isCash: true, isCredit: true },
     });
     if (methods.length !== methodIds.length) return { status: "PAYMENT_METHOD_NOT_FOUND" };
-    if (methods.some((method) => method.isCredit)) return { status: "CREDIT_REQUIRES_CUSTOMER" };
     const isCash = new Map(methods.map((method) => [method.id, method.isCash]));
+    const isCredit = new Map(methods.map((method) => [method.id, method.isCredit]));
     let paid = new Prisma.Decimal(0);
+    let onCredit = new Prisma.Decimal(0);
     let change = new Prisma.Decimal(0);
     for (const payment of input.payments) {
       const amount = new Prisma.Decimal(payment.amount);
       paid = paid.plus(amount);
+      if (isCredit.get(payment.paymentMethodId)) onCredit = onCredit.plus(amount);
       if (payment.tendered !== null) {
         if (!isCash.get(payment.paymentMethodId)) return { status: "TENDERED_NOT_CASH" };
         const tendered = new Prisma.Decimal(payment.tendered);
@@ -179,6 +197,23 @@ async function recordSale(companyId: string, input: CreateSaleInput): Promise<Cr
       }
     }
     if (!paid.equals(total)) return { status: "PAYMENTS_MISMATCH" };
+
+    const customerId = input.customerId ?? null;
+    if (onCredit.greaterThan(0) && !customerId) return { status: "CREDIT_REQUIRES_CUSTOMER" };
+    if (customerId && !onCredit.greaterThan(0)) return { status: "CUSTOMER_WITHOUT_CREDIT" };
+    if (customerId) {
+      // Bloqueado hasta el final: dos ventas a crédito del mismo cliente no
+      // pasan las dos con el mismo disponible.
+      const customer = await lockCustomer(tx, companyId, customerId);
+      if (!customer || customer.isArchived) return { status: "CUSTOMER_NOT_FOUND" };
+      const balance =
+        (await customerBalances(companyId, [customerId], tx)).get(customerId)?.balance ??
+        new Prisma.Decimal(0);
+      const available = Prisma.Decimal.max(customer.creditLimit.minus(balance), 0);
+      if (onCredit.greaterThan(available)) {
+        return { status: "CREDIT_LIMIT_EXCEEDED", customerName: customer.name, available };
+      }
+    }
 
     // La principal no se puede desactivar (data/inventory.ts).
     const warehouse = await tx.warehouse.findFirst({
@@ -229,6 +264,7 @@ async function recordSale(companyId: string, input: CreateSaleInput): Promise<Cr
         userId: input.userId,
         total,
         clientKey: input.clientKey ?? null,
+        customerId,
         lines: { createMany: { data: lines } },
         payments: {
           createMany: {
@@ -258,29 +294,46 @@ async function recordSale(companyId: string, input: CreateSaleInput): Promise<Cr
       });
     }
 
-    return { status: "OK", saleId: sale.id, number, total, change };
+    return { status: "OK", saleId: sale.id, number, total, change, customerId };
   }, CASH_TX_OPTIONS);
 }
 
 export type VoidSaleResult =
   | { status: "OK" }
-  | { status: "NOT_FOUND" | "ALREADY_VOIDED" | "CASH_SESSION_CLOSED" };
+  | { status: "NOT_FOUND" | "ALREADY_VOIDED" | "CASH_SESSION_CLOSED" | "CREDIT_ALREADY_PAID" };
 
 // Anula la venta y devuelve a su bodega lo que descontó, con movimientos
-// SALE_VOID. Solo con el turno abierto: un cierre ya hecho no cambia.
+// SALE_VOID. Solo con el turno abierto: un cierre ya hecho no cambia. Una
+// venta a crédito baja la deuda del cliente; si sus abonos ya la cubrieron
+// (el saldo quedaría negativo) no se anula: no hay saldo a favor.
 export async function voidSale(
   companyId: string,
   input: { saleId: string; userId: string; reason: string },
 ): Promise<VoidSaleResult> {
   return db.$transaction(async (tx) => {
-    const [sale] = await tx.$queryRaw<{ status: string; cashSessionId: string }[]>`
-      SELECT "status"::text AS "status", "cashSessionId" FROM "sales"
+    const [sale] = await tx.$queryRaw<
+      { status: string; cashSessionId: string; customerId: string | null }[]
+    >`
+      SELECT "status"::text AS "status", "cashSessionId", "customerId" FROM "sales"
       WHERE "id" = ${input.saleId} AND "companyId" = ${companyId}
       FOR UPDATE`;
     if (!sale) return { status: "NOT_FOUND" };
     if (sale.status === "VOIDED") return { status: "ALREADY_VOIDED" };
     const session = await lockCashSession(tx, companyId, sale.cashSessionId, "SHARE");
     if (!session || session.closedAt) return { status: "CASH_SESSION_CLOSED" };
+
+    if (sale.customerId) {
+      await lockCustomer(tx, companyId, sale.customerId);
+      const credit = await tx.salePayment.aggregate({
+        where: { companyId, saleId: input.saleId, paymentMethod: { isCredit: true } },
+        _sum: { amount: true },
+      });
+      const balance = (await customerBalances(companyId, [sale.customerId], tx)).get(
+        sale.customerId,
+      )?.balance;
+      const onCredit = credit._sum.amount ?? new Prisma.Decimal(0);
+      if (balance && balance.minus(onCredit).isNegative()) return { status: "CREDIT_ALREADY_PAID" };
+    }
 
     const movements = await tx.stockMovement.findMany({
       where: { companyId, saleId: input.saleId, type: "SALE" },
@@ -430,6 +483,7 @@ export async function findSaleDetail(companyId: string, saleId: string) {
       userId: true,
       user: { select: { name: true } },
       branch: { select: { name: true } },
+      customer: { select: { id: true, name: true, taxId: true, email: true, creditDays: true } },
       cashSession: { select: { id: true, openedAt: true, closedAt: true } },
       lines: {
         orderBy: { position: "asc" },
@@ -448,7 +502,7 @@ export async function findSaleDetail(companyId: string, saleId: string) {
           id: true,
           amount: true,
           tendered: true,
-          paymentMethod: { select: { name: true, isCash: true } },
+          paymentMethod: { select: { name: true, isCash: true, isCredit: true } },
         },
       },
       stockMovements: {

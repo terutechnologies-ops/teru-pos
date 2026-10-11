@@ -87,6 +87,7 @@ export default async function SaleDetailPage({
   const role = session.user.role;
   const canVoid = detail.canVoid && hasPermission(role, "sales.void");
   const linkSupplies = hasPermission(role, "inventory.manage");
+  const linkCustomers = hasPermission(role, "customers.manage");
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
@@ -198,6 +199,21 @@ export default async function SaleDetailPage({
               <p className="flex justify-between border-t border-border pt-2 text-sm">
                 <span>Cambio</span>
                 <span className="font-semibold tabular-nums">{money(sale.change)}</span>
+              </p>
+            )}
+            {sale.customer && (
+              <p className="flex flex-wrap justify-between gap-x-3 border-t border-border pt-2 text-sm">
+                <span>A crédito de</span>
+                {linkCustomers ? (
+                  <Link
+                    href={`/${slug}/clientes/${sale.customer.id}/editar`}
+                    className="font-semibold text-link hover:underline"
+                  >
+                    {sale.customer.name}
+                  </Link>
+                ) : (
+                  <span className="font-semibold">{sale.customer.name}</span>
+                )}
               </p>
             )}
           </section>

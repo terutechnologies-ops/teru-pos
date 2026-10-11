@@ -1,59 +1,112 @@
 "use client";
 
-import { ArrowLeft, Banknote, Loader2, TriangleAlert, X } from "lucide-react";
+import { useState } from "react";
+import { ArrowLeft, Banknote, Contact, Loader2, TriangleAlert, X } from "lucide-react";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { currencyDecimals, formatAmountInput, formatMoney } from "@/lib/company-formats";
 import { cn } from "@/lib/utils";
-import type { PosCatalog } from "@/server/services/sales";
+import type { PosCatalog, PosCustomer } from "@/server/services/sales";
 
-import { centsToInput, paymentTotals, type PaymentDraft } from "./money";
+import { CustomerPicker } from "./customer-picker";
+import { centsToInput, inputToCents, paymentTotals, toCents, type PaymentDraft } from "./money";
 
 type Method = PosCatalog["paymentMethods"][number];
 
 // Cobro con pago mixto, un pago por método. En efectivo se escribe lo que
 // entrega el cliente: se aplica hasta lo que falta y lo demás es cambio; si
-// no alcanza, el resto se cobra con otro método.
+// no alcanza, el resto se cobra con otro método. Crédito pide elegir el
+// cliente y no deja pasar de su disponible (el servidor lo vuelve a revisar
+// con el saldo del momento).
 export function PaymentPanel({
+  companySlug,
   methods,
   currency,
   totalCents,
   payments,
+  customer,
   error,
   pending,
   onChange,
+  onCustomer,
   onBack,
   onConfirm,
 }: {
+  companySlug: string;
   methods: Method[];
   currency: string;
   totalCents: number;
   payments: PaymentDraft[];
+  customer: PosCustomer | null;
   error: string | null;
   pending: boolean;
   onChange: (payments: PaymentDraft[]) => void;
+  onCustomer: (customer: PosCustomer | null) => void;
   onBack: () => void;
   onConfirm: () => void;
 }) {
+  const [picking, setPicking] = useState(false);
   const decimals = currencyDecimals(currency);
   const money = (cents: number) => formatMoney(cents / 100, currency);
   const totals = paymentTotals(payments, methods, totalCents);
   const { remaining, change, cashDue, cashApplied } = totals;
   const used = new Set(payments.map((payment) => payment.paymentMethodId));
-  const ready = payments.length > 0 && remaining === 0 && !totals.invalid;
+  const creditMethod = methods.find((method) => method.isCredit);
+  const creditPayment = payments.find((payment) => payment.paymentMethodId === creditMethod?.id);
+  const availableCents = customer ? toCents(customer.available) : 0;
+  const overLimit = creditPayment !== undefined && inputToCents(creditPayment.amount) > availableCents;
+  const missingCustomer = creditPayment !== undefined && !customer;
+  const ready =
+    payments.length > 0 && remaining === 0 && !totals.invalid && !overLimit && !missingCustomer;
 
   // Un método nuevo propone lo que falta (en efectivo: lo que falta, como
-  // si pagara exacto; se corrige con lo que entregue).
-  const addMethod = (method: Method) =>
-    onChange([
-      ...payments,
-      { paymentMethodId: method.id, amount: centsToInput(Math.max(remaining, 0), decimals) },
-    ]);
+  // si pagara exacto; se corrige con lo que entregue). Crédito, sin pasar
+  // del disponible del cliente.
+  const propose = (limit = Infinity) =>
+    centsToInput(Math.min(Math.max(remaining, 0), limit), decimals);
+  const addMethod = (method: Method) => {
+    if (method.isCredit && !customer) {
+      setPicking(true);
+      return;
+    }
+    const amount = propose(method.isCredit ? availableCents : Infinity);
+    onChange([...payments, { paymentMethodId: method.id, amount }]);
+  };
   const update = (index: number, amount: string) =>
     onChange(payments.map((payment, i) => (i === index ? { ...payment, amount } : payment)));
-  const remove = (index: number) => onChange(payments.filter((_, i) => i !== index));
+  const remove = (index: number) => {
+    if (payments[index].paymentMethodId === creditMethod?.id) onCustomer(null);
+    onChange(payments.filter((_, i) => i !== index));
+  };
+  // Elegido el cliente, se agrega Crédito (o se baja al nuevo disponible).
+  const selectCustomer = (selected: PosCustomer) => {
+    setPicking(false);
+    onCustomer(selected);
+    if (!creditMethod) return;
+    const limit = toCents(selected.available);
+    if (!creditPayment) {
+      onChange([...payments, { paymentMethodId: creditMethod.id, amount: propose(limit) }]);
+    } else if (inputToCents(creditPayment.amount) > limit) {
+      onChange(
+        payments.map((payment) =>
+          payment === creditPayment ? { ...payment, amount: centsToInput(limit, decimals) } : payment,
+        ),
+      );
+    }
+  };
+
+  if (picking) {
+    return (
+      <CustomerPicker
+        companySlug={companySlug}
+        currency={currency}
+        onSelect={selectCustomer}
+        onCancel={() => setPicking(false)}
+      />
+    );
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
@@ -80,6 +133,7 @@ export function PaymentPanel({
               onClick={() => addMethod(method)}
             >
               {method.isCash && <Banknote aria-hidden />}
+              {method.isCredit && <Contact aria-hidden />}
               {method.name}
             </Button>
           ))}
@@ -90,6 +144,7 @@ export function PaymentPanel({
           const method = methods.find((m) => m.id === payment.paymentMethodId);
           const inputId = `pay-${payment.paymentMethodId}`;
           const isCash = method?.isCash ?? false;
+          const isCredit = method?.isCredit ?? false;
           return (
             <li key={payment.paymentMethodId} className="flex flex-col gap-2 rounded-xl bg-muted p-3">
               <div className="flex items-center justify-between gap-2">
@@ -106,6 +161,29 @@ export function PaymentPanel({
                   <X aria-hidden />
                 </Button>
               </div>
+              {isCredit && (
+                <div className="flex items-center justify-between gap-2 rounded-lg bg-card px-3 py-2">
+                  {customer ? (
+                    <span className="min-w-0 text-sm">
+                      <span className="block truncate font-bold">{customer.name}</span>
+                      <span className="block text-xs text-muted-foreground tabular-nums">
+                        Disponible {formatMoney(Number(customer.available), currency)}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-sm text-destructive">Falta elegir el cliente.</span>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={pending}
+                    onClick={() => setPicking(true)}
+                  >
+                    {customer ? "Cambiar" : "Elegir"}
+                  </Button>
+                </div>
+              )}
               {isCash && (
                 <label htmlFor={inputId} className="text-xs font-semibold text-muted-foreground">
                   Recibido (lo que entrega el cliente)
@@ -133,6 +211,11 @@ export function PaymentPanel({
                   </Button>
                 )}
               </div>
+              {isCredit && overLimit && customer && (
+                <p className="text-xs font-medium text-destructive">
+                  Supera el disponible de {customer.name}. Cobra el resto con otro método.
+                </p>
+              )}
               {isCash && cashApplied > 0 && cashApplied < cashDue && (
                 <p className="text-xs text-muted-foreground">
                   Se aplican {money(cashApplied)} en efectivo. Cobra el resto con otro método.

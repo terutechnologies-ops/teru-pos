@@ -18,7 +18,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { currencyDecimals, formatMoney } from "@/lib/company-formats";
-import type { PosCatalog, PosProduct } from "@/server/services/sales";
+import type { PosCatalog, PosCustomer, PosProduct } from "@/server/services/sales";
 import { SALE_MAX_QUANTITY } from "@/server/validations/sales";
 
 import { CartPanel, type CartLine } from "./cart-panel";
@@ -31,7 +31,15 @@ import { checkoutAction } from "./sale-actions";
 type Step =
   | "cart"
   | "pay"
-  | { saleId: string; number: number; total: string; change: string; alreadyRecorded: boolean };
+  | {
+      saleId: string;
+      number: number;
+      total: string;
+      change: string;
+      alreadyRecorded: boolean;
+      // A quién se le cargó la parte a crédito.
+      customerName: string | null;
+    };
 
 // Pantalla de venta. El pedido vive en el navegador hasta cobrar (por eso
 // necesita JavaScript) y se guarda ahí para sobrevivir a una recarga
@@ -48,6 +56,7 @@ export function PosRegister({
 }) {
   const [lines, setLines] = useState<CartLine[]>([]);
   const [payments, setPayments] = useState<PaymentDraft[]>([]);
+  const [customer, setCustomer] = useState<PosCustomer | null>(null);
   const [clientKey, setClientKey] = useState("");
   const [loaded, setLoaded] = useState(false);
   const [step, setStep] = useState<Step>("cart");
@@ -69,6 +78,7 @@ export function PosRegister({
     if (saved) {
       setLines(saved.lines);
       setPayments(saved.payments);
+      setCustomer(saved.customer);
       setClientKey(saved.clientKey);
     } else {
       setClientKey((current) => current || newClientKey());
@@ -78,8 +88,8 @@ export function PosRegister({
   }, [storageKey, catalog]);
 
   useEffect(() => {
-    if (loaded) saveCart(storageKey, { clientKey, lines, payments });
-  }, [loaded, storageKey, clientKey, lines, payments]);
+    if (loaded) saveCart(storageKey, { clientKey, lines, payments, customer });
+  }, [loaded, storageKey, clientKey, lines, payments, customer]);
 
   function add(product: PosProduct) {
     if (typeof step !== "string") newSale();
@@ -111,6 +121,7 @@ export function PosRegister({
   function newSale() {
     setLines([]);
     setPayments([]);
+    setCustomer(null);
     setClientKey(newClientKey());
     setError(null);
     setStep("cart");
@@ -121,10 +132,14 @@ export function PosRegister({
 
   function confirm() {
     setError(null);
+    const credit = catalog.paymentMethods.find((method) => method.isCredit);
+    const onCredit = payments.some((payment) => payment.paymentMethodId === credit?.id);
+    const creditCustomer = onCredit ? customer : null;
     const payload = {
       clientKey,
       lines: lines.map(({ productId, quantity, note }) => ({ productId, quantity, note })),
       payments: paymentsPayload(payments, catalog.paymentMethods, totalCents, decimals),
+      customerId: creditCustomer?.id ?? null,
     };
     startTransition(async () => {
       const result = await checkoutAction(companySlug, payload);
@@ -134,6 +149,7 @@ export function PosRegister({
         clearCart(storageKey);
         setLines([]);
         setPayments([]);
+        setCustomer(null);
         setClientKey(newClientKey());
         // También si ya estaba registrada: la respuesta del primer cobro se
         // perdió, así que su comanda no salió.
@@ -144,6 +160,7 @@ export function PosRegister({
           total: result.total,
           change: result.change,
           alreadyRecorded: result.alreadyRecorded,
+          customerName: result.onCredit ? (creditCustomer?.name ?? null) : null,
         });
       } else {
         setError(result.error);
@@ -160,6 +177,11 @@ export function PosRegister({
           <p className="max-w-xs text-sm text-muted-foreground">
             Esta venta ya estaba registrada por {formatMoney(Number(step.total), currency)} (el
             cobro se había enviado antes). No se cobró de nuevo; revisa que no falte nada.
+          </p>
+        )}
+        {step.customerName && (
+          <p className="text-sm text-muted-foreground">
+            Parte a crédito de <span className="font-bold text-foreground">{step.customerName}</span>
           </p>
         )}
         <p className="text-sm text-muted-foreground">Cambio</p>
@@ -192,13 +214,16 @@ export function PosRegister({
       </div>
     ) : step === "pay" ? (
       <PaymentPanel
+        companySlug={companySlug}
         methods={catalog.paymentMethods}
         currency={currency}
         totalCents={totalCents}
         payments={payments}
+        customer={customer}
         error={error}
         pending={pending}
         onChange={setPayments}
+        onCustomer={setCustomer}
         onBack={() => {
           setError(null);
           setStep("cart");
@@ -219,9 +244,10 @@ export function PosRegister({
         onRemove={(productId) => setQuantity(productId, 0)}
         onClear={newSale}
         onCheckout={() => {
-          // Con un solo método activo se propone cobrar todo con él.
-          if (payments.length === 0 && catalog.paymentMethods.length === 1) {
-            const [only] = catalog.paymentMethods;
+          // Con un solo método activo se propone cobrar todo con él (salvo
+          // Crédito, que primero pide el cliente).
+          const [only] = catalog.paymentMethods;
+          if (payments.length === 0 && catalog.paymentMethods.length === 1 && !only.isCredit) {
             setPayments([
               { paymentMethodId: only.id, amount: centsToInput(totalCents, decimals) },
             ]);

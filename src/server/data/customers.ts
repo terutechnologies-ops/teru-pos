@@ -84,6 +84,39 @@ export async function listCustomers(
   });
 }
 
+// Clientes a los que hoy se les puede vender a crédito (activos y con cupo),
+// por nombre o NIT: el buscador del POS.
+export async function searchCreditCustomers(companyId: string, search: string, take: number) {
+  return db.thirdParty.findMany({
+    where: {
+      companyId,
+      isCustomer: true,
+      isArchived: false,
+      creditLimit: { gt: 0 },
+      OR: [
+        { name: { contains: search, mode: "insensitive" } },
+        { taxId: { contains: search, mode: "insensitive" } },
+      ],
+    },
+    orderBy: { name: "asc" },
+    take,
+    select: { id: true, name: true, taxId: true, creditLimit: true },
+  });
+}
+
+// Bloquea el cliente hasta el final de la transacción: las ventas a crédito,
+// los abonos y las anulaciones de un mismo cliente se esperan entre sí, así
+// el cupo se revisa con el saldo definitivo.
+export async function lockCustomer(tx: Prisma.TransactionClient, companyId: string, customerId: string) {
+  const [customer] = await tx.$queryRaw<
+    { id: string; name: string; isArchived: boolean; creditLimit: Prisma.Decimal }[]
+  >`
+    SELECT "id", "name", "isArchived", "creditLimit" FROM "third_parties"
+    WHERE "id" = ${customerId} AND "companyId" = ${companyId} AND "isCustomer"
+    FOR UPDATE`;
+  return customer ?? null;
+}
+
 export async function findCustomer(companyId: string, customerId: string) {
   return db.thirdParty.findFirst({
     where: { id: customerId, companyId, isCustomer: true },
@@ -134,11 +167,7 @@ export async function setCustomerArchived(
   isArchived: boolean,
 ): Promise<"OK" | "NOT_FOUND" | "HAS_BALANCE"> {
   return db.$transaction(async (tx) => {
-    const locked = await tx.$queryRaw<{ id: string }[]>`
-      SELECT "id" FROM "third_parties"
-      WHERE "id" = ${customerId} AND "companyId" = ${companyId} AND "isCustomer"
-      FOR UPDATE`;
-    if (locked.length === 0) return "NOT_FOUND";
+    if (!(await lockCustomer(tx, companyId, customerId))) return "NOT_FOUND";
     if (isArchived) {
       const balance = (await customerBalances(companyId, [customerId], tx)).get(customerId)?.balance;
       if (balance && !balance.isZero()) return "HAS_BALANCE";

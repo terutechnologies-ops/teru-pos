@@ -101,9 +101,13 @@ describe("catálogo del POS", () => {
     ]);
     expect(catalog.paymentMethods.map((m) => m.name)).toEqual(["Efectivo", "Tarjeta"]);
 
-    // Crédito activo todavía no se ofrece en el POS (llega con la cartera).
+    // Crédito se ofrece solo si está activo.
     await db.paymentMethod.updateMany({ where: { companyId: cashier.company.id, isCredit: true }, data: { isActive: true } });
-    expect((await getPosCatalog(cashier)).paymentMethods.map((m) => m.name)).toEqual(["Efectivo", "Tarjeta"]);
+    expect((await getPosCatalog(cashier)).paymentMethods.map((m) => [m.name, m.isCredit])).toEqual([
+      ["Efectivo", false],
+      ["Tarjeta", false],
+      ["Crédito", true],
+    ]);
     await db.paymentMethod.updateMany({ where: { companyId: cashier.company.id, isCredit: true }, data: { isActive: false } });
   });
 });
@@ -137,6 +141,7 @@ describe("cobro", () => {
       total: "33000",
       change: "30000",
       alreadyRecorded: false,
+      onCredit: false,
     });
     const line = await db.saleLine.findFirstOrThrow({ where: { companyId: a.id } });
     expect(line.note).toBe("sin sal");

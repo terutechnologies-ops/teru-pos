@@ -1,10 +1,11 @@
 import "server-only";
 
 import { Prisma } from "@/generated/prisma/client";
-import { resolveDayRange } from "@/lib/company-formats";
+import { formatMoney, resolveDayRange } from "@/lib/company-formats";
 import { listActiveBranches } from "@/server/data/branches";
 import { findOpenCashSession } from "@/server/data/cash-sessions";
 import { findProduct, listPosCatalog } from "@/server/data/catalog";
+import { customerBalances, searchCreditCustomers } from "@/server/data/customers";
 import {
   findCompanyCurrency,
   findCompanyFormats,
@@ -60,19 +61,46 @@ export async function getPosCatalog(session: StaffSessionDto) {
         };
       }),
     })),
-    // Crédito todavía no se ofrece en el POS: llega con la venta a crédito
-    // (cliente y cupo) de la cartera.
-    paymentMethods: methods
-      .filter((method) => !method.isCredit)
-      .map(({ id, name, isCash }) => ({ id, name, isCash })),
+    // Crédito (si está activo) pide elegir el cliente al cobrar.
+    paymentMethods: methods.map(({ id, name, isCash, isCredit }) => ({ id, name, isCash, isCredit })),
   };
 }
+
+// Resultados del buscador de clientes del POS.
+export const POS_CUSTOMER_RESULTS = 8;
+export const POS_CUSTOMER_MIN_SEARCH = 2;
+
+// Clientes a los que se les puede vender a crédito, con su disponible (cupo
+// − saldo). Quien cobra solo ve nombre, NIT y disponible, no la cartera.
+export async function searchPosCustomers(session: StaffSessionDto, search: string) {
+  assertPermission(session, "sales.charge");
+  const companyId = session.company.id;
+  const term = search.trim().slice(0, 80);
+  if (term.length < POS_CUSTOMER_MIN_SEARCH) return [];
+  const rows = await searchCreditCustomers(companyId, term, POS_CUSTOMER_RESULTS);
+  const balances = await customerBalances(
+    companyId,
+    rows.map((row) => row.id),
+  );
+  return rows.map((row) => {
+    const balance = balances.get(row.id)?.balance ?? new Prisma.Decimal(0);
+    return {
+      id: row.id,
+      name: row.name,
+      taxId: row.taxId,
+      available: Prisma.Decimal.max(row.creditLimit.minus(balance), 0).toString(),
+    };
+  });
+}
+
+export type PosCustomer = Awaited<ReturnType<typeof searchPosCustomers>>[number];
 
 export type PosCatalog = Awaited<ReturnType<typeof getPosCatalog>>;
 export type PosProduct = PosCatalog["categories"][number]["products"][number];
 
 export type CheckoutResult =
   // alreadyRecorded: el mismo pedido ya se había cobrado (reintento).
+  // onCredit: parte de la venta quedó a crédito de un cliente.
   | {
       ok: true;
       saleId: string;
@@ -80,6 +108,7 @@ export type CheckoutResult =
       total: string;
       change: string;
       alreadyRecorded: boolean;
+      onCredit: boolean;
     }
   // refresh: el catálogo o el turno cambiaron; la pantalla debe recargarse.
   | { ok: false; error: string; refresh: boolean };
@@ -106,6 +135,7 @@ export async function checkout(session: StaffSessionDto, input: unknown): Promis
     lines: parsed.data.lines,
     payments: parsed.data.payments,
     clientKey: parsed.data.clientKey,
+    customerId: parsed.data.customerId,
   });
   switch (result.status) {
     case "OK":
@@ -117,6 +147,7 @@ export async function checkout(session: StaffSessionDto, input: unknown): Promis
         total: result.total.toString(),
         change: result.change.toString(),
         alreadyRecorded: result.status === "ALREADY_RECORDED",
+        onCredit: result.customerId !== null,
       };
     case "PRODUCT_NOT_FOUND":
       return fail("Un producto del pedido ya no existe. Quítalo y vuelve a cobrar.", true);
@@ -139,7 +170,15 @@ export async function checkout(session: StaffSessionDto, input: unknown): Promis
     case "TENDERED_SHORT":
       return fail("El valor recibido en efectivo no alcanza a cubrir su monto.");
     case "CREDIT_REQUIRES_CUSTOMER":
-      return fail("Para vender a crédito hay que elegir el cliente.", true);
+      return fail("Para vender a crédito hay que elegir el cliente.");
+    case "CUSTOMER_WITHOUT_CREDIT":
+      return fail("El cliente solo se asigna a la parte pagada a crédito.");
+    case "CUSTOMER_NOT_FOUND":
+      return fail("Ese cliente ya no está disponible para crédito. Elige otro.");
+    case "CREDIT_LIMIT_EXCEEDED":
+      return fail(
+        `Supera el cupo disponible de ${result.customerName} (${formatMoney(Number(result.available), currency)}).`,
+      );
     case "EMPTY_SALE":
       return fail("Agrega al menos un producto.");
     case "CASH_SESSION_NOT_FOUND":
@@ -286,6 +325,9 @@ async function loadSaleDetail(companyId: string, saleId: string) {
       cashierId: sale.userId,
       cashierName: sale.user.name,
       branchName: sale.branch.name,
+      customer: sale.customer
+        ? { id: sale.customer.id, name: sale.customer.name, taxId: sale.customer.taxId }
+        : null,
       shift: { openedAt: sale.cashSession.openedAt, open: shiftOpen },
       voided:
         sale.status === "VOIDED"
@@ -355,6 +397,7 @@ export async function getPrintableSale(session: StaffSessionDto, saleId: string)
       change: sale.change,
       cashierName: sale.cashierName,
       branchName: sale.branchName,
+      customer: sale.customer,
       voided: sale.voided !== null,
       lines: sale.lines,
       payments: sale.payments,
@@ -373,6 +416,8 @@ const VOID_ERRORS = {
   NOT_FOUND: "La venta ya no existe. Actualiza la página.",
   ALREADY_VOIDED: "Esta venta ya estaba anulada.",
   CASH_SESSION_CLOSED: "El turno de esta venta ya se cerró: no se puede anular.",
+  CREDIT_ALREADY_PAID:
+    "El cliente ya abonó esta venta a crédito. Primero anula el abono de este cliente.",
 } as const;
 
 // Anula la venta: devuelve el inventario y deja de contar en el efectivo

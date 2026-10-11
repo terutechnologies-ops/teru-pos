@@ -15,7 +15,10 @@ const catalog: PosCatalog = {
       ],
     },
   ],
-  paymentMethods: [{ id: "cash", name: "Efectivo", isCash: true }],
+  paymentMethods: [
+    { id: "cash", name: "Efectivo", isCash: true, isCredit: false },
+    { id: "credit", name: "Crédito", isCash: false, isCredit: true },
+  ],
 };
 
 describe("pedido guardado", () => {
@@ -45,7 +48,37 @@ describe("pedido guardado", () => {
         { productId: "arepa", name: "Arepa de queso", price: "17000", quantity: 2, note: "sin sal" },
       ],
       payments: [{ paymentMethodId: "cash", amount: "34.000" }],
+      customer: null,
     });
+  });
+
+  it("conserva el cliente solo si sigue el pago a crédito", () => {
+    const lines = [{ productId: "arepa", name: "Arepa", price: "17000", quantity: 1, note: "" }];
+    const customer = { id: "cli", name: "Ana", taxId: null, available: "50000" };
+    expect(
+      reconcileCart(
+        { clientKey: "k", lines, payments: [{ paymentMethodId: "credit", amount: "17.000" }], customer },
+        catalog,
+      )?.customer,
+    ).toEqual(customer);
+    // Sin pago a crédito (o con un cliente mal guardado) no queda cliente.
+    expect(
+      reconcileCart(
+        { clientKey: "k", lines, payments: [{ paymentMethodId: "cash", amount: "17.000" }], customer },
+        catalog,
+      )?.customer,
+    ).toBeNull();
+    expect(
+      reconcileCart(
+        {
+          clientKey: "k",
+          lines,
+          payments: [{ paymentMethodId: "credit", amount: "17.000" }],
+          customer: { id: "cli", available: 5 },
+        },
+        catalog,
+      )?.customer,
+    ).toBeNull();
   });
 
   it("descarta lo que no es un pedido o quedó vacío", () => {
