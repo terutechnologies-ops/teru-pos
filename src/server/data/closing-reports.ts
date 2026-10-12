@@ -91,8 +91,8 @@ export async function findLastClosingReport(companyId: string) {
 }
 
 // Lo que resume el reporte: los turnos cerrados en (periodStart, cutoff],
-// sus ventas (por método de pago y anuladas aparte) y sus movimientos de
-// caja sin los anulados.
+// sus ventas (por método de pago y anuladas aparte), sus movimientos de
+// caja y los abonos de clientes, sin los anulados.
 export async function findClosingReportPeriod(
   companyId: string,
   period: { periodStart: Date; cutoff: Date },
@@ -111,7 +111,7 @@ export async function findClosingReportPeriod(
   });
   const ids = sessions.map((session) => session.id);
   const sale = { companyId, cashSessionId: { in: ids } };
-  const [completed, voided, byMethod, movements, methods] = await Promise.all([
+  const [completed, voided, byMethod, movements, payments, methods] = await Promise.all([
     db.sale.aggregate({ where: { ...sale, status: "COMPLETED" }, _count: true, _sum: { total: true } }),
     db.sale.aggregate({ where: { ...sale, status: "VOIDED" }, _count: true, _sum: { total: true } }),
     db.salePayment.groupBy({
@@ -122,6 +122,11 @@ export async function findClosingReportPeriod(
     db.cashMovement.groupBy({
       by: ["type"],
       where: { companyId, cashSessionId: { in: ids }, status: "RECORDED" },
+      _sum: { amount: true },
+    }),
+    db.customerPayment.aggregate({
+      where: { companyId, cashSessionId: { in: ids }, status: "RECORDED" },
+      _count: true,
       _sum: { amount: true },
     }),
     db.paymentMethod.findMany({
@@ -151,6 +156,7 @@ export async function findClosingReportPeriod(
       withdrawals: movement("WITHDRAWAL"),
       deposits: movement("DEPOSIT"),
     },
+    customerPayments: { count: payments._count, total: payments._sum.amount ?? zero },
   };
 }
 

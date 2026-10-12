@@ -1,5 +1,3 @@
-import Image from "next/image";
-
 import {
   formatCalendarDate,
   formatClock,
@@ -9,7 +7,14 @@ import {
 import { cn } from "@/lib/utils";
 import type { PrintableSale } from "@/server/services/sales";
 
-import { DashedRule, SheetRow, ThickRule, VoidedMark, taxIdText } from "./sheet-parts";
+import {
+  CompanyHeader,
+  DashedRule,
+  SheetRow,
+  ThickRule,
+  VoidedMark,
+  taxIdText,
+} from "./sheet-parts";
 
 // Soporte de venta para el cliente, solo si lo pide. No es una factura
 // electrónica y lo dice. En 58 mm la fecha y la hora van en columnas y el
@@ -20,25 +25,7 @@ export function SaleReceipt({ printable }: { printable: PrintableSale }) {
 
   return (
     <article>
-      <header className="flex flex-col items-center text-center">
-        {company.logoUrl && (
-          // eager: en el marco invisible del POS una imagen diferida nunca
-          // carga. unoptimized, como en CompanyMark.
-          <Image
-            src={company.logoUrl}
-            alt={`Logo de ${company.name}`}
-            width={200}
-            height={200}
-            unoptimized
-            loading="eager"
-            className="mb-[0.6em] h-auto w-[28mm] object-contain grayscale group-data-[paper=58]/sheet:w-[22mm]"
-          />
-        )}
-        <p className="text-[1.5em] leading-tight font-extrabold uppercase">{company.name}</p>
-        {company.taxId && <p className="text-[0.95em]">{taxIdText(company.taxId)}</p>}
-        {company.address && <p className="text-[0.95em]">{company.address}</p>}
-        {company.phone && <p className="text-[0.95em]">Tel. {company.phone}</p>}
-      </header>
+      <CompanyHeader company={company} />
 
       <DashedRule />
       <p className="text-center font-bold tracking-[0.08em]">SOPORTE DE VENTA</p>

@@ -12,6 +12,10 @@ import {
 import { listActiveBranches } from "@/server/data/branches";
 import { listSessionCashMovements, sumSessionCashMovements } from "@/server/data/cash-movements";
 import {
+  listSessionCustomerPayments,
+  sumSessionCashPayments,
+} from "@/server/data/customer-payments";
+import {
   closeCashSession,
   countOpenCashSessionsBefore,
   findCashSession,
@@ -28,6 +32,7 @@ import { listPaymentMethods } from "@/server/data/payment-methods";
 import type { StaffSessionDto } from "@/server/dto/auth";
 import { assertPermission, hasPermission } from "@/server/services/auth/permissions";
 import { cashMovementTotals, toCashMovement } from "@/server/services/cash-movements";
+import { customerPaymentTotals, toCustomerPayment } from "@/server/services/customer-payments";
 import {
   closeOthersShiftSchema,
   closeShiftSchema,
@@ -167,11 +172,12 @@ export async function closeShift(
 export async function getClosedShift(session: StaffSessionDto, cashSessionId: string) {
   assertPermission(session, "sales.charge");
   const companyId = session.company.id;
-  const [formats, row, lastClosedId, movements] = await Promise.all([
+  const [formats, row, lastClosedId, movements, cashPayments] = await Promise.all([
     findCompanyFormats(companyId),
     findCashSession(companyId, cashSessionId),
     findLastClosedCashSessionId(companyId, session.user.id),
     sumSessionCashMovements(companyId, cashSessionId),
+    sumSessionCashPayments(companyId, cashSessionId),
   ]);
   if (!row || row.userId !== session.user.id || !row.closedAt) return null;
   if (!row.expectedCash || !row.countedCash) return null;
@@ -189,16 +195,18 @@ export async function getClosedShift(session: StaffSessionDto, cashSessionId: st
       // contado − esperado: negativo = faltante, positivo = sobrante.
       difference: row.countedCash.minus(row.expectedCash).toString(),
       closingNote: row.closingNote,
-      // Cuadre: fondo + efectivo de ventas + ingresos − gastos − retiros =
-      // esperado. El efectivo de ventas sale del esperado guardado: cerrado,
-      // ya nada lo cambia.
+      // Cuadre: fondo + efectivo de ventas + abonos en efectivo + ingresos −
+      // gastos − retiros = esperado. El efectivo de ventas sale del esperado
+      // guardado: cerrado, ya nada lo cambia.
       cash: {
         sales: row.expectedCash
           .minus(row.openingAmount)
+          .minus(cashPayments)
           .minus(deposits)
           .plus(expenses)
           .plus(withdrawals)
           .toString(),
+        payments: cashPayments.toString(),
         deposits: deposits.toString(),
         expenses: expenses.toString(),
         withdrawals: withdrawals.toString(),
@@ -319,11 +327,12 @@ export async function getCashSessionReview(session: StaffSessionDto, cashSession
 
 // Detalle sin revisar permisos: lo comparten el panel y el cierre impreso.
 async function loadCashSessionReview(companyId: string, cashSessionId: string) {
-  const [row, formats, methods, movementRows] = await Promise.all([
+  const [row, formats, methods, movementRows, paymentRows] = await Promise.all([
     findCashSessionReview(companyId, cashSessionId),
     findCompanyFormats(companyId),
     listPaymentMethods(companyId),
     listSessionCashMovements(companyId, cashSessionId),
+    listSessionCustomerPayments(companyId, cashSessionId),
   ]);
   if (!row) return null;
   const amounts = new Map(row.byMethod.map((entry) => [entry.paymentMethodId, entry.amount]));
@@ -332,21 +341,28 @@ async function loadCashSessionReview(companyId: string, cashSessionId: string) {
   const cashSales = (cashMethod && amounts.get(cashMethod.id)?.toString()) ?? "0";
   const movements = movementRows.map(toCashMovement);
   const totals = cashMovementTotals(movements);
+  const payments = paymentRows.map(toCustomerPayment);
+  const paymentTotals = customerPaymentTotals(payments);
 
   return {
     ...formats,
     shift: {
       ...toReviewShift(row),
       cashSales,
-      // Cuadre: fondo + efectivo de ventas + ingresos − gastos − retiros =
-      // esperado.
+      // Cuadre: fondo + efectivo de ventas + abonos en efectivo + ingresos −
+      // gastos − retiros = esperado.
       cash: {
         sales: cashSales,
+        payments: paymentTotals.cash,
         deposits: totals.deposits,
         expenses: totals.expenses,
         withdrawals: totals.withdrawals,
       },
       movements,
+      // Abonos de clientes (todos los métodos; solo el efectivo entra al
+      // cuadre).
+      payments,
+      paymentTotals,
       // Abierto: lo que debería haber hasta ahora.
       liveExpected: row.liveExpected?.toString() ?? null,
       byMethod: methods
@@ -422,6 +438,19 @@ export async function getPrintableShift(session: StaffSessionDto, cashSessionId:
           createdAt,
         })),
       voidedMovementsCount: shift.movements.filter((movement) => movement.voided).length,
+      // Abonos sin anular; los anulados, solo cuántos.
+      payments: shift.payments
+        .filter((payment) => !payment.voided)
+        .map(({ id, number, customerName, methodName, amount, createdAt }) => ({
+          id,
+          number,
+          customerName,
+          methodName,
+          amount,
+          createdAt,
+        })),
+      paymentTotals: shift.paymentTotals,
+      voidedPaymentsCount: shift.payments.filter((payment) => payment.voided).length,
     },
   };
 }

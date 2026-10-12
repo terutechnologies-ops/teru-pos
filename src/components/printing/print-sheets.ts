@@ -1,7 +1,7 @@
-// Hojas impresas y cómo llegar a ellas: comanda y soporte (de una venta) y
-// cierre (de un turno de caja).
+// Hojas impresas y cómo llegar a ellas: comanda y soporte (de una venta),
+// cierre (de un turno de caja) y abono (comprobante de un abono de cliente).
 
-export type PrintSheet = "comanda" | "soporte" | "cierre";
+export type PrintSheet = "comanda" | "soporte" | "cierre" | "abono";
 
 // auto: la hoja se imprime sola al cargar (la usa printInBackground).
 export function printSheetHref(

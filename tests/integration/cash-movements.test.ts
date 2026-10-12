@@ -209,7 +209,7 @@ describe("cierre y resultado del turno", () => {
     expect(closed?.shift).toMatchObject({
       expectedCash: "32000",
       difference: "0",
-      cash: { sales: "0", deposits: "5000", expenses: "3000", withdrawals: "20000" },
+      cash: { sales: "0", payments: "0", deposits: "5000", expenses: "3000", withdrawals: "20000" },
     });
     // Cerrado, ya no se registra nada.
     expect(await registerCashMovement(beto, expense())).toMatchObject({ ok: false });

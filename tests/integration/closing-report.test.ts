@@ -261,6 +261,7 @@ describe("buildClosingReportEmail", () => {
       sessions: [],
       sales: { count: 0, total: zero, voidedCount: 0, voidedTotal: zero, byMethod: [] },
       cash: { expenses: zero, withdrawals: zero, deposits: zero },
+      customerPayments: { count: 0, total: zero },
     },
   };
 
@@ -323,6 +324,7 @@ describe("buildClosingReportEmail", () => {
           withdrawals: new Prisma.Decimal("20000"),
           deposits: zero,
         },
+        customerPayments: { count: 2, total: new Prisma.Decimal("45000") },
       },
     });
     email.text = plain(email.text);
@@ -335,6 +337,7 @@ describe("buildClosingReportEmail", () => {
     expect(email.text).toContain("Gastos: $ 5.000");
     expect(email.text).toContain("Retiros: $ 20.000");
     expect(email.text).not.toContain("Ingresos:");
+    expect(email.text).toContain("Abonos de clientes: 2 por $ 45.000");
     expect(email.text).toMatch(/• Ana \(Centro\), cerró a las .+: sobrante \$ 2\.000/);
     expect(email.text).toMatch(/• Beto \(Norte\), cerró a las .+: cuadrada/);
   });

@@ -1038,6 +1038,8 @@ model CustomerPayment {
   amount          Decimal               @db.Decimal(12, 2)
   // Recibido en efectivo cuando hubo cambio.
   tendered        Decimal?              @db.Decimal(12, 2)
+  // Lo que el cliente quedó debiendo después de este abono.
+  balanceAfter    Decimal               @db.Decimal(12, 2)
   note            String?
   userId          String
   user            User                  @relation("CustomerPaymentRecordedBy", fields: [userId], references: [id], onDelete: Restrict)

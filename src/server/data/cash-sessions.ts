@@ -98,15 +98,15 @@ export async function lockCashSession(
 }
 
 // Efectivo que debería haber en la caja: fondo inicial + lo cobrado en
-// efectivo en ventas no anuladas (amount ya descuenta el cambio) + ingresos
-// − gastos − retiros no anulados. Fuera de una transacción sirve para ver
-// cómo va un turno abierto.
+// efectivo en ventas no anuladas (amount ya descuenta el cambio) + abonos de
+// clientes en efectivo + ingresos − gastos − retiros, sin los anulados.
+// Fuera de una transacción sirve para ver cómo va un turno abierto.
 export async function expectedCash(
   tx: Prisma.TransactionClient,
   companyId: string,
   cashSessionId: string,
 ) {
-  const [session, cash, movements] = await Promise.all([
+  const [session, cash, payments, movements] = await Promise.all([
     tx.cashSession.findFirstOrThrow({
       where: { id: cashSessionId, companyId },
       select: { openingAmount: true },
@@ -117,6 +117,10 @@ export async function expectedCash(
         paymentMethod: { isCash: true },
         sale: { cashSessionId, status: "COMPLETED" },
       },
+      _sum: { amount: true },
+    }),
+    tx.customerPayment.aggregate({
+      where: { companyId, cashSessionId, status: "RECORDED", paymentMethod: { isCash: true } },
       _sum: { amount: true },
     }),
     tx.cashMovement.groupBy({
@@ -130,7 +134,7 @@ export async function expectedCash(
       row.type === "DEPOSIT"
         ? total.plus(row._sum.amount ?? 0)
         : total.minus(row._sum.amount ?? 0),
-    session.openingAmount.plus(cash._sum.amount ?? 0),
+    session.openingAmount.plus(cash._sum.amount ?? 0).plus(payments._sum.amount ?? 0),
   );
 }
 

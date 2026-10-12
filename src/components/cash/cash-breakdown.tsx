@@ -1,7 +1,7 @@
 import { formatMoney } from "@/lib/company-formats";
 import { cn } from "@/lib/utils";
 
-// Cuadre de un turno cerrado: cómo se llega al efectivo esperado.
+// Cuadre de un turno: cómo se llega al efectivo esperado.
 export function CashBreakdown({
   openingAmount,
   cash,
@@ -9,13 +9,17 @@ export function CashBreakdown({
   currency,
 }: {
   openingAmount: string;
-  cash: { sales: string; deposits: string; expenses: string; withdrawals: string };
+  cash: { sales: string; payments: string; deposits: string; expenses: string; withdrawals: string };
   expectedCash: string;
   currency: string;
 }) {
   const rows = [
     { label: "Fondo inicial", sign: "", value: openingAmount },
     { label: "Efectivo de ventas", sign: "+", value: cash.sales },
+    // Solo si hubo: muchas empresas no venden a crédito.
+    ...(Number(cash.payments) !== 0
+      ? [{ label: "Abonos en efectivo", sign: "+", value: cash.payments }]
+      : []),
     { label: "Ingresos", sign: "+", value: cash.deposits },
     { label: "Gastos", sign: "−", value: cash.expenses },
     { label: "Retiros", sign: "−", value: cash.withdrawals },

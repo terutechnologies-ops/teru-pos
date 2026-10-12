@@ -4061,3 +4061,111 @@ anula el abono de este cliente"). Decisión de Claude, informada: el correo
 
 **Próximo paso:** diseño del componente 4 (abonos en
 el POS).
+
+### Componente 4 — Abonos en el POS (aprobado 2026-10-11)
+
+POS `/pos/abonos` (botón "Abonos" en la barra del turno): buscar cliente
+**con saldo > 0** (aunque su cupo sea 0) mostrando lo que debe; método
+activo menos Crédito; monto ≤ saldo; efectivo con recibido y cambio; nota
+opcional; resultado "Abono #N" con el saldo restante; lista de abonos del
+turno (sin anular). Servidor: turno propio abierto (`sales.charge`),
+cliente `FOR UPDATE`, número con `lastCustomerPaymentNumber`. Cuadre:
+`expectedCash` suma abonos en efectivo no anulados; "Abonos en efectivo" en
+`CashBreakdown` (POS y panel), hoja del cierre (con lista) y reporte por
+correo. Panel: sección "Abonos de clientes" en el detalle del turno;
+anular con `cash.void`, motivo y turno abierto. Decisiones del usuario:
+**comprobante impreso opcional** (80/58 mm: abono, cliente, monto, método,
+saldo) y **correo al cliente con cada abono** (si tiene correo, con
+`after()`).
+
+Implementación (2026-10-11):
+- Migración `20261011120000_add_customer_payment_balance` (**aplicada en
+  test y dev**; diff vacío; dev no tenía abonos): `customer_payments.
+  balanceAfter` `Decimal(12,2)` NOT NULL con `CHECK >= 0`. Motivo: el
+  comprobante reimpreso y el correo muestran lo que quedó debiendo al
+  registrar, no el saldo de hoy. Para correrla se detuvo `next dev` (EPERM de
+  `prisma generate`).
+- **Datos** `data/customer-payments.ts`: `searchCustomersWithBalance`
+  (candidatos por nombre/NIT, filtra saldo > 0), `recordCustomerPayment`
+  (turno `FOR SHARE` → método activo y no Crédito → recibido solo efectivo →
+  cliente `FOR UPDATE` → `EXCEEDS_BALANCE` → consecutivo con
+  `lastCustomerPaymentNumber` al final), `voidCustomerPayment` (turno
+  abierto, cliente bloqueado, `updateMany` sobre RECORDED),
+  `listSessionCustomerPayments`, `findCustomerPayment`,
+  `sumSessionCashPayments`, `companyUsesCredit`. `expectedCash` suma los
+  abonos en efectivo (consulta en `cash-sessions.ts` para no crear un ciclo
+  de imports).
+- **Servicio** `services/customer-payments.ts`: `searchPaymentCustomers`,
+  `offersCustomerPayments` (botón "Abonos" solo si Crédito activo o hubo
+  ventas a crédito), `getShiftCustomerPayments`, `registerCustomerPayment`,
+  `voidCustomerPaymentFromPanel` (`cash.void`), `getPrintableCustomerPayment`
+  (`cash.review` cualquiera; quien cobra, los de su turno abierto),
+  `toCustomerPayment`, `customerPaymentTotals` (total y efectivo).
+  `validations/customer-payments.ts`. Cuadre: `cash.payments` en
+  `getClosedShift` y `loadCashSessionReview`; la revisión trae `payments` y
+  `paymentTotals`; la hoja del cierre, abonos y anulados.
+- **Correo** `services/customer-payment-email.ts` (abono, forma de pago,
+  saldo pendiente o "paz y salvo"); `amountTable` nuevo en `email-layout.ts`
+  (ahora también lo usa el correo de la compra a crédito).
+- **POS** `/pos/abonos`: `CustomerPaymentForm` (buscar quién debe, método,
+  valor propuesto = todo lo que debe, recibido opcional con cambio, nota;
+  resultado con "Imprimir comprobante" y "Otro abono"), lista del turno con
+  reimpresión. `CustomerPicker` ahora es genérico (búsqueda, monto y textos
+  por uso). Cierre del POS: "Abonos en efectivo".
+- **Panel** detalle del turno: sección "Abonos de clientes" (comprobante y
+  anular). `VoidInShiftForm` / `void-in-shift-fields.ts` reemplazan al
+  formulario de anulación de movimientos (campo `recordId`); acción nueva
+  `voidCustomerPaymentAction` (aviso `abono-anulado`). `CashBreakdown` con
+  "Abonos en efectivo" solo si hubo.
+- **Impresión** `/imprimir/abono/[id]` (`CustomerPaymentReceipt`, 80/58 mm,
+  "ANULADO" si aplica; "Volver" al turno en el panel). `CompanyHeader`
+  extraído a `sheet-parts` (lo usa también el soporte de venta).
+- **Reporte de cierre**: `customerPayments` en el período; línea y tarjeta
+  "Abonos" si hubo.
+- Pruebas: `customer-payments.test.ts` (10: botón, búsqueda con cupo 0,
+  efectivo con cambio y esperado, tarjeta fuera del esperado, validaciones,
+  concurrencia 3/3, comprobante y permisos, correo, paz y salvo, anulación,
+  cierre con hoja y reporte) y ajustes (`balanceAfter` en creates directos,
+  `payments` en el cuadre, período del reporte). Verificado: typecheck, lint,
+  suite **512/512**, build. Correo revisado con Chrome sin interfaz.
+- **Sin probar en el navegador:** `/pos/abonos`, el comprobante impreso y la
+  sección del panel.
+
+## Cierre de la sesión 2026-10-11
+
+**Implementado hoy (con commit y subido a `origin/master`):**
+- Fase 14, componente 3 — venta a crédito en el POS y correo de la compra
+  (`856aedf`).
+- Fase 14, componente 4 — abonos en el POS: cuadre, hoja del cierre,
+  reporte, anulación en el panel, comprobante impreso y correo (último commit
+  de la sesión).
+
+**Pendiente (mañana):**
+- Fase 14, componente 5 — **estado de cuenta, cartera y alerta de vencidos**
+  (analizar y diseñar antes): ficha `/clientes/[id]` con movimientos (ventas
+  a crédito, abonos, anulaciones) y saldo; vencido = lo no cubierto (FIFO)
+  cuya fecha + plazo pasó; vista de cartera; alerta en "Pendientes".
+- Componente 6 — cierre de la fase 14 (revisión, ADR 0014, README).
+- Usuario: probar en el navegador la venta a crédito, `/pos/abonos`, el
+  comprobante y la sección de abonos del panel. Si no recuerda la contraseña
+  de la cuenta Teru (`terutechnologies@gmail.com`), restablecerla con
+  `teru:create-admin --reset` (TERU_ADMIN_PASSWORD en `.env` y borrarla
+  después).
+- Después: preparación para producción (2FA Teru, correos en spam) y
+  despliegue.
+
+**Decisiones técnicas de hoy:** cupo revisado con el cliente `FOR UPDATE`
+(orden turno → cliente → insumos → empresa); anular venta a crédito
+bloqueado si el saldo quedaría negativo; correos de crédito y abono con
+`after()`, sin registro de envío; `balanceAfter` guardado en el abono;
+"Abonos" solo si la empresa usa crédito; `CustomerPicker`,
+`VoidInShiftForm`, `CompanyHeader` y `amountTable` compartidos.
+
+**Errores y riesgos conocidos:**
+- decimal.js: `isPositive()` es `true` para 0 (usar `greaterThan(0)`).
+- `prisma generate` falla con EPERM si `next dev` corre: detenerlo antes
+  (`taskkill /PID <pid> /T /F`).
+- Con Resend activo en dev, los correos de crédito y abono salen de verdad.
+- Siguen los de sesiones anteriores.
+
+**Próximo paso recomendado:** diseño del componente 5 de la fase 14.

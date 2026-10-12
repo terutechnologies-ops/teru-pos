@@ -114,6 +114,10 @@ function summaryText({ period, currency, timeZone }: ClosingReportEmailInput) {
   lines.push(`Gastos: ${money(cash.expenses)}`);
   if (!cash.withdrawals.isZero()) lines.push(`Retiros: ${money(cash.withdrawals)}`);
   if (!cash.deposits.isZero()) lines.push(`Ingresos: ${money(cash.deposits)}`);
+  const { customerPayments } = period;
+  if (customerPayments.count > 0) {
+    lines.push(`Abonos de clientes: ${customerPayments.count} por ${money(customerPayments.total)}`);
+  }
 
   lines.push("", "CAJA");
   const multipleBranches = new Set(sessions.map((session) => session.branch.name)).size > 1;
@@ -178,6 +182,17 @@ function summaryHtml({ period, currency }: ClosingReportEmailInput) {
     kpi("Retiros", money(cash.withdrawals), "Efectivo retirado", C.text),
   ];
   if (!cash.deposits.isZero()) cards.push(kpi("Ingresos", money(cash.deposits), "Efectivo agregado", C.success));
+  const { customerPayments } = period;
+  if (customerPayments.count > 0) {
+    cards.push(
+      kpi(
+        "Abonos",
+        money(customerPayments.total),
+        plural(customerPayments.count, "abono de cliente", "abonos de clientes"),
+        C.success,
+      ),
+    );
+  }
   // Filas de tres tarjetas (en el celular se apilan).
   const rows: string[] = [];
   for (let i = 0; i < cards.length; i += 3) {

@@ -8,7 +8,7 @@ import {
   type VoidCashMovementResult,
 } from "@/server/services/cash-movements";
 
-import type { VoidCashMovementFormState } from "./void-cash-movement-fields";
+import type { VoidInShiftFormState } from "./void-in-shift-fields";
 
 const UNEXPECTED = "No pudimos anular el movimiento. Inténtalo de nuevo en un momento.";
 
@@ -19,12 +19,12 @@ function field(formData: FormData, name: string) {
 // Anulación desde el detalle del turno. Al terminar vuelve al turno con el
 // aviso.
 export async function voidCashMovementAction(
-  _prev: VoidCashMovementFormState,
+  _prev: VoidInShiftFormState,
   formData: FormData,
-): Promise<VoidCashMovementFormState> {
+): Promise<VoidInShiftFormState> {
   // requirePermission valida la sesión en la empresa enviada y el permiso.
   const session = await requirePermission(field(formData, "company"), "cash.void");
-  const movementId = field(formData, "movementId");
+  const movementId = field(formData, "recordId");
   const cashSessionId = field(formData, "cashSessionId");
   const reason = field(formData, "reason");
 

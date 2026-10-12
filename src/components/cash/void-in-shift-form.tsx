@@ -7,33 +7,31 @@ import { FormField } from "@/components/shared/form-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-import { voidCashMovementAction } from "./void-cash-movement-actions";
-import type { VoidCashMovementFormState } from "./void-cash-movement-fields";
+import { initialVoidInShiftState, type VoidInShiftFormState } from "./void-in-shift-fields";
 
-const initialState: VoidCashMovementFormState = {
-  status: "idle",
-  message: null,
-  fieldErrors: {},
-  reason: "",
-};
-
-// Anular un gasto, retiro o ingreso del turno abierto: se despliega (sin
-// JS, con <details>) y pide el motivo; el segundo botón es la confirmación.
-export function VoidCashMovementForm({
+// Anular un registro del turno abierto (gasto, retiro, ingreso o abono): se
+// despliega (sin JS, con <details>) y pide el motivo; el segundo botón es la
+// confirmación. La acción recibe company, cashSessionId, recordId y reason.
+export function VoidInShiftForm({
   companySlug,
   cashSessionId,
-  movementId,
+  recordId,
   label,
+  description,
+  action,
 }: {
   companySlug: string;
   cashSessionId: string;
-  movementId: string;
-  // "gasto", "retiro" o "ingreso".
+  recordId: string;
+  // "gasto", "retiro", "ingreso" o "abono #12": el botón dice "Anular el …".
   label: string;
+  // Qué pasa al anular.
+  description: string;
+  action: (state: VoidInShiftFormState, formData: FormData) => Promise<VoidInShiftFormState>;
 }) {
-  const [state, formAction, pending] = useActionState(voidCashMovementAction, initialState);
+  const [state, formAction, pending] = useActionState(action, initialVoidInShiftState);
   const reasonError = state.fieldErrors.reason;
-  const inputId = `void-movement-${movementId}`;
+  const inputId = `void-${recordId}`;
 
   return (
     <details className="group mt-1" open={state.status === "error" || undefined}>
@@ -48,12 +46,9 @@ export function VoidCashMovementForm({
       >
         <input type="hidden" name="company" value={companySlug} />
         <input type="hidden" name="cashSessionId" value={cashSessionId} />
-        <input type="hidden" name="movementId" value={movementId} />
+        <input type="hidden" name="recordId" value={recordId} />
 
-        <p className="text-sm text-muted-foreground">
-          Queda registrado como anulado y deja de contar en el efectivo esperado del turno. No
-          se puede deshacer.
-        </p>
+        <p className="text-sm text-muted-foreground">{description}</p>
 
         {state.message && (
           <p role="alert" className="text-sm font-medium text-destructive">

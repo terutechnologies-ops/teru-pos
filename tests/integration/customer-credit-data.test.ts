@@ -29,7 +29,7 @@ afterAll(() => cleanupCompanies(tag));
 
 const payment = (data: Record<string, unknown> = {}) =>
   db.customerPayment.create({
-    data: { companyId, number: 1, customerId, cashSessionId, paymentMethodId: cash, amount: "10000", userId, ...data },
+    data: { companyId, number: 1, customerId, cashSessionId, paymentMethodId: cash, amount: "10000", balanceAfter: "0", userId, ...data },
   });
 
 describe("reglas de la base para la cartera", () => {
@@ -48,6 +48,7 @@ describe("reglas de la base para la cartera", () => {
     await expect(payment({ status: "VOIDED" })).rejects.toThrow();
     await expect(payment({ voidReason: "Error" })).rejects.toThrow();
     await expect(payment({ note: "x".repeat(201) })).rejects.toThrow();
+    await expect(payment({ balanceAfter: "-1" })).rejects.toThrow();
 
     const ok = await payment({ tendered: "20000" });
     expect(ok.status).toBe("RECORDED");
@@ -64,7 +65,7 @@ describe("reglas de la base para la cartera", () => {
     const foreign = await db.thirdParty.create({ data: { companyId: other, name: "Ajeno", isCustomer: true } });
     await expect(
       db.customerPayment.create({
-        data: { companyId, number: 9, customerId: foreign.id, cashSessionId, paymentMethodId: cash, amount: "1", userId },
+        data: { companyId, number: 9, customerId: foreign.id, cashSessionId, paymentMethodId: cash, amount: "1", balanceAfter: "0", userId },
       }),
     ).rejects.toThrow();
   });

@@ -222,3 +222,20 @@ ${details}
     footer: [`Correo automático de ${PLATFORM_NAME} para ${input.header.companyName}. No respondas a este mensaje.`],
   });
 }
+
+export type AmountRow = { label: string; value: string; strong?: boolean };
+
+// Tabla etiqueta / monto alineado a la derecha (pedido, pagos, saldo). Los
+// textos se escapan aquí.
+export function amountTable(rows: AmountRow[]) {
+  const html = rows
+    .map(({ label, value, strong }) => {
+      const size = strong ? "16px" : "14px";
+      return `<tr>
+<td style="padding:6px 12px 6px 0;font-size:${size};font-weight:${strong ? "800" : "400"};color:${C.text}">${escapeHtml(label)}</td>
+<td align="right" style="padding:6px 0;font-size:${size};font-weight:${strong ? "800" : "600"};color:${C.text};white-space:nowrap">${escapeHtml(value)}</td>
+</tr>`;
+    })
+    .join("");
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${html}</table>`;
+}

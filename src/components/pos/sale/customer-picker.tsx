@@ -7,36 +7,42 @@ import { taxIdText } from "@/components/printing/sheet-parts";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatMoney } from "@/lib/company-formats";
-import type { PosCustomer } from "@/server/services/sales";
-
-import { searchCustomersAction } from "./sale-actions";
 
 // Espera tras la última tecla antes de buscar.
 const SEARCH_DELAY_MS = 300;
 const MIN_SEARCH = 2;
 
-type SearchState =
+type PickerCustomer = { id: string; name: string; taxId: string | null };
+
+type SearchState<T> =
   | { kind: "idle" }
   | { kind: "loading" }
   | { kind: "error" }
-  | { kind: "done"; customers: PosCustomer[] };
+  | { kind: "done"; customers: T[] };
 
-// Buscador de clientes de crédito (nombre o NIT) para cobrar a crédito.
-// Solo salen los activos con cupo; los que ya no tienen disponible se ven
-// pero no se eligen.
-export function CustomerPicker({
-  companySlug,
+// Buscador de clientes por nombre o NIT del POS: al vender a crédito (con su
+// disponible) o al recibir un abono (con lo que debe). Cada uso pasa su
+// búsqueda (una acción del servidor; null = falló) y qué monto mostrar.
+export function CustomerPicker<T extends PickerCustomer>({
+  title,
   currency,
+  search,
+  amount,
+  emptyText,
   onSelect,
   onCancel,
 }: {
-  companySlug: string;
+  title: string;
   currency: string;
-  onSelect: (customer: PosCustomer) => void;
-  onCancel: () => void;
+  search: (term: string) => Promise<T[] | null>;
+  // Monto a la derecha de cada cliente; disabled = se ve pero no se elige.
+  amount: (customer: T) => { label: string; value: string; disabled?: boolean };
+  emptyText: string;
+  onSelect: (customer: T) => void;
+  onCancel?: () => void;
 }) {
   const [query, setQuery] = useState("");
-  const [state, setState] = useState<SearchState>({ kind: "idle" });
+  const [state, setState] = useState<SearchState<T>>({ kind: "idle" });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Solo cuenta la respuesta de la última búsqueda.
   const latest = useRef(0);
@@ -60,7 +66,7 @@ export function CustomerPicker({
     setState({ kind: "loading" });
     timer.current = setTimeout(async () => {
       const id = ++latest.current;
-      const customers = await searchCustomersAction(companySlug, term).catch(() => null);
+      const customers = await search(term).catch(() => null);
       if (id !== latest.current) return;
       setState(customers ? { kind: "done", customers } : { kind: "error" });
     }, SEARCH_DELAY_MS);
@@ -69,10 +75,12 @@ export function CustomerPicker({
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
       <div className="flex items-center gap-2">
-        <Button type="button" variant="ghost" size="icon" onClick={onCancel} aria-label="Volver al cobro">
-          <ArrowLeft aria-hidden />
-        </Button>
-        <p className="font-bold">¿A quién se le vende a crédito?</p>
+        {onCancel && (
+          <Button type="button" variant="ghost" size="icon" onClick={onCancel} aria-label="Volver">
+            <ArrowLeft aria-hidden />
+          </Button>
+        )}
+        <p className="font-bold">{title}</p>
       </div>
       <div className="relative">
         <Search
@@ -105,19 +113,17 @@ export function CustomerPicker({
           <p className="text-sm text-destructive">No pudimos buscar. Inténtalo de nuevo.</p>
         )}
         {state.kind === "done" && state.customers.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            No hay clientes con crédito que coincidan. Los clientes y su cupo se crean en el panel.
-          </p>
+          <p className="text-sm text-muted-foreground">{emptyText}</p>
         )}
         {state.kind === "done" && state.customers.length > 0 && (
           <ul className="flex flex-col gap-2">
             {state.customers.map((customer) => {
-              const noCredit = Number(customer.available) <= 0;
+              const shown = amount(customer);
               return (
                 <li key={customer.id}>
                   <button
                     type="button"
-                    disabled={noCredit}
+                    disabled={shown.disabled}
                     onClick={() => onSelect(customer)}
                     className="flex w-full items-center justify-between gap-3 rounded-xl bg-muted p-3 text-left transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-muted"
                   >
@@ -130,11 +136,9 @@ export function CustomerPicker({
                       )}
                     </span>
                     <span className="shrink-0 text-right">
-                      <span className="block text-xs text-muted-foreground">
-                        {noCredit ? "Sin cupo disponible" : "Disponible"}
-                      </span>
+                      <span className="block text-xs text-muted-foreground">{shown.label}</span>
                       <span className="block font-bold tabular-nums">
-                        {formatMoney(Number(customer.available), currency)}
+                        {formatMoney(Number(shown.value), currency)}
                       </span>
                     </span>
                   </button>

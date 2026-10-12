@@ -100,6 +100,7 @@ describe("detalle del turno en el panel", () => {
     expect(review?.canVoidMovements).toBe(true);
     expect(review?.shift.cash).toEqual({
       sales: "0",
+      payments: "0",
       deposits: "10000",
       expenses: "5000",
       withdrawals: "20000",
@@ -159,7 +160,7 @@ describe("detalle del turno en el panel", () => {
     expect(printable?.shift).toMatchObject({
       expectedCash: "90000",
       difference: "0",
-      cash: { sales: "0", deposits: "10000", expenses: "0", withdrawals: "20000" },
+      cash: { sales: "0", payments: "0", deposits: "10000", expenses: "0", withdrawals: "20000" },
       voidedMovementsCount: 1,
     });
     expect(printable?.shift.movements.map((m) => [m.type, m.amount, m.categoryName])).toEqual([

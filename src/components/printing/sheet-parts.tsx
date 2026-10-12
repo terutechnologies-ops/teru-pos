@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
@@ -33,12 +34,46 @@ export function SheetRow({
   );
 }
 
-// Una venta anulada se puede imprimir, pero no debe pasar por válida.
-export function VoidedMark() {
+// Un documento anulado se puede imprimir, pero no debe pasar por válido.
+export function VoidedMark({ label = "ANULADA" }: { label?: string }) {
   return (
     <p className="my-[0.5em] border-[3px] border-black py-[0.15em] text-center text-[1.6em] font-extrabold tracking-[0.2em]">
-      ANULADA
+      {label}
     </p>
+  );
+}
+
+export type ReceiptCompany = {
+  name: string;
+  taxId: string | null;
+  address: string | null;
+  phone: string | null;
+  logoUrl: string | null;
+};
+
+// Encabezado de los documentos para el cliente (soporte de venta,
+// comprobante de abono): logo y datos de la empresa.
+export function CompanyHeader({ company }: { company: ReceiptCompany }) {
+  return (
+    <header className="flex flex-col items-center text-center">
+      {company.logoUrl && (
+        // eager: en el marco invisible del POS una imagen diferida nunca
+        // carga. unoptimized, como en CompanyMark.
+        <Image
+          src={company.logoUrl}
+          alt={`Logo de ${company.name}`}
+          width={200}
+          height={200}
+          unoptimized
+          loading="eager"
+          className="mb-[0.6em] h-auto w-[28mm] object-contain grayscale group-data-[paper=58]/sheet:w-[22mm]"
+        />
+      )}
+      <p className="text-[1.5em] leading-tight font-extrabold uppercase">{company.name}</p>
+      {company.taxId && <p className="text-[0.95em]">{taxIdText(company.taxId)}</p>}
+      {company.address && <p className="text-[0.95em]">{company.address}</p>}
+      {company.phone && <p className="text-[0.95em]">Tel. {company.phone}</p>}
+    </header>
   );
 }
 

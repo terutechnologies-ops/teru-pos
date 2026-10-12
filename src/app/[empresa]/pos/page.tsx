@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Banknote, Lock, TriangleAlert } from "lucide-react";
+import { Banknote, HandCoins, Lock, TriangleAlert } from "lucide-react";
 
 import { OpenShiftForm } from "@/components/pos/open-shift-form";
 import { PrintSettingsButton } from "@/components/pos/print-settings-button";
@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { formatClock, formatDateTime } from "@/lib/company-formats";
 import { requirePermission } from "@/server/http/staff-session";
 import { getPosShift } from "@/server/services/cash-sessions";
+import { offersCustomerPayments } from "@/server/services/customer-payments";
 import { getPosCatalog } from "@/server/services/sales";
 
 export const metadata: Metadata = { title: "Vender" };
@@ -48,6 +49,15 @@ export default async function PosPage({ params }: PageProps<"/[empresa]/pos">) {
     </Button>
   );
 
+  const paymentsButton = (await offersCustomerPayments(session)) && (
+    <Button asChild variant="outline" className="h-11 gap-2">
+      <Link href={`/${slug}/pos/abonos`}>
+        <HandCoins aria-hidden />
+        Abonos
+      </Link>
+    </Button>
+  );
+
   const cashButton = (
     <Button asChild variant="outline" className="h-11 gap-2">
       <Link href={`/${slug}/pos/caja`}>
@@ -72,6 +82,7 @@ export default async function PosPage({ params }: PageProps<"/[empresa]/pos">) {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-2xl font-extrabold tracking-tight">Tu caja</h1>
             <div className="flex flex-wrap gap-2">
+              {paymentsButton}
               {cashButton}
               {closeButton}
             </div>
@@ -100,6 +111,7 @@ export default async function PosPage({ params }: PageProps<"/[empresa]/pos">) {
         </p>
         <div className="flex flex-wrap gap-2">
           <PrintSettingsButton />
+          {paymentsButton}
           {cashButton}
           {closeButton}
         </div>

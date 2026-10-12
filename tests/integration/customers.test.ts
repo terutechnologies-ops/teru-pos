@@ -93,6 +93,7 @@ async function abono(customerId: string, amount: string, voided = false) {
       cashSessionId,
       paymentMethodId: cashMethod,
       amount,
+      balanceAfter: "0",
       userId: owner.user.id,
       ...(voided && { status: "VOIDED" as const, voidedAt: new Date(), voidedById: owner.user.id, voidReason: "Prueba" }),
     },

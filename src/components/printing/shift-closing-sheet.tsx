@@ -18,8 +18,8 @@ function Signature({ label }: { label: string }) {
 }
 
 // Cierre de turno para entregar la caja: ventas del turno, gastos, retiros
-// e ingresos de efectivo, cuadre del efectivo y la diferencia, con espacio para las firmas de quien entrega y
-// quien recibe.
+// e ingresos de efectivo, abonos de clientes, cuadre del efectivo y la
+// diferencia, con espacio para las firmas de quien entrega y quien recibe.
 export function ShiftClosingSheet({ printable }: { printable: PrintableShift }) {
   const { companyName, shift, currency, dateFormat, timeZone } = printable;
   const money = (value: string) => formatMoney(Number(value), currency);
@@ -84,11 +84,32 @@ export function ShiftClosingSheet({ printable }: { printable: PrintableShift }) 
         </>
       )}
 
+      {(shift.payments.length > 0 || shift.voidedPaymentsCount > 0) && (
+        <>
+          <DashedRule />
+          <SectionLabel>ABONOS DE CLIENTES</SectionLabel>
+          {shift.payments.map((payment) => (
+            <SheetRow
+              key={payment.id}
+              label={`#${payment.number} ${payment.customerName} · ${payment.methodName}`}
+              value={money(payment.amount)}
+            />
+          ))}
+          {shift.voidedPaymentsCount > 0 && (
+            <SheetRow label="Anulados (no cuentan)" value={shift.voidedPaymentsCount} />
+          )}
+          <SheetRow label="Total abonos" value={money(shift.paymentTotals.total)} className="font-bold" />
+        </>
+      )}
+
       <DashedRule />
       <SectionLabel>CUADRE DE EFECTIVO</SectionLabel>
       <SheetRow label="Fondo inicial" value={money(shift.openingAmount)} />
       <SheetRow label="+ Efectivo de ventas" value={money(shift.cash.sales)} />
       {/* Solo los que hubo: la hoja no se alarga con ceros. */}
+      {Number(shift.cash.payments) > 0 && (
+        <SheetRow label="+ Abonos en efectivo" value={money(shift.cash.payments)} />
+      )}
       {Number(shift.cash.deposits) > 0 && (
         <SheetRow label="+ Ingresos" value={money(shift.cash.deposits)} />
       )}

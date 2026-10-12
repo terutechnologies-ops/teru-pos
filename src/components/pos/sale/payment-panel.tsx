@@ -12,6 +12,7 @@ import type { PosCatalog, PosCustomer } from "@/server/services/sales";
 
 import { CustomerPicker } from "./customer-picker";
 import { centsToInput, inputToCents, paymentTotals, toCents, type PaymentDraft } from "./money";
+import { searchCustomersAction } from "./sale-actions";
 
 type Method = PosCatalog["paymentMethods"][number];
 
@@ -100,8 +101,18 @@ export function PaymentPanel({
   if (picking) {
     return (
       <CustomerPicker
-        companySlug={companySlug}
+        title="¿A quién se le vende a crédito?"
         currency={currency}
+        search={(term) => searchCustomersAction(companySlug, term)}
+        amount={(found) => {
+          const noCredit = Number(found.available) <= 0;
+          return {
+            label: noCredit ? "Sin cupo disponible" : "Disponible",
+            value: found.available,
+            disabled: noCredit,
+          };
+        }}
+        emptyText="No hay clientes con crédito que coincidan. Los clientes y su cupo se crean en el panel."
         onSelect={selectCustomer}
         onCancel={() => setPicking(false)}
       />

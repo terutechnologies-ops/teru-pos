@@ -6,6 +6,7 @@ import {
   Banknote,
   Calculator,
   CircleCheck,
+  HandCoins,
   Printer,
   Receipt,
   TriangleAlert,
@@ -18,7 +19,10 @@ import { CASH_MOVEMENT_KINDS } from "@/components/cash/cash-movement-kinds";
 import { CashMovementList } from "@/components/cash/cash-movement-list";
 import { CASH_NOTICES } from "@/components/cash/close-others-shift-fields";
 import { CloseOthersShiftForm } from "@/components/cash/close-others-shift-form";
-import { VoidCashMovementForm } from "@/components/cash/void-cash-movement-form";
+import { CustomerPaymentList } from "@/components/cash/customer-payment-list";
+import { voidCashMovementAction } from "@/components/cash/void-cash-movement-actions";
+import { voidCustomerPaymentAction } from "@/components/cash/void-customer-payment-actions";
+import { VoidInShiftForm } from "@/components/cash/void-in-shift-form";
 import { printSheetHref } from "@/components/printing/print-sheets";
 import { PageHeader } from "@/components/shared/page-header";
 import { SectionTitle } from "@/components/shared/section-title";
@@ -38,8 +42,9 @@ function param(value: string | string[] | undefined) {
 }
 
 // Detalle del turno: cuadre (o cómo va, si está abierto), gastos, retiros e
-// ingresos, ventas por método de pago y la lista de ventas. Con el turno
-// abierto, aquí se anulan sus movimientos y se cierra.
+// ingresos, abonos de clientes, ventas por método de pago y la lista de
+// ventas. Con el turno abierto, aquí se anulan sus movimientos y abonos y se
+// cierra.
 export default async function CashSessionPage({
   params,
   searchParams,
@@ -181,11 +186,13 @@ export default async function CashSessionPage({
               review.canVoidMovements
                 ? (movement) =>
                     !movement.voided && (
-                      <VoidCashMovementForm
+                      <VoidInShiftForm
                         companySlug={slug}
                         cashSessionId={shift.id}
-                        movementId={movement.id}
+                        recordId={movement.id}
                         label={CASH_MOVEMENT_KINDS[movement.type].label.toLowerCase()}
+                        description="Queda registrado como anulado y deja de contar en el efectivo esperado del turno. No se puede deshacer."
+                        action={voidCashMovementAction}
                       />
                     )
                 : undefined
@@ -195,6 +202,46 @@ export default async function CashSessionPage({
           <p className="text-sm text-muted-foreground">Este turno no tiene movimientos de caja.</p>
         )}
       </section>
+
+      {shift.payments.length > 0 && (
+        <section className="flex flex-col gap-4 rounded-xl bg-card p-5 shadow-sm sm:p-6">
+          <SectionTitle
+            icon={<HandCoins className="size-5" aria-hidden />}
+            title="Abonos de clientes"
+            description={`${shift.paymentTotals.count} por ${money(shift.paymentTotals.total)} · en efectivo ${money(shift.paymentTotals.cash)} (solo el efectivo cuenta en el esperado).${
+              review.canVoidMovements ? " Mientras el turno siga abierto, se pueden anular." : ""
+            }`}
+          />
+          <CustomerPaymentList
+            payments={shift.payments}
+            currency={currency}
+            timeZone={timeZone}
+            renderActions={(payment) =>
+              !payment.voided && (
+                <div className="flex flex-wrap items-start gap-x-4">
+                  <Link
+                    href={printSheetHref(slug, "abono", payment.id)}
+                    className="mt-1 inline-flex w-fit items-center gap-1 text-sm font-semibold text-link hover:underline"
+                  >
+                    <Printer className="size-4" aria-hidden />
+                    Comprobante
+                  </Link>
+                  {review.canVoidMovements && (
+                    <VoidInShiftForm
+                      companySlug={slug}
+                      cashSessionId={shift.id}
+                      recordId={payment.id}
+                      label={`abono #${payment.number}`}
+                      description="Queda registrado como anulado: la deuda del cliente vuelve a subir y, si fue en efectivo, deja de contar en el esperado del turno. No se puede deshacer."
+                      action={voidCustomerPaymentAction}
+                    />
+                  )}
+                </div>
+              )
+            }
+          />
+        </section>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
         <section className="flex flex-col gap-4 rounded-xl bg-card p-5 shadow-sm sm:p-6">

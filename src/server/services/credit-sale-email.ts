@@ -14,6 +14,7 @@ import { findSaleDetail } from "@/server/data/sales";
 import { publicFileUrl } from "@/server/services/images";
 import { getMessageSender } from "@/server/services/messaging";
 import {
+  amountTable,
   bodyRow,
   card,
   EMAIL_COLORS as C,
@@ -54,15 +55,6 @@ function dueDate({ sale, creditDays, dateFormat, timeZone }: CreditSaleEmailInpu
   return formatDate(new Date(`${day}T00:00:00Z`), dateFormat);
 }
 
-function row(label: string, value: string, strong = false) {
-  const weight = strong ? "800" : "600";
-  const size = strong ? "16px" : "14px";
-  return `<tr>
-<td style="padding:6px 12px 6px 0;font-size:${size};color:${C.text};font-weight:${strong ? "800" : "400"}">${label}</td>
-<td align="right" style="padding:6px 0;font-size:${size};font-weight:${weight};color:${C.text};white-space:nowrap">${value}</td>
-</tr>`;
-}
-
 export function buildCreditSaleEmail(input: CreditSaleEmailInput) {
   const { sale, companyName, customerName, currency } = input;
   const money = (value: Decimalish) => formatMoney(Number(value.toString()), currency);
@@ -99,20 +91,18 @@ export function buildCreditSaleEmail(input: CreditSaleEmailInput) {
     `Correo automático de ${PLATFORM_NAME} para ${companyName}. No respondas a este mensaje.`,
   ].join("\n");
 
-  const lineRows = sale.lines
-    .map((line) =>
-      row(`${line.quantity} × ${escapeHtml(line.productName)}`, escapeHtml(money(line.lineTotal))),
-    )
-    .join("");
+  const lineRows = sale.lines.map((line) => ({
+    label: `${line.quantity} × ${line.productName}`,
+    value: money(line.lineTotal),
+  }));
   const paymentRows = [
-    row("Cargado a tu cuenta", escapeHtml(formatMoney(onCredit, currency)), true),
-    ...otherPayments.map((payment) =>
-      row(`Pagado con ${escapeHtml(payment.methodName)}`, escapeHtml(money(payment.amount))),
-    ),
-    row("Fecha límite de pago", escapeHtml(due)),
-  ].join("");
-  const table = (rows: string) =>
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`;
+    { label: "Cargado a tu cuenta", value: formatMoney(onCredit, currency), strong: true },
+    ...otherPayments.map((payment) => ({
+      label: `Pagado con ${payment.methodName}`,
+      value: money(payment.amount),
+    })),
+    { label: "Fecha límite de pago", value: due },
+  ];
 
   const body = [
     bodyRow(
@@ -125,12 +115,12 @@ export function buildCreditSaleEmail(input: CreditSaleEmailInput) {
     bodyRow(
       sectionTitle("Pedido") +
         card(
-          table(lineRows) +
+          amountTable(lineRows) +
             `<div style="margin-top:8px;border-top:2px solid ${C.border}"></div>` +
-            table(row("Total", escapeHtml(money(sale.total)), true)),
+            amountTable([{ label: "Total", value: money(sale.total), strong: true }]),
         ),
     ),
-    bodyRow(sectionTitle("Tu crédito") + card(table(paymentRows))),
+    bodyRow(sectionTitle("Tu crédito") + card(amountTable(paymentRows))),
     bodyRow(
       `<p style="margin:0;font-size:12px;line-height:1.6;color:${C.muted}">${escapeHtml(contact)}</p>`,
       "18px 28px 28px",

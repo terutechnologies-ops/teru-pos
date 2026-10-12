@@ -321,6 +321,7 @@ describe("anular una venta a crédito", () => {
         cashSessionId: shift.id,
         paymentMethodId: cash,
         amount: "40000",
+        balanceAfter: "9500",
         userId: cashier.user.id,
       },
     });
