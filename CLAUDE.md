@@ -4264,3 +4264,56 @@ registro) y los de sesiones anteriores.
 
 **Próximo paso recomendado:** analizar
 la preparación para producción.
+
+## Fase 15 — Preparación para producción (ambiente de pruebas en línea)
+
+Decisiones del usuario (2026-10-14): **Vercel Hobby** para probar
+internamente desde cero con datos falsos (ciclo completo: cada pantalla,
+campo, impresión, reporte y correo); al lanzar con Su Arepa real (uso
+comercial) se pasa a **Pro**. **Supabase gratis** por ahora (se pausa a los
+7 días sin uso; sin copias automáticas). Archivos de desarrollo en una
+**carpeta local**. Verificación en dos pasos **solo para el equipo Teru**.
+Dirección `pos.teruwork.com` desde las pruebas.
+
+Alcance aprobado: 1) desarrollo local; 2) verificación en dos pasos (TOTP)
+para `/teru`; 3) endurecimiento (cabeceras, `postinstall`, `gru1`,
+variables al arrancar, `npm audit`, revisión de seguridad); 4) ambiente de
+pruebas en línea (reinicio de Supabase y buckets —confirmar antes—, Vercel
+Hobby, `pos.teruwork.com`, Resend con Reply-To, cuenta Teru y empresa de
+prueba, lista de verificación del ciclo completo); 5) cierre (ADR 0015,
+README, guía de operación, pendientes del lanzamiento: Vercel Pro, decidir
+Supabase Pro, reinicio final, alta de Su Arepa).
+
+Paso a producción (respondido al usuario): mismo código, base, proyecto de
+Vercel, región y dirección; al lanzar solo cambian los planes, un reinicio
+final y el alta de Su Arepa. Desde el lanzamiento: la base nunca se
+reinicia, el desarrollo nunca va contra producción y antes de cada
+migración se saca una copia.
+
+### Componente 1 — Desarrollo local (aprobado 2026-10-14)
+
+- **Base local** `teru_pos_dev` en PostgreSQL 17 (creada, 25 migraciones,
+  seed: Su Arepa y su OWNER). `.env` apunta a ella (misma contraseña de
+  `postgres` que `.env.test`).
+- **`.env` dividido** (script `split_env.py` del scratchpad, sin mostrar
+  valores): `.env` local (sin `RESEND_API_KEY` → outbox; sin
+  `SUPABASE_*`; `LOCAL_STORAGE_DIR=".archivos-dev"`) y **`.env.supabase`**
+  (Supabase, Storage, Resend, `MAIL_FROM`, `APP_URL=https://pos.teruwork.com`)
+  que no se carga en desarrollo: se usa con `npx dotenv -e .env.supabase --
+  <comando>`. Copia del original en `.env.backup` (borrarla tras verificar).
+  `NEXT_PUBLIC_SUPABASE_URL` no se usaba: se quitó.
+- **Archivos locales:** `services/storage/local.ts` (`createLocalStorage`
+  público y privado sobre `LOCAL_STORAGE_DIR/{publico,privado}`, no
+  reemplaza archivos, `resolveLocalFile` rechaza rutas fuera de la
+  carpeta, URL absolutas con `APP_URL`); `getLocalStorageDir()` en `env.ts`
+  (solo con `NODE_ENV=development`; gana sobre Supabase); ruta
+  `app/dev/archivos/[...ruta]/route.ts` (solo desarrollo, solo imágenes por
+  sus primeros bytes, `no-store`). `.gitignore` con `/.archivos-dev/`.
+- `.env.example` con los valores locales; README (puesta en marcha local,
+  archivos, correos, `.env.supabase`, variables, estructura).
+- Pruebas: `tests/unit/local-storage.test.ts` (3). Verificado: typecheck,
+  lint, suite **525/525**, build. Por HTTP con `next dev` contra la base
+  local: login, `/teru/login`, outbox, imagen local 200, texto y archivo
+  inexistente 404.
+- Falta: la cuenta Teru local (`teru:create-admin` con
+  `TERU_ADMIN_PASSWORD`).

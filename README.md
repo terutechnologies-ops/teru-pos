@@ -34,14 +34,29 @@ abono).
 
 ## Puesta en marcha
 
+El desarrollo usa **PostgreSQL 17 local** (base `teru_pos_dev`), nunca la
+base del ambiente en línea.
+
 ```bash
 npm install
-cp .env.example .env      # completar DATABASE_URL, DIRECT_URL y APP_URL
-npm run db:migrate:deploy # aplica las migraciones
+cp .env.example .env      # contraseña del usuario postgres local y SEED_*
+psql -U postgres -c "CREATE DATABASE teru_pos_dev"
+npm run db:migrate:deploy # aplica las migraciones a la base local
 npm run db:seed           # crea la empresa su-arepa y su OWNER (ver abajo)
-npm run storage:setup     # crea los buckets de archivos (requiere SUPABASE_*)
 npm run dev
 ```
+
+- **Archivos** (logos, fotos, recibos): en desarrollo se guardan en la
+  carpeta `LOCAL_STORAGE_DIR` (`.archivos-dev`, ignorada por git) y los
+  sirve `/dev/archivos/...`, que no existe fuera de desarrollo. Si está,
+  gana sobre Supabase: el desarrollo nunca sube archivos al ambiente en
+  línea.
+- **Correos:** sin `RESEND_API_KEY` en `.env`, se ven en
+  `http://localhost:3000/dev/outbox` y no salen de verdad.
+- **Ambiente en línea:** sus credenciales (Supabase, Storage, Resend) van
+  en `.env.supabase` (ignorado por git), que no se carga en desarrollo. Para
+  usarlas a propósito: `npx dotenv -e .env.supabase -- <comando>` (por
+  ejemplo `npx prisma migrate deploy` o `npm run storage:setup`).
 
 - Inicio: `http://localhost:3000/` (buscador "Ingresa a tu empresa").
 - Login del personal: `http://localhost:3000/<slug-empresa>/login`
@@ -119,18 +134,20 @@ npm run dev
 - Correos (recuperación de contraseña, invitaciones, aviso de contraseña
   cambiada, bienvenida al propietario, reporte de cierre, y compra a
   crédito y abono al cliente que tenga correo): con
-  `RESEND_API_KEY` salen por Resend, **también en desarrollo**; sin ella,
-  en desarrollo se ven en `http://localhost:3000/dev/outbox` y en
-  producción el envío falla. Ver "Correo" abajo.
+  `RESEND_API_KEY` salen por Resend (también en desarrollo, por eso
+  `.env` la deja vacía); sin ella, en desarrollo se ven en
+  `http://localhost:3000/dev/outbox` y en producción el envío falla. Ver
+  "Correo" abajo.
 
 ### Variables de entorno
 
 | Variable | Uso |
 |---|---|
-| `DATABASE_URL` | Conexión de la app (Supabase: transaction pooler, puerto 6543) |
-| `DIRECT_URL` | Conexión para migraciones (session pooler, puerto 5432) |
+| `DATABASE_URL` | Conexión de la app (local: `teru_pos_dev`; en línea, Supabase: transaction pooler, puerto 6543) |
+| `DIRECT_URL` | Conexión para migraciones (local: la misma; en línea, session pooler, puerto 5432) |
 | `APP_URL` | URL pública, para armar enlaces de recuperación e invitación |
 | `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | Almacenamiento de archivos en Supabase Storage (logos y fotos de productos en un bucket público; recibos de gastos en uno privado). Opcionales: sin ellas no se suben archivos. La clave es secreta (`sb_secret_...`) |
+| `LOCAL_STORAGE_DIR` | Solo en desarrollo: carpeta para los archivos subidos (`.archivos-dev`). Gana sobre Supabase; fuera de desarrollo se ignora |
 | `RESEND_API_KEY`, `MAIL_FROM` | Correo por Resend. La clave (`re_...`, permiso "Sending access" solo para el dominio de envío) es secreta; `MAIL_FROM` es el remitente de un dominio verificado (`Teru POS <reportes@envios.dominio.com>`). Sin clave: outbox en desarrollo, error en producción |
 | `SEED_OWNER_EMAIL`, `SEED_OWNER_NAME`, `SEED_OWNER_PASSWORD` | Solo para `npm run db:seed` |
 | `TERU_ADMIN_PASSWORD` | Solo para `npm run teru:create-admin`; quitarla después |
@@ -264,7 +281,8 @@ src/
                         recibos/[id] (enlace firmado al recibo)
     teru/               Panel del equipo Teru: login, empresas
                         (lista, nueva y ficha)
-    dev/outbox/         Bandeja de correos (solo desarrollo)
+    dev/                Solo desarrollo: bandeja de correos (outbox) y
+                        archivos de la carpeta local (archivos)
   components/
     ui/                 Componentes shadcn/ui
     account/            Mi cuenta y cambio de contraseña

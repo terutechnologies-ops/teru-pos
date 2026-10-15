@@ -1,5 +1,7 @@
 import "server-only";
 
+import path from "node:path";
+
 import { z } from "zod";
 
 // URL pública de la app para armar enlaces (recuperación de contraseña).
@@ -26,6 +28,16 @@ export function getStorageConfig() {
     bucket: STORAGE_BUCKET,
     privateBucket: PRIVATE_STORAGE_BUCKET,
   };
+}
+
+// Solo en desarrollo: carpeta local para los archivos (LOCAL_STORAGE_DIR,
+// relativa al proyecto). Si está, gana sobre Supabase: el desarrollo nunca
+// sube archivos al almacenamiento de producción. Fuera de desarrollo se
+// ignora.
+export function getLocalStorageDir(): string | null {
+  if (process.env.NODE_ENV !== "development") return null;
+  const dir = process.env.LOCAL_STORAGE_DIR?.trim();
+  return dir ? path.resolve(dir) : null;
 }
 
 // Correo (Resend). Sin RESEND_API_KEY no hay proveedor: en desarrollo los
