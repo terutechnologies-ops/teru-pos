@@ -4169,3 +4169,46 @@ bloqueado si el saldo quedaría negativo; correos de crédito y abono con
 - Siguen los de sesiones anteriores.
 
 **Próximo paso recomendado:** diseño del componente 5 de la fase 14.
+
+## Sesión 2026-10-14 — Fase 14, componente 5
+
+Al iniciar: `next dev` levantado; 25 migraciones al día en dev.
+
+### Componente 5 — Estado de cuenta, cartera y alerta de vencidos (aprobado 2026-10-14)
+
+Diseño aprobado el 2026-10-14 con la opción A: **la fecha límite usa el
+plazo actual del cliente** (sin migración; si se cambia el plazo, la fecha
+puede no coincidir con la del correo de la compra).
+- **Cálculo** `services/credit-aging.ts` (puro): `creditDueDay` (día de la
+  venta en la zona de la empresa + plazo; ahora también lo usa el correo de
+  la compra a crédito) y `ageCredit` (abonos del más viejo al más nuevo;
+  vencido = lo sin cubrir cuya fecha límite ya pasó; el día de la fecha
+  límite no cuenta).
+- **Datos:** `listCreditSales` (`data/customers.ts`, SQL agrupado por venta
+  con la parte a crédito, también anuladas, y el plazo del cliente) y
+  `listCustomerPaymentsOf` (`data/customer-payments.ts`).
+- **Servicio** `services/customers.ts`: `agePortfolio` (interno: saldo y
+  vencido de quien debe), `getCustomerList` con `owing` (solo los que
+  deben, por vencido y saldo) y `summary` (por cobrar, vencido, clientes),
+  `countOverdueCustomers` y `getCustomerStatement` (movimientos con saldo
+  acumulado, `due` en ventas completadas, `today`, enlaces según permisos).
+  `getPendingAlerts` suma `overdueCustomers` (`customers.manage`).
+- **UI:** ficha `/clientes/[id]` (Debe, Vencido, Disponible, Cupo y plazo;
+  movimientos con "Venta #N" → detalle de la venta y "Abono #N" → turno;
+  insignias Pagada / Vence el … / Vence hoy / Vencida hace N días /
+  Anulada; "Falta $X" si está cubierta en parte). `/clientes`: resumen
+  `PortfolioSummary` si alguien debe, pestaña **Deben** (`?deben=1`),
+  insignia "Vencido $X", el nombre abre la ficha. Detalle de la venta: "A
+  crédito de X" enlaza la ficha. "Pendientes": "Clientes con pagos
+  vencidos" (no urgente) → `/clientes?deben=1`.
+- Pruebas: `tests/unit/credit-aging.test.ts` (4) e
+  `tests/integration/customer-statement.test.ts` (5: cartera y orden,
+  estado de cuenta con anulados y fechas límite, vence hoy, alerta sin
+  otra empresa, plazo actual, permisos); `alerts.test.ts` ajustada.
+  Verificado: typecheck, lint, suite **521/521**, build; sin sesión las
+  rutas redirigen al login.
+- **Sin probar en el navegador** (con sesión): ficha, pestaña Deben y la
+  alerta.
+
+**Próximo paso:** componente 6
+(cierre de la fase 14: revisión, ADR 0014, README).

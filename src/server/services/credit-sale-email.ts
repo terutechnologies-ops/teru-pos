@@ -2,8 +2,6 @@ import "server-only";
 
 import { PLATFORM_NAME } from "@/lib/brand";
 import {
-  addCalendarDays,
-  calendarDay,
   formatDate,
   formatDateTime,
   formatMoney,
@@ -11,6 +9,7 @@ import {
 } from "@/lib/company-formats";
 import { findCompanyFormats, findCompanySettings } from "@/server/data/companies";
 import { findSaleDetail } from "@/server/data/sales";
+import { creditDueDay } from "@/server/services/credit-aging";
 import { publicFileUrl } from "@/server/services/images";
 import { getMessageSender } from "@/server/services/messaging";
 import {
@@ -51,7 +50,7 @@ export type CreditSaleEmailInput = {
 
 // Fecha límite: el día de la venta (en la zona de la empresa) + el plazo.
 function dueDate({ sale, creditDays, dateFormat, timeZone }: CreditSaleEmailInput) {
-  const day = addCalendarDays(calendarDay(sale.createdAt, timeZone), creditDays);
+  const day = creditDueDay(sale.createdAt, creditDays, timeZone);
   return formatDate(new Date(`${day}T00:00:00Z`), dateFormat);
 }
 

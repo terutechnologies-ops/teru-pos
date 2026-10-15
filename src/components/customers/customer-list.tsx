@@ -5,17 +5,18 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatMoney } from "@/lib/company-formats";
 import { cn } from "@/lib/utils";
-import type { CustomerDto } from "@/server/services/customers";
+import type { CustomerListItem } from "@/server/services/customers";
 
 import { CustomerRowButton } from "./customer-row-button";
 
-// Clientes en orden alfabético: contacto, cupo, saldo y disponible.
+// Clientes con contacto, cupo, saldo, disponible y lo vencido. El nombre abre
+// su estado de cuenta.
 export function CustomerList({
   customers,
   companySlug,
   currency,
 }: {
-  customers: CustomerDto[];
+  customers: CustomerListItem[];
   companySlug: string;
   currency: string;
 }) {
@@ -23,7 +24,9 @@ export function CustomerList({
   return (
     <ul className="flex flex-col divide-y divide-border rounded-xl bg-card px-5 shadow-sm sm:px-6">
       {customers.map((customer) => {
-        const href = `/${companySlug}/clientes/${customer.id}/editar`;
+        const href = `/${companySlug}/clientes/${customer.id}`;
+        const editHref = `${href}/editar`;
+        const overdue = Number(customer.overdue) > 0;
         const noCredit = Number(customer.creditLimit) === 0;
         const owes = Number(customer.balance) > 0;
         const details = [customer.taxId && `NIT ${customer.taxId}`, customer.phone, customer.email].filter(Boolean);
@@ -35,6 +38,7 @@ export function CustomerList({
                   {customer.name}
                 </Link>
                 {customer.isArchived && <Badge variant="secondary">Archivado</Badge>}
+                {overdue && <Badge variant="destructive">Vencido {money(customer.overdue)}</Badge>}
                 {noCredit && !customer.isArchived && <Badge variant="secondary">Sin crédito</Badge>}
                 {!customer.email && <Badge variant="outline">Sin correo</Badge>}
               </div>
@@ -54,7 +58,7 @@ export function CustomerList({
 
             <div className="flex shrink-0 flex-wrap items-start justify-end gap-2">
               <Button asChild variant="outline" size="sm">
-                <Link href={href} aria-label={`Editar ${customer.name}`}>
+                <Link href={editHref} aria-label={`Editar ${customer.name}`}>
                   <Pencil aria-hidden />
                   Editar
                 </Link>

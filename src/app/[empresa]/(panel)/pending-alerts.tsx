@@ -63,6 +63,16 @@ export function PendingAlerts({
       urgent: true,
     });
   }
+  if (alerts.overdueCustomers !== null) {
+    rows.push({
+      id: "clientes-vencidos",
+      title: "Clientes con pagos vencidos",
+      hint: "Tienen compras a crédito sin pagar después de su plazo.",
+      count: alerts.overdueCustomers,
+      href: `/${companySlug}/clientes?deben=1`,
+      urgent: false,
+    });
+  }
   const pending = rows.filter((row) => row.count > 0);
 
   return (

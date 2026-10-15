@@ -212,6 +212,24 @@ export async function findCustomerPayment(companyId: string, paymentId: string) 
   });
 }
 
+// Abonos de un cliente (también los anulados), del más antiguo al más
+// reciente: su estado de cuenta.
+export async function listCustomerPaymentsOf(companyId: string, customerId: string) {
+  return db.customerPayment.findMany({
+    where: { companyId, customerId },
+    orderBy: [{ createdAt: "asc" }, { number: "asc" }],
+    select: {
+      id: true,
+      number: true,
+      createdAt: true,
+      amount: true,
+      status: true,
+      cashSessionId: true,
+      paymentMethod: { select: { name: true } },
+    },
+  });
+}
+
 // Abonos en efectivo no anulados de un turno: entran al esperado de caja.
 export async function sumSessionCashPayments(companyId: string, cashSessionId: string) {
   const result = await db.customerPayment.aggregate({

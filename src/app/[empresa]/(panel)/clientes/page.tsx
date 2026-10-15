@@ -4,6 +4,7 @@ import { CircleCheck, Plus, Search } from "lucide-react";
 
 import { CUSTOMER_NOTICES } from "@/components/customers/customer-fields";
 import { CustomerList } from "@/components/customers/customer-list";
+import { PortfolioSummary } from "@/components/customers/portfolio-summary";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PageHeader } from "@/components/shared/page-header";
 import { StatusTabs } from "@/components/shared/status-tabs";
@@ -24,11 +25,12 @@ export default async function CustomersPage({ params, searchParams }: PageProps<
   const { empresa } = await params;
   const query = await searchParams;
   const search = param(query.q);
-  const archived = param(query.archivados) === "1";
+  const owing = param(query.deben) === "1";
+  const archived = !owing && param(query.archivados) === "1";
   const notice = CUSTOMER_NOTICES[param(query.aviso) as keyof typeof CUSTOMER_NOTICES];
 
   const session = await requirePermission(empresa, "customers.manage");
-  const { currency, customers } = await getCustomerList(session, { search, archived });
+  const { currency, customers, summary } = await getCustomerList(session, { search, archived, owing });
   const base = `/${session.company.slug}/clientes`;
   const newButton = (
     <Button asChild className="h-11 gap-2 px-5">
@@ -45,7 +47,7 @@ export default async function CustomersPage({ params, searchParams }: PageProps<
         <PageHeader
           eyebrow="Ventas"
           title="Clientes"
-          description="A quién le vendes a crédito: cupo, plazo y cuánto debe. Los archivados no compran a crédito."
+          description="A quién le vendes a crédito: cupo, plazo, cuánto debe y qué ya venció. Los archivados no compran a crédito."
         />
         {newButton}
       </div>
@@ -57,9 +59,12 @@ export default async function CustomersPage({ params, searchParams }: PageProps<
         </Alert>
       )}
 
+      {summary.owingCustomers > 0 && <PortfolioSummary summary={summary} currency={currency} />}
+
       {/* GET: la búsqueda queda en la dirección y funciona sin JS. */}
       <form action={base} className="flex flex-col gap-3 rounded-xl bg-card p-4 shadow-sm sm:flex-row sm:items-end">
         {archived && <input type="hidden" name="archivados" value="1" />}
+        {owing && <input type="hidden" name="deben" value="1" />}
         <div className="relative flex min-w-0 flex-1 items-center">
           <Search className="pointer-events-none absolute left-3 size-4 text-muted-foreground" aria-hidden />
           <Input
@@ -76,7 +81,9 @@ export default async function CustomersPage({ params, searchParams }: PageProps<
           </Button>
           {search && (
             <Button asChild variant="ghost" className="h-10 px-3">
-              <Link href={withQuery(base, { archivados: archived ? "1" : "" })}>Limpiar</Link>
+              <Link href={withQuery(base, { archivados: archived ? "1" : "", deben: owing ? "1" : "" })}>
+                Limpiar
+              </Link>
             </Button>
           )}
         </div>
@@ -85,7 +92,8 @@ export default async function CustomersPage({ params, searchParams }: PageProps<
       <StatusTabs
         label="Estado"
         tabs={[
-          { href: base, label: "Activos", active: !archived },
+          { href: base, label: "Activos", active: !archived && !owing },
+          { href: `${base}?deben=1`, label: "Deben", active: owing },
           { href: `${base}?archivados=1`, label: "Archivados", active: archived },
         ]}
       />
@@ -94,6 +102,8 @@ export default async function CustomersPage({ params, searchParams }: PageProps<
         <CustomerList customers={customers} companySlug={session.company.slug} currency={currency} />
       ) : search ? (
         <EmptyState title="Sin resultados" text="Ningún cliente coincide con la búsqueda." />
+      ) : owing ? (
+        <EmptyState title="Nadie te debe" text="Cuando vendas a crédito, aquí verás quién debe y qué ya venció." />
       ) : archived ? (
         <EmptyState title="No hay clientes archivados" text="Los clientes que archives aparecerán aquí." />
       ) : (

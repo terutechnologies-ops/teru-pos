@@ -62,6 +62,37 @@ export async function customerBalances(
   return balances;
 }
 
+export type CreditSaleRow = {
+  id: string;
+  number: number;
+  customerId: string;
+  createdAt: Date;
+  status: "COMPLETED" | "VOIDED";
+  // Solo la parte pagada con Crédito.
+  amount: Prisma.Decimal;
+  // Plazo actual del cliente: con él se calcula la fecha límite.
+  creditDays: number;
+};
+
+// Ventas con parte a crédito de los clientes indicados (también las
+// anuladas), de la más antigua a la más reciente: estado de cuenta y cartera.
+export async function listCreditSales(companyId: string, customerIds: string[]): Promise<CreditSaleRow[]> {
+  if (customerIds.length === 0) return [];
+  const rows = await db.$queryRaw<(Omit<CreditSaleRow, "amount"> & { amount: Prisma.Decimal })[]>`
+    SELECT s."id", s."number", s."customerId", s."createdAt", s."status"::text AS "status",
+      t."creditDays", SUM(sp."amount") AS "amount"
+    FROM "sales" s
+    JOIN "sale_payments" sp ON sp."saleId" = s."id"
+    JOIN "payment_methods" pm ON pm."id" = sp."paymentMethodId"
+    JOIN "third_parties" t ON t."id" = s."customerId"
+    WHERE s."companyId" = ${companyId}
+      AND s."customerId" IN (${Prisma.join(customerIds)})
+      AND pm."isCredit"
+    GROUP BY s."id", t."creditDays"
+    ORDER BY s."createdAt" ASC, s."number" ASC`;
+  return rows.map((row) => ({ ...row, amount: new Prisma.Decimal(row.amount) }));
+}
+
 export async function listCustomers(
   companyId: string,
   filters: { search?: string; archived?: boolean } = {},

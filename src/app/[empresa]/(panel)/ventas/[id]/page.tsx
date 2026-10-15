@@ -206,7 +206,7 @@ export default async function SaleDetailPage({
                 <span>A crédito de</span>
                 {linkCustomers ? (
                   <Link
-                    href={`/${slug}/clientes/${sale.customer.id}/editar`}
+                    href={`/${slug}/clientes/${sale.customer.id}`}
                     className="font-semibold text-link hover:underline"
                   >
                     {sale.customer.name}
