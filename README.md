@@ -4,7 +4,7 @@ Plataforma de gestión multiempresa de TERU (ventas, inventario, caja, etc.).
 Cada negocio es una empresa cliente con su propia URL; la arepería
 **Su Arepa** es la primera, no el modelo del sistema.
 
-**Estado:** fase 13 cerrada (autenticación del personal, configuración
+**Estado:** fase 14 cerrada (autenticación del personal, configuración
 inicial de la empresa, panel con menú por rol, configuración de negocio y
 equipo, logo, catálogo de venta con categorías y productos con precio y
 foto, inventario con insumos, bodegas, carga inicial, ajustes y kardex,
@@ -18,8 +18,11 @@ movimientos de caja: gastos con categoría y foto del recibo, retiros e
 ingresos en el turno, con su revisión, anulación y totales en el panel;
 "Mi cuenta" para cambiar la propia contraseña; y lista de compras con
 existencia ideal por insumo, reporte de cierre del día por correo y
-correos con la marca por Resend; y el panel del equipo Teru en `/teru`
-para ver, crear, desactivar y reactivar las empresas de la plataforma).
+correos con la marca por Resend; el panel del equipo Teru en `/teru`
+para ver, crear, desactivar y reactivar las empresas de la plataforma; y
+cartera: clientes de crédito con cupo y plazo, venta a crédito y abonos en
+el POS, estado de cuenta, vencidos y correo al cliente con cada compra y
+abono).
 
 ## Stack
 
@@ -49,7 +52,7 @@ npm run dev
   asistente `/<slug-empresa>/configuracion-inicial` (Negocio → Equipo →
   Confirmar).
 - Panel `/<slug-empresa>`: menú lateral según el rol. Ventas > Vender,
-  Ventas, Cierres de caja y Gastos, Compras > Compras y Proveedores, Catálogo >
+  Ventas, Clientes, Cierres de caja y Gastos, Compras > Compras y Proveedores, Catálogo >
   Productos y Categorías, Inventario > Insumos, Lista de compras, Bodegas y Conteos
   (propietario y administrador), Configuración > Negocio
   (propietario), Equipo, Métodos de pago y Categorías de gasto
@@ -63,13 +66,24 @@ npm run dev
   el efectivo (conteo ciego). El cajero entra directo aquí. En "Gastos y
   retiros" (`/pos/caja`) registra lo que sale o entra de la caja sin ser
   venta: gastos (con categoría y foto opcional del recibo), retiros e
-  ingresos; cuentan en el efectivo esperado del cierre.
+  ingresos; cuentan en el efectivo esperado del cierre. Con el método
+  Crédito activo, cobra a crédito eligiendo al cliente (no pasa de su
+  cupo) y en "Abonos" (`/pos/abonos`) recibe lo que pagan los clientes que
+  deben; los abonos en efectivo cuentan en el cierre.
 - Gastos (`/gastos`): gastos, retiros e ingresos de los turnos con filtros
   (fechas, tipo o categoría, cajero, sucursal) y totales por categoría. Se
   anulan con motivo desde el detalle de su turno en Cierres de caja,
   mientras el turno siga abierto. Los recibos están en un bucket privado:
   `/<slug-empresa>/recibos/<id>` valida quién los pide y redirige a un
   enlace firmado que vence al minuto.
+- Clientes (`/clientes`, propietario y administrador): clientes de
+  crédito con cupo (0 = sin crédito), plazo y correo. La pestaña "Deben"
+  muestra la cartera (por cobrar y vencido); la ficha de cada cliente, su
+  estado de cuenta con ventas a crédito, abonos y saldo. Vencido = lo que
+  los abonos (aplicados a lo más viejo primero) no cubren y cuya fecha
+  límite (día de la venta + plazo actual del cliente) ya pasó. El método
+  "Crédito" se crea inactivo: se activa en Métodos de pago. Los abonos se
+  anulan con motivo desde el detalle de su turno, mientras siga abierto.
 - Inventario: cada insumo tiene su ficha (`/inventario/insumos/<id>`) con
   existencias por bodega, carga inicial, ajustes con motivo, kardex y su
   costo de referencia. Cada movimiento de venta, compra o conteo muestra
@@ -103,7 +117,8 @@ npm run dev
   (`/catalogo/productos/<id>/receta`) con los insumos que lleva una unidad
   vendida, su costo y el margen sobre el precio.
 - Correos (recuperación de contraseña, invitaciones, aviso de contraseña
-  cambiada, bienvenida al propietario y reporte de cierre): con
+  cambiada, bienvenida al propietario, reporte de cierre, y compra a
+  crédito y abono al cliente que tenga correo): con
   `RESEND_API_KEY` salen por Resend, **también en desarrollo**; sin ella,
   en desarrollo se ven en `http://localhost:3000/dev/outbox` y en
   producción el envío falla. Ver "Correo" abajo.
@@ -236,14 +251,16 @@ src/
   app/                  Rutas (App Router)
     [empresa]/          Rutas por empresa: login, recuperar, restablecer,
                         invitacion, configuracion-inicial (asistente) y
-                        (panel): inicio, cuenta, ventas, caja, gastos,
+                        (panel): inicio, cuenta, ventas, clientes
+                        (con [id] = estado de cuenta), caja, gastos,
                         compras (con proveedores),
                         catalogo/{productos (con [id]/receta),categorias},
                         inventario/{insumos,lista-de-compras,bodegas,conteos} y
                         configuracion/{negocio,equipo,pagos,gastos};
-                        pos (venta, caja, cierre, turno y cuenta),
+                        pos (venta, caja, abonos, cierre, turno y
+                        cuenta),
                         imprimir/{comanda,soporte,cierre,existencias,
-                        lista-compras} y
+                        lista-compras,abono} y
                         recibos/[id] (enlace firmado al recibo)
     teru/               Panel del equipo Teru: login, empresas
                         (lista, nueva y ficha)
@@ -256,10 +273,11 @@ src/
     expenses/           Categorías de gasto
     catalog/            Categorías, productos, fotos, recetas y costos
     company/            Datos, logo y destinatarios del reporte de la empresa
+    customers/          Clientes de crédito, cartera y estado de cuenta
     inventory/          Bodegas, insumos, movimientos, kardex, conteos y
                         lista de compras
     payments/           Métodos de pago
-    pos/                Turno de caja y pantalla de venta
+    pos/                Turno de caja, pantalla de venta y abonos
     printing/           Hojas impresas y ajustes de impresión del equipo
     purchases/          Proveedores y compras (borrador, lista, anulación)
     sales/              Ventas en el panel y anulación
@@ -277,7 +295,8 @@ src/
                         recetas y costos,
                         ventas, caja y sus movimientos, categorías de
                         gasto, métodos de pago, alertas,
-                        compras y terceros,
+                        compras y terceros, clientes, cartera y
+                        abonos,
                         reporte de cierre, mensajería y correos con la
                         marca, imágenes y almacenamiento)
     http/               Adaptador Next: cookies, cabeceras, sesión actual
@@ -304,3 +323,4 @@ docs/decisiones/        Decisiones de arquitectura (ADR)
 - [ADR 0011 — Pendientes del cliente: kardex, precio y Mi cuenta](docs/decisiones/0011-pendientes-del-cliente.md)
 - [ADR 0012 — Lista de compras, reporte de cierre y correo](docs/decisiones/0012-lista-de-compras-y-correo.md)
 - [ADR 0013 — Panel del equipo Teru](docs/decisiones/0013-panel-del-equipo-teru.md)
+- [ADR 0014 — Cartera](docs/decisiones/0014-cartera.md)

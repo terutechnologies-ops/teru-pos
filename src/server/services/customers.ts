@@ -76,7 +76,8 @@ async function agePortfolio(companyId: string, timeZone: string) {
   return portfolio;
 }
 
-// owing: solo los que deben, primero lo más vencido y luego el saldo mayor.
+// owing: solo los que deben (también archivados), primero lo más vencido y
+// luego el saldo mayor.
 export async function getCustomerList(
   session: StaffSessionDto,
   filters: { search?: string; archived?: boolean; owing?: boolean },
@@ -87,7 +88,7 @@ export async function getCustomerList(
   const [rows, portfolio] = await Promise.all([
     listCustomers(companyId, {
       search: filters.search?.trim() || undefined,
-      archived: filters.archived && !filters.owing,
+      archived: filters.owing ? null : filters.archived,
     }),
     agePortfolio(companyId, timeZone),
   ]);

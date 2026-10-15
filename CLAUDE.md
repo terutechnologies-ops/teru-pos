@@ -4210,5 +4210,57 @@ puede no coincidir con la del correo de la compra).
 - **Sin probar en el navegador** (con sesión): ficha, pestaña Deben y la
   alerta.
 
-**Próximo paso:** componente 6
-(cierre de la fase 14: revisión, ADR 0014, README).
+Commit `f25ba63` (subido).
+
+### Componente 6 — Cierre de la fase 14 (aprobado 2026-10-14)
+
+**Fase 14 aprobada** (2026-10-14).
+
+- **Revisión de la fase** (67 archivos: modelo, clientes, venta a crédito,
+  abonos, cuadre, impresión, correos, estado de cuenta, cartera y
+  alerta): acciones con sesión y permiso de la empresa enviada, páginas con
+  permiso en el servidor, datos filtrados por empresa, bloqueo del cliente
+  en venta, abono, anulación y archivo, buscadores recortados a 80
+  caracteres. **Hallazgo corregido:** un cliente que pagaba todo, se
+  archivaba y luego se le anulaba el abono quedaba archivado con deuda;
+  la cartera y la alerta la contaban pero la pestaña "Deben" no lo
+  mostraba. Ahora `listCustomers` acepta `archived: null` (todos) y
+  "Deben" incluye a los archivados que deben. Prueba nueva en
+  `customer-statement.test.ts`: falla sin el arreglo y pasa con él.
+- `docs/decisiones/0014-cartera.md` y README (estado, menú, POS con
+  crédito y abonos, clientes y cartera, correos, estructura, ADR).
+- Verificado: typecheck, lint, suite **522/522**, build.
+
+## Cierre de la sesión 2026-10-14
+
+**Implementado hoy:**
+- Fase 14, componente 5 — estado de cuenta, cartera y alerta de vencidos
+  (`f25ba63`, subido).
+- Componente 6 — revisión con una corrección, ADR 0014 y README
+  (aprobado y subido). **Fase 14 cerrada.**
+
+**Pendiente:**
+- Usuario: probar en el navegador lo de
+  las sesiones del 2026-10-11 y de hoy (venta a crédito, `/pos/abonos`,
+  comprobante, abonos en el panel, ficha del cliente, pestaña "Deben" y la
+  alerta).
+- Siguiente en la hoja de ruta: **preparación para producción** (analizar
+  y diseñar primero): 2FA (TOTP) para las cuentas Teru, desarrollo en
+  PostgreSQL local, `postinstall: prisma generate`, región `gru1`, bucket
+  por entorno, revisión de seguridad, reinicio de la base de Supabase
+  (destructivo: confirmar justo antes) y alta de Su Arepa real con
+  `company:create`, correos en spam (`APP_URL` https en un subdominio de
+  `teruwork.com`, Postmaster Tools, DMARC, Reply-To), clave de Resend de
+  producción, plan de Supabase y Vercel. Después, el despliegue.
+
+**Decisiones técnicas de hoy:** fecha límite con el plazo actual del
+cliente (opción A); un solo cálculo puro de vencimiento
+(`credit-aging.ts`) para ficha, cartera, alerta y correo de la compra;
+"Deben" incluye archivados con deuda.
+
+**Errores y riesgos conocidos:** los del ADR 0014 (plazo actual, saldo
+calculado en cada carga, buscador de abonos con 100 candidatos, correos sin
+registro) y los de sesiones anteriores.
+
+**Próximo paso recomendado:** analizar
+la preparación para producción.

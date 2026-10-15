@@ -22,6 +22,7 @@ import {
   createCreditCustomer,
   getCustomerList,
   getCustomerStatement,
+  setCreditCustomerArchived,
 } from "@/server/services/customers";
 import { checkout, voidSaleFromPanel } from "@/server/services/sales";
 
@@ -44,6 +45,7 @@ let ajeno: string;
 let sales: string[] = [];
 let voidedSale: string;
 let voidedPayment: string;
+let setupA: { arepa: string; credit: string };
 
 function sessionFor(company: Company, userId: string, role: StaffRole): StaffSessionDto {
   return {
@@ -131,7 +133,7 @@ beforeAll(async () => {
   ana = sessionFor(a, (await user(a, "ana", "CASHIER")).id, "CASHIER");
   ownerB = sessionFor(b, (await user(b, "dueno-b", "OWNER")).id, "OWNER");
 
-  const setupA = await setupCompany(a, ana);
+  setupA = await setupCompany(a, ana);
   const setupB = await setupCompany(b, ownerB);
   laEsquina = await customer(owner, "Restaurante La Esquina");
   donPedro = await customer(owner, "Don Pedro");
@@ -236,6 +238,29 @@ describe("cartera y estado de cuenta", () => {
     } finally {
       await db.thirdParty.update({ where: { id: laEsquina }, data: { creditDays: 30 } });
     }
+  });
+
+  it("un cliente archivado que vuelve a deber (abono anulado) aparece en 'Deben'", async () => {
+    const archived = await customer(owner, "Pagó y Archivado");
+    await owe(ana, setupA, archived, 1, 0);
+    const payment = await pay(ana, archived, "16.500");
+    expect(await setCreditCustomerArchived(owner, archived, true)).toEqual({ ok: true });
+    expect(await voidCustomerPaymentFromPanel(owner, payment, { reason: "Cheque sin fondos" })).toEqual({
+      ok: true,
+    });
+
+    const owing = await getCustomerList(owner, { owing: true });
+    expect(owing.customers.map((c) => [c.name, c.isArchived, c.balance])).toEqual([
+      ["Restaurante La Esquina", false, "46000"],
+      ["Don Pedro", false, "16500"],
+      ["Pagó y Archivado", true, "16500"],
+    ]);
+    expect(owing.summary).toMatchObject({ receivable: "79000", owingCustomers: 3 });
+    // Las pestañas Activos y Archivados no cambian.
+    expect((await getCustomerList(owner, {})).customers.map((c) => c.name)).not.toContain("Pagó y Archivado");
+    expect((await getCustomerList(owner, { archived: true })).customers.map((c) => c.name)).toEqual([
+      "Pagó y Archivado",
+    ]);
   });
 
   it("no muestra clientes de otra empresa ni deja entrar sin permiso", async () => {

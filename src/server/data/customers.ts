@@ -93,16 +93,18 @@ export async function listCreditSales(companyId: string, customerIds: string[]):
   return rows.map((row) => ({ ...row, amount: new Prisma.Decimal(row.amount) }));
 }
 
+// archived: null = activos y archivados (la cartera: anular un abono puede
+// dejar deuda en un cliente ya archivado).
 export async function listCustomers(
   companyId: string,
-  filters: { search?: string; archived?: boolean } = {},
+  filters: { search?: string; archived?: boolean | null } = {},
 ) {
   const search = filters.search;
   return db.thirdParty.findMany({
     where: {
       companyId,
       isCustomer: true,
-      isArchived: filters.archived ?? false,
+      ...(filters.archived !== null && { isArchived: filters.archived ?? false }),
       ...(search && {
         OR: [
           { name: { contains: search, mode: "insensitive" as const } },
