@@ -2,7 +2,11 @@
 
 import { redirect } from "next/navigation";
 
-import { setPlatformSessionCookie } from "@/server/http/platform-session";
+import {
+  PLATFORM_ENROLL_PATH,
+  PLATFORM_VERIFY_PATH,
+  setPlatformSessionCookie,
+} from "@/server/http/platform-session";
 import { getRequestContext } from "@/server/http/staff-session";
 import { loginPlatform, type PlatformLoginError } from "@/server/services/platform/auth";
 
@@ -32,6 +36,7 @@ export async function platformLoginAction(
   }
   if (!result.ok) return { error: ERROR_MESSAGES[result.error], email };
 
+  // Sesión pendiente: falta el código (o activar la verificación).
   await setPlatformSessionCookie(result.token);
-  redirect("/teru");
+  redirect(result.next === "VERIFY" ? PLATFORM_VERIFY_PATH : PLATFORM_ENROLL_PATH);
 }

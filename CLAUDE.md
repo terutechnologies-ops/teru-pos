@@ -4317,3 +4317,102 @@ migración se saca una copia.
   inexistente 404.
 - Falta: la cuenta Teru local (`teru:create-admin` con
   `TERU_ADMIN_PASSWORD`).
+
+### Componente 2 — Verificación en dos pasos del equipo Teru (subido 2026-10-14 a pedido del usuario)
+
+Diseño aprobado el 2026-10-14 (con la dependencia `qrcode` 1.5.4 +
+`@types/qrcode`).
+- Migración `20261014120000_add_platform_mfa` (**aplicada en la base local
+  y en la de pruebas**; diff vacío; **falta en Supabase**, va con el
+  componente 4): `platform_users.totpSecret` (cifrada), `totpEnabledAt`,
+  `totpLastStep`; `platform_sessions.mfaVerifiedAt`; tabla
+  `platform_recovery_codes` (hash SHA-256 con CHECK de formato, `usedAt`,
+  cascada) con RLS; CHECK: activada ⇔ clave y último paso.
+- `services/auth/totp.ts` (base32, HOTP/TOTP RFC 4226/6238 con
+  `node:crypto`, ventana ±1, rechaza pasos ≤ el último aceptado, enlace
+  otpauth), `secret-box.ts` (AES-256-GCM, "v1:"), `recovery-codes.ts`
+  (8 códigos "ABCDE-23456" sin caracteres ambiguos, normalizados).
+  `getTotpEncryptionKey()` en `env.ts` (`TOTP_ENCRYPTION_KEY`, 32 bytes en
+  base64; generada en `.env` local; en Vercel, otra).
+- **Flujo:** `loginPlatform` crea una sesión **pendiente** de 5 min
+  (`PLATFORM_MFA_PENDING_TTL_MS`) y devuelve `next` ENROLL/VERIFY; el
+  ingreso (`lastLoginAt`, `PLATFORM_LOGIN_SUCCESS`) se registra al
+  verificar. `getPlatformSession` solo acepta verificadas;
+  `getPlatformChallenge` la pendiente. `startPlatformEnrollment` (clave
+  pendiente reutilizada al recargar, QR SVG), `confirmPlatformEnrollment`
+  (primer código → activa, guarda los hashes, verifica la sesión, devuelve
+  los códigos una vez), `verifyPlatformMfa` (código o código de respaldo).
+  `completePlatformMfa` (datos) hace todo en una transacción: acepta el paso
+  solo si es mayor que el último (sin repetir aunque lleguen dos a la vez) o
+  gasta el código de respaldo, y verifica la sesión; sin sesión no confirma
+  nada. 5 fallos por cuenta en 15 min (`MAX_FAILED_MFA_PER_ACCOUNT`, eventos
+  `PLATFORM_MFA_FAILED`) cierran la sesión pendiente y bloquean;
+  `--reset-2fa` desbloquea. Eventos nuevos: `PLATFORM_MFA_ENROLLED`,
+  `_FAILED`, `_BLOCKED`, `PLATFORM_RECOVERY_CODE_USED`, `PLATFORM_MFA_RESET`.
+- `requirePlatformSession`: sin sesión verificada → `/teru/verificar` o
+  `/teru/configurar-verificacion` si ya pasó la contraseña; si no, login.
+- **UI:** `/teru/verificar` (código o `?respaldo=1`; con código de
+  respaldo avisa cuántos quedan) y `/teru/configurar-verificacion` (pasos,
+  QR, clave en grupos de 4, primer código; luego los códigos con Copiar e
+  Imprimir y "Ya los guardé" antes de ir al panel). "Usar otra cuenta"
+  cierra la sesión pendiente. Componentes `components/platform/`
+  (`mfa-fields`, `verify-form`, `enroll-form`), acciones
+  `app/teru/verificar/actions.ts`.
+- Script `teru:create-admin --reset-2fa` (`resetPlatformAdminMfa`: borra
+  la verificación y los códigos, cierra sus sesiones, audita).
+- Pruebas: `tests/unit/totp.test.ts` (6, con los vectores de los RFC),
+  `tests/integration/platform-mfa.test.ts` (6: activación con clave cifrada
+  y misma clave al recargar, código repetido rechazado, código de respaldo
+  de un uso, bloqueo y reinicio, sesión pendiente vencida y cierre, sin
+  llave) y `platform-auth.test.ts` ajustada. Verificado: typecheck, lint,
+  suite **537/537**, build. Por HTTP con `next dev` y sesiones temporales
+  en la base local (`t_mfa_http.py` del scratchpad, datos borrados): 11/11.
+- Nota de pruebas: en la base local, `now()` en SQL directo se guarda en
+  hora de Bogotá; usar `now() at time zone 'utc'`.
+- **Sin probar en el navegador:** escanear el QR con una app real y la
+  impresión de los códigos.
+
+## Cierre de la sesión 2026-10-14 (final)
+
+**Implementado hoy (todo con commit y subido a `origin/master`):**
+- Fase 14 cerrada: componente 5 (`f25ba63`) y cierre con ADR 0014
+  (`1794454`).
+- Fase 15 — análisis y alcance aprobados; componente 1, desarrollo local
+  (`06c9108`); componente 2, verificación en dos pasos del equipo Teru
+  (último commit de la sesión; el usuario pidió subirlo sin revisarlo en el
+  navegador).
+
+**Pendiente (mañana):**
+- Usuario: crear su cuenta Teru local (`TERU_ADMIN_PASSWORD` en `.env` →
+  `npm run teru:create-admin -- --name ... --email
+  terutechnologies@gmail.com` → borrar la variable), entrar a
+  `/teru/login`, activar la verificación con su teléfono y guardar los
+  códigos de respaldo; borrar `.env.backup` (copia del `.env` anterior con
+  las claves) cuando confirme que todo funciona.
+- Fase 15, componente 3 — **endurecimiento** (diseñar y aprobar antes):
+  cabeceras de seguridad (HSTS, `frame-ancestors`/X-Frame-Options, nosniff,
+  Referrer-Policy, Permissions-Policy; evaluar CSP), `postinstall: prisma
+  generate`, región `gru1` (`vercel.json`), validación de variables
+  obligatorias al arrancar (incluye `TOTP_ENCRYPTION_KEY`, `APP_URL`
+  https), `npm audit` y revisión de seguridad final (IP en Vercel con
+  `x-forwarded-for`).
+- Componentes 4 (ambiente de pruebas en línea: aplicar las 26 migraciones
+  en Supabase tras reiniciarla —confirmar antes—, Vercel Hobby,
+  `pos.teruwork.com`, Resend con Reply-To, cuenta Teru y empresa de prueba,
+  lista de verificación del ciclo completo) y 5 (cierre, ADR 0015, guía de
+  operación).
+
+**Decisiones técnicas de hoy:** fecha límite con el plazo actual; "Deben"
+con archivados; desarrollo en PostgreSQL local con `.env.supabase` aparte y
+archivos en `.archivos-dev`; TOTP propio (sin librería) con clave cifrada
+AES-256-GCM, sesión pendiente de 5 min en la misma cookie, códigos de
+respaldo con hash, `qrcode` solo para el QR.
+
+**Errores y riesgos conocidos:**
+- En la base local, `now()` en SQL directo queda en hora de Bogotá (usar
+  `now() at time zone 'utc'`).
+- `prisma generate` falla con EPERM si `next dev` corre.
+- Los de los ADR 0013 y 0014.
+
+**Próximo paso recomendado:** que el usuario active su verificación en
+local y luego el diseño del componente 3 (endurecimiento).

@@ -1,6 +1,7 @@
 // Cuentas del equipo Teru (panel /teru): crear una cuenta, cambiarle la
-// contraseña (--reset), o quitarle o devolverle el acceso (--deactivate /
-// --activate). --reset y --deactivate cierran todas sus sesiones.
+// contraseña (--reset), reiniciar su verificación en dos pasos si perdió el
+// teléfono (--reset-2fa), o quitarle o devolverle el acceso (--deactivate /
+// --activate). --reset, --reset-2fa y --deactivate cierran sus sesiones.
 //
 // La contraseña sale de TERU_ADMIN_PASSWORD (en .env o en el entorno),
 // nunca de la línea de comandos: así no queda en el historial de la consola.
@@ -8,6 +9,7 @@
 // Uso:
 //   npm run teru:create-admin -- --name "Ana Pérez" --email ana@teru.com
 //   npm run teru:create-admin -- --email ana@teru.com --reset
+//   npm run teru:create-admin -- --email ana@teru.com --reset-2fa
 //   npm run teru:create-admin -- --email ana@teru.com --deactivate
 //   npm run teru:create-admin -- --email ana@teru.com --activate
 import "dotenv/config";
@@ -16,6 +18,7 @@ import { parseArgs } from "node:util";
 import { db } from "@/lib/db";
 import {
   createPlatformAdmin,
+  resetPlatformAdminMfa,
   resetPlatformAdminPassword,
   setPlatformAdminActive,
 } from "@/server/services/platform/accounts";
@@ -32,13 +35,23 @@ async function main() {
       name: { type: "string" },
       email: { type: "string" },
       reset: { type: "boolean", default: false },
+      "reset-2fa": { type: "boolean", default: false },
       deactivate: { type: "boolean", default: false },
       activate: { type: "boolean", default: false },
     },
   });
   const email = values.email ?? "";
-  const modes = [values.reset, values.deactivate, values.activate].filter(Boolean).length;
-  if (modes > 1) throw new Error("Usa solo una de --reset, --deactivate o --activate.");
+  const modes = [values.reset, values["reset-2fa"], values.deactivate, values.activate].filter(Boolean).length;
+  if (modes > 1) throw new Error("Usa solo una de --reset, --reset-2fa, --deactivate o --activate.");
+
+  if (values["reset-2fa"]) {
+    const result = await resetPlatformAdminMfa(email);
+    if (!result.ok) throw new Error(result.error);
+    console.log(
+      `Verificación en dos pasos de ${email} reiniciada: la activará en su próximo ingreso. Sesiones cerradas: ${result.revokedSessions}.`,
+    );
+    return;
+  }
 
   if (values.deactivate || values.activate) {
     const result = await setPlatformAdminActive({ email, active: values.activate });

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { recordAuthEvent } from "@/server/data/auth-audit";
 import {
   createPlatformUser,
+  resetPlatformUserMfa,
   resetPlatformUserPassword,
   setPlatformUserActive,
 } from "@/server/data/platform";
@@ -92,6 +93,26 @@ export async function setPlatformAdminActive(input: {
     actorType: "SYSTEM",
     actorId: null,
     action: input.active ? PLATFORM_EVENTS.USER_ACTIVATED : PLATFORM_EVENTS.USER_DEACTIVATED,
+    target: { type: PLATFORM_USER_TARGET, id: result.userId },
+  });
+  return { ok: true, revokedSessions: result.revokedSessions };
+}
+
+// Teléfono perdido sin códigos de respaldo: borra la verificación en dos
+// pasos y cierra todas sus sesiones. En el siguiente ingreso la activa de
+// nuevo. También desbloquea los códigos fallidos.
+export async function resetPlatformAdminMfa(
+  rawEmail: string,
+): Promise<{ ok: true; revokedSessions: number } | { ok: false; error: string }> {
+  const email = emailSchema.safeParse(rawEmail);
+  if (!email.success) return { ok: false, error: "email: Escribe un correo válido." };
+  const result = await resetPlatformUserMfa(email.data);
+  if (!result) return { ok: false, error: "No existe una cuenta del equipo Teru con ese correo." };
+  await recordAuthEvent({
+    companyId: null,
+    actorType: "SYSTEM",
+    actorId: null,
+    action: PLATFORM_EVENTS.MFA_RESET,
     target: { type: PLATFORM_USER_TARGET, id: result.userId },
   });
   return { ok: true, revokedSessions: result.revokedSessions };

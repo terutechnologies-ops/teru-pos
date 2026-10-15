@@ -40,6 +40,18 @@ export function getLocalStorageDir(): string | null {
   return dir ? path.resolve(dir) : null;
 }
 
+// Llave con que se cifra la clave de la verificación en dos pasos del
+// equipo Teru: 32 bytes en base64 (openssl rand -base64 32). Distinta en
+// cada entorno; si cambia, hay que reiniciar la verificación de las cuentas.
+export function getTotpEncryptionKey(): Buffer {
+  const raw = process.env.TOTP_ENCRYPTION_KEY?.trim() ?? "";
+  const key = Buffer.from(raw, "base64");
+  if (key.length !== 32) {
+    throw new Error("TOTP_ENCRYPTION_KEY no está configurada o no es válida (32 bytes en base64)");
+  }
+  return key;
+}
+
 // Correo (Resend). Sin RESEND_API_KEY no hay proveedor: en desarrollo los
 // mensajes van al outbox y fuera de él el envío falla con un error claro.
 // MAIL_FROM es el remitente de un dominio verificado en Resend, con nombre

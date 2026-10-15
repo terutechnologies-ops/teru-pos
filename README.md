@@ -150,6 +150,7 @@ npm run dev
 | `LOCAL_STORAGE_DIR` | Solo en desarrollo: carpeta para los archivos subidos (`.archivos-dev`). Gana sobre Supabase; fuera de desarrollo se ignora |
 | `RESEND_API_KEY`, `MAIL_FROM` | Correo por Resend. La clave (`re_...`, permiso "Sending access" solo para el dominio de envío) es secreta; `MAIL_FROM` es el remitente de un dominio verificado (`Teru POS <reportes@envios.dominio.com>`). Sin clave: outbox en desarrollo, error en producción |
 | `SEED_OWNER_EMAIL`, `SEED_OWNER_NAME`, `SEED_OWNER_PASSWORD` | Solo para `npm run db:seed` |
+| `TOTP_ENCRYPTION_KEY` | Llave (32 bytes en base64, `openssl rand -base64 32`) con que se cifra la clave de la verificación en dos pasos del equipo Teru. Secreta y distinta por entorno; si cambia, hay que reiniciar la verificación de las cuentas |
 | `TERU_ADMIN_PASSWORD` | Solo para `npm run teru:create-admin`; quitarla después |
 
 Los archivos `.env*` no se versionan (salvo `.env.example`).
@@ -167,7 +168,7 @@ Los archivos `.env*` no se versionan (salvo `.env.example`).
 | `npm run db:migrate:deploy` | Aplica migraciones pendientes |
 | `npm run db:seed` | Datos iniciales (idempotente) |
 | `npm run company:create -- --name ... --slug ... --owner-name ... --owner-email ...` | Alta de empresa: sucursal principal + bienvenida al propietario por correo con su invitación (72 h); sin Resend o si el envío falla, muestra el enlace. También se puede desde el panel Teru |
-| `npm run teru:create-admin -- --name ... --email ...` | Crea una cuenta del equipo Teru (contraseña en `TERU_ADMIN_PASSWORD`); con `--email ... --reset` cambia su contraseña, y con `--deactivate` / `--activate` le quita o devuelve el acceso (`--reset` y `--deactivate` cierran sus sesiones) |
+| `npm run teru:create-admin -- --name ... --email ...` | Crea una cuenta del equipo Teru (contraseña en `TERU_ADMIN_PASSWORD`); con `--email ... --reset` cambia su contraseña, con `--reset-2fa` reinicia su verificación en dos pasos (teléfono perdido) y con `--deactivate` / `--activate` le quita o devuelve el acceso (`--reset`, `--reset-2fa` y `--deactivate` cierran sus sesiones) |
 | `npm run storage:setup` | Crea el bucket público `company-assets` y el privado `company-private` (idempotente, una vez por entorno) |
 
 ## Pruebas
@@ -228,11 +229,20 @@ Panel de la plataforma en `/teru`, separado de las empresas: cuentas y
 sesiones propias (cookie `teru_session` solo en `/teru`, 8 h) y sin acceso
 a los paneles de las empresas.
 
+- **Verificación en dos pasos (obligatoria):** tras la contraseña se pide
+  el código de 6 dígitos de una app autenticadora (Google Authenticator,
+  Microsoft Authenticator, 1Password) en `/teru/verificar`. La primera vez
+  se activa en `/teru/configurar-verificacion` (QR o clave, y 8 códigos de
+  respaldo que se muestran una sola vez). La clave se guarda cifrada con
+  `TOTP_ENCRYPTION_KEY`. 5 códigos fallidos en 15 min bloquean; si se
+  pierde el teléfono sin códigos de respaldo: `--reset-2fa`.
+
 - **Cuenta:** poner `TERU_ADMIN_PASSWORD` en `.env`, correr
   `npm run teru:create-admin -- --name "Nombre" --email correo@...` y quitar
   la variable. La contraseña nunca va en el comando (quedaría en el
   historial). No hay recuperación por correo: se restablece con `--reset`;
-  para quitarle el acceso a alguien, `--deactivate`.
+  la verificación en dos pasos, con `--reset-2fa`; para quitarle el acceso
+  a alguien, `--deactivate`.
 - **Empresas** (`/teru`): estado, propietario, usuarios activos y ventas de
   los últimos 30 días; la ficha suma última venta, último ingreso, datos y
   equipo por rol. Solo cifras: nunca el detalle de ventas ni del personal.
@@ -279,8 +289,9 @@ src/
                         imprimir/{comanda,soporte,cierre,existencias,
                         lista-compras,abono} y
                         recibos/[id] (enlace firmado al recibo)
-    teru/               Panel del equipo Teru: login, empresas
-                        (lista, nueva y ficha)
+    teru/               Panel del equipo Teru: login, verificación en dos
+                        pasos (verificar, configurar-verificacion) y
+                        empresas (lista, nueva y ficha)
     dev/                Solo desarrollo: bandeja de correos (outbox) y
                         archivos de la carpeta local (archivos)
   components/

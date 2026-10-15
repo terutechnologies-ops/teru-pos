@@ -963,33 +963,56 @@ model AuthAuditLog {
 // (CHECK en la migración).
 
 model PlatformUser {
-  id           String    @id @default(cuid())
-  name         String
-  email        String    @unique
-  passwordHash String
-  isActive     Boolean   @default(true)
-  lastLoginAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  passwordHash  String
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  // Verificación en dos pasos (TOTP): clave cifrada con TOTP_ENCRYPTION_KEY;
+  // con totpEnabledAt nulo la activación está pendiente. totpLastStep: el
+  // último código aceptado (no se acepta otra vez).
+  totpSecret    String?
+  totpEnabledAt DateTime?
+  totpLastStep  Int?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   sessions             PlatformSession[]
+  recoveryCodes        PlatformRecoveryCode[]
   deactivatedCompanies Company[]
   companyStatusChanges CompanyStatusChange[]
 
   @@map("platform_users")
 }
 
+// Códigos de respaldo de la verificación en dos pasos (solo el hash; cada
+// uno sirve una vez).
+model PlatformRecoveryCode {
+  id        String       @id @default(cuid())
+  userId    String
+  user      PlatformUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String       @unique
+  usedAt    DateTime?
+  createdAt DateTime     @default(now())
+
+  @@index([userId])
+  @@map("platform_recovery_codes")
+}
+
 model PlatformSession {
-  id         String       @id @default(cuid())
-  userId     String
-  user       PlatformUser @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tokenHash  String       @unique
-  expiresAt  DateTime
-  lastUsedAt DateTime     @default(now())
-  revokedAt  DateTime?
-  ipAddress  String?
-  userAgent  String?
-  createdAt  DateTime     @default(now())
+  id            String       @id @default(cuid())
+  userId        String
+  user          PlatformUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash     String       @unique
+  expiresAt     DateTime
+  lastUsedAt    DateTime     @default(now())
+  revokedAt     DateTime?
+  // Nula: solo pasó la contraseña (sesión pendiente, no da acceso al panel).
+  mfaVerifiedAt DateTime?
+  ipAddress     String?
+  userAgent     String?
+  createdAt     DateTime     @default(now())
 
   @@index([userId])
   @@map("platform_sessions")

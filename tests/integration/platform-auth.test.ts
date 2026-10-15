@@ -2,13 +2,18 @@ import { afterAll, describe, expect, it } from "vitest";
 
 import { db } from "@/lib/db";
 import { recordAuthEvent } from "@/server/data/auth-audit";
-import { PLATFORM_SESSION_TTL_MS } from "@/server/services/auth/config";
+import { PLATFORM_MFA_PENDING_TTL_MS, PLATFORM_SESSION_TTL_MS } from "@/server/services/auth/config";
 import { hashToken } from "@/server/services/auth/tokens";
 import {
   createPlatformAdmin,
   resetPlatformAdminPassword,
 } from "@/server/services/platform/accounts";
-import { getPlatformSession, loginPlatform, logoutPlatform } from "@/server/services/platform/auth";
+import {
+  getPlatformChallenge,
+  getPlatformSession,
+  loginPlatform,
+  logoutPlatform,
+} from "@/server/services/platform/auth";
 
 import { cleanupPlatformUsers, ctx, uniqueTag } from "../helpers";
 
@@ -28,24 +33,28 @@ const login = (name: string, password = PASSWORD, ip = name) =>
   loginPlatform({ email: email(name), password }, ctx(tag, ip));
 
 describe("login del equipo Teru", () => {
-  it("entra, crea la sesión (solo el hash en BD), marca el ingreso y audita", async () => {
+  it("la contraseña crea una sesión pendiente (solo el hash en BD) que aún no da acceso", async () => {
     const userId = await newAdmin("entra");
     const result = await login("ENTRA");
     if (!result.ok) throw new Error(result.error);
+    expect(result.next).toBe("ENROLL");
 
     const stored = await db.platformSession.findFirstOrThrow({ where: { userId } });
     expect(stored.tokenHash).toBe(hashToken(result.token));
     expect(stored.tokenHash).not.toBe(result.token);
-    expect(stored.expiresAt.getTime() - Date.now()).toBeGreaterThan(PLATFORM_SESSION_TTL_MS - 60_000);
+    expect(stored.mfaVerifiedAt).toBeNull();
+    expect(stored.expiresAt.getTime() - Date.now()).toBeLessThanOrEqual(PLATFORM_MFA_PENDING_TTL_MS);
 
-    const session = await getPlatformSession(result.token);
-    expect(session?.user).toEqual({ id: userId, name: "Equipo Teru", email: email("entra") });
-    expect((await db.platformUser.findUniqueOrThrow({ where: { id: userId } })).lastLoginAt).not.toBeNull();
+    // Sin el segundo paso no hay panel ni ingreso registrado.
+    expect(await getPlatformSession(result.token)).toBeNull();
+    expect(await getPlatformChallenge(result.token)).toEqual({
+      user: { id: userId, name: "Equipo Teru", email: email("entra") },
+      enrolled: false,
+    });
+    expect((await db.platformUser.findUniqueOrThrow({ where: { id: userId } })).lastLoginAt).toBeNull();
     expect(
-      await db.authAuditLog.findFirst({
-        where: { actorType: "PLATFORM", actorId: userId, action: "PLATFORM_LOGIN_SUCCESS" },
-      }),
-    ).toMatchObject({ companyId: null });
+      await db.authAuditLog.count({ where: { actorId: userId, action: "PLATFORM_LOGIN_SUCCESS" } }),
+    ).toBe(0);
   });
 
   it("mismo error con contraseña mala, correo inexistente o cuenta inactiva", async () => {
@@ -98,8 +107,9 @@ describe("login del equipo Teru", () => {
     const result = await login("renueva");
     if (!result.ok) throw new Error(result.error);
 
+    // Verificada (el segundo paso se prueba en platform-mfa.test.ts).
     const soon = new Date(Date.now() + 60_000);
-    await db.platformSession.updateMany({ where: { userId }, data: { expiresAt: soon } });
+    await db.platformSession.updateMany({ where: { userId }, data: { expiresAt: soon, mfaVerifiedAt: new Date() } });
     const renewed = await getPlatformSession(result.token);
     expect(renewed!.expiresAt.getTime()).toBeGreaterThan(soon.getTime() + PLATFORM_SESSION_TTL_MS / 2);
 

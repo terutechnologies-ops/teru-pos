@@ -114,4 +114,16 @@ export const PLATFORM_EVENTS = {
   LOGIN_FAILED: "PLATFORM_LOGIN_FAILED",
   LOGIN_BLOCKED: "PLATFORM_LOGIN_BLOCKED",
   LOGOUT: "PLATFORM_LOGOUT",
+  // Verificación en dos pasos.
+  MFA_ENROLLED: "PLATFORM_MFA_ENROLLED",
+  MFA_FAILED: "PLATFORM_MFA_FAILED",
+  MFA_BLOCKED: "PLATFORM_MFA_BLOCKED",
+  RECOVERY_CODE_USED: "PLATFORM_RECOVERY_CODE_USED",
+  MFA_RESET: "PLATFORM_MFA_RESET",
 } as const;
+
+// Tras la contraseña, la sesión queda pendiente del código: 5 minutos.
+export const PLATFORM_MFA_PENDING_TTL_MS = 5 * 60 * 1000;
+// Códigos fallidos por cuenta en LOGIN_WINDOW_MS antes de bloquear.
+export const MAX_FAILED_MFA_PER_ACCOUNT = 5;
+export const PLATFORM_RECOVERY_CODE_COUNT = 8;
