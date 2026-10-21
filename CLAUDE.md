@@ -4416,3 +4416,82 @@ respaldo con hash, `qrcode` solo para el QR.
 
 **Próximo paso recomendado:** que el usuario active su verificación en
 local y luego el diseño del componente 3 (endurecimiento).
+
+## Sesión 2026-10-20 — Cuenta Teru local y análisis del endurecimiento
+
+**Hecho:**
+- Cuenta Teru local creada (`teru:create-admin`, terutechnologies@gmail.com);
+  `TERU_ADMIN_PASSWORD` quitada del `.env`.
+- **Componente 2 probado en el navegador y aprobado por el usuario:**
+  verificación en dos pasos activada con una app real (`totpEnabledAt`
+  puesto, 8 códigos de respaldo sin usar).
+- Análisis del componente 3 (endurecimiento) presentado; diseño pendiente
+  de aprobación.
+
+**Hallazgos del análisis:**
+- `npm audit --omit=dev`: `next` 16.3.5 con avisos (crítico en
+  `next/og`, que no se usa; SSRF en el optimizador de imágenes, que solo se
+  usa con imágenes locales porque las remotas van `unoptimized`; varios de
+  caché SSG/ISR). Todos se corrigen en **16.3.8** (parche). `sharp` 0.35.4
+  (transitiva de next) → 0.35.5. `shadcn` está en `dependencies` pero solo
+  se usa en la compilación (CLI y `shadcn/tailwind.css`): sus avisos
+  (`@modelcontextprotocol/sdk`, `hono`, `braces`, `ts-morph`) no llegan al
+  servidor. `prisma` 6 → 7 (`deepmerge-ts`) es versión mayor y solo de
+  herramienta: no se hace ahora.
+- El paquete `cn` es el oficial de shadcn (`shadcn-ui/cn`): sin riesgo.
+- Supabase está en `sa-east-1` → región de Vercel `gru1` coincide.
+- IP: `getRequestContext` toma el primer valor de `x-forwarded-for`; Vercel
+  sobrescribe esa cabecera con la IP real del cliente, así que es fiable
+  allí (no detrás de otro proxy).
+- `.env.backup`: todas sus claves están en `.env` o `.env.supabase`
+  con el mismo valor, salvo `APP_URL` (cambio intencional) y
+  `SEED_OWNER_PASSWORD` (distinta; solo sirve para el seed de Supabase, que
+  se reinicia en el componente 4). Falta la confirmación del usuario para
+  borrarlo.
+
+**Próximo paso recomendado:** aprobar el diseño del componente 3 e
+implementarlo.
+
+### Componente 3 — Endurecimiento (aprobado 2026-10-20)
+
+Diseño aprobado el 2026-10-20.
+- **Dependencias:** `next` y `eslint-config-next` 16.3.8 (exactas),
+  `sharp` 0.35.5 (`npm audit fix`), `shadcn` a `devDependencies`.
+  `npm audit --omit=dev` queda solo con `prisma`/`deepmerge-ts` (versión
+  mayor, herramienta). **`allowScripts`** en `package.json` (npm 11.19
+  avisa; npm 12 bloquea por defecto): Prisma, `argon2`, `esbuild`,
+  `unrs-resolver`, con versión exacta (al actualizarlos, volver a aprobar).
+- **Cabeceras** `src/lib/security-headers.ts` (puro) en `next.config.ts`:
+  CSP sin nonce (como la guía "Without Nonces" de Next), `img-src` con
+  `SUPABASE_URL` y `APP_URL`, `frame-ancestors 'self'` y
+  `X-Frame-Options: SAMEORIGIN` (**no** `DENY`/`'none'`: el POS imprime la
+  comanda en un iframe propio), `unsafe-eval` y sin `upgrade-insecure-
+  requests` en desarrollo, HSTS solo en producción. Se calculan al
+  compilar (Vercel: las variables deben estar en el build).
+- **Variables al arrancar:** `src/instrumentation.ts` llama a
+  `assertProductionConfig` (`env.ts`, con `getProductionConfigProblems`)
+  solo con `NODE_ENV=production` y runtime Node. Probado: `next start` con
+  el `.env` local no arranca y lista APP_URL, Resend y Supabase; el build
+  no la ejecuta. `import "server-only"` funciona en instrumentation.
+- `postinstall: prisma generate`; `vercel.json` con `regions: ["gru1"]`.
+- README: sección "Seguridad y despliegue"; variables `SUPABASE_*`
+  obligatorias en producción.
+- Pruebas: `tests/unit/security-config.test.ts` (5). Verificado:
+  typecheck, lint, suite **542/542**, build; cabeceras por HTTP en
+  `next start` (con variables falsas) y en `next dev`.
+- Revisión en el navegador del usuario con la CSP activa: sin errores.
+  Solo avisaba `browsing-topics` en `Permissions-Policy` (función que su
+  navegador no reconoce): se quitó. **`next dev` no relee los archivos que
+  importa `next.config.ts`:** al cambiar las cabeceras, reiniciarlo.
+- **Revisión de seguridad final:** rutas de desarrollo (`/dev/outbox`,
+  `/dev/archivos`) con 404 fuera de desarrollo, `/recibos/[id]` con
+  sesión, sin variables `NEXT_PUBLIC_`, cookies `httpOnly` + `lax` +
+  `Secure` en producción, `.env*` fuera de git, único
+  `dangerouslySetInnerHTML` = QR generado por `qrcode`. Sin hallazgos.
+
+**Próximo paso recomendado:** componente 4 — ambiente de pruebas en línea
+(reinicio de Supabase y buckets: **confirmar con el usuario justo antes**;
+26 migraciones; Vercel Hobby con las variables también en el build;
+`pos.teruwork.com`; clave de Resend de producción con Reply-To; cuenta
+Teru y empresa de prueba; lista de verificación del ciclo completo).
+Pendiente: confirmar el borrado de `.env.backup`.

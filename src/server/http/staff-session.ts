@@ -24,8 +24,8 @@ function cookiePath(companySlug: string) {
 
 export async function getRequestContext(): Promise<RequestContext> {
   const h = await headers();
-  // Depende de que el proxy/hosting de producción sobrescriba estas
-  // cabeceras; revisar al definir la infraestructura.
+  // Vercel reescribe x-forwarded-for con la IP real del cliente; detrás de
+  // otro proxy habría que revisarlo.
   const forwarded = h.get("x-forwarded-for")?.split(",")[0]?.trim();
   return {
     ipAddress: forwarded || h.get("x-real-ip") || null,

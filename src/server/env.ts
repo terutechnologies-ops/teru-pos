@@ -67,3 +67,38 @@ export function getMailConfig() {
   if (!MAIL_FROM_PATTERN.test(from)) throw new Error("MAIL_FROM no está configurado o no es válido");
   return { apiKey, from };
 }
+
+// Problemas de configuración que impiden operar en producción, sin mostrar
+// valores. En desarrollo varias son opcionales (outbox, carpeta local); en
+// producción sin ellas fallarían el login, los correos o las fotos a mitad
+// de una operación.
+export function getProductionConfigProblems(): string[] {
+  const problems: string[] = [];
+  const check = (fn: () => unknown, message?: string) => {
+    try {
+      if (fn() === null && message) problems.push(message);
+    } catch (error) {
+      problems.push(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  if (!/^postgres(ql)?:\/\//.test(process.env.DATABASE_URL?.trim() ?? "")) {
+    problems.push("DATABASE_URL no está configurada o no es una conexión de PostgreSQL");
+  }
+  check(() => {
+    if (!getAppUrl().startsWith("https://")) throw new Error("APP_URL debe usar https");
+  });
+  check(getTotpEncryptionKey);
+  check(getMailConfig, "RESEND_API_KEY no está configurada (sin ella no salen los correos)");
+  check(getStorageConfig, "SUPABASE_URL o SUPABASE_SECRET_KEY no están configuradas (sin ellas no se suben imágenes)");
+  return problems;
+}
+
+// Se llama al arrancar el servidor (src/instrumentation.ts): mejor no
+// arrancar que fallar con un 500 en medio de una venta.
+export function assertProductionConfig() {
+  const problems = getProductionConfigProblems();
+  if (problems.length > 0) {
+    throw new Error(`Configuración incompleta para producción:\n- ${problems.join("\n- ")}`);
+  }
+}

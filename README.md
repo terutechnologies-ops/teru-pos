@@ -146,7 +146,7 @@ npm run dev
 | `DATABASE_URL` | Conexión de la app (local: `teru_pos_dev`; en línea, Supabase: transaction pooler, puerto 6543) |
 | `DIRECT_URL` | Conexión para migraciones (local: la misma; en línea, session pooler, puerto 5432) |
 | `APP_URL` | URL pública, para armar enlaces de recuperación e invitación |
-| `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | Almacenamiento de archivos en Supabase Storage (logos y fotos de productos en un bucket público; recibos de gastos en uno privado). Opcionales: sin ellas no se suben archivos. La clave es secreta (`sb_secret_...`) |
+| `SUPABASE_URL`, `SUPABASE_SECRET_KEY` | Almacenamiento de archivos en Supabase Storage (logos y fotos de productos en un bucket público; recibos de gastos en uno privado). Opcionales en desarrollo (sin ellas no se suben archivos); obligatorias en producción. La clave es secreta (`sb_secret_...`) |
 | `LOCAL_STORAGE_DIR` | Solo en desarrollo: carpeta para los archivos subidos (`.archivos-dev`). Gana sobre Supabase; fuera de desarrollo se ignora |
 | `RESEND_API_KEY`, `MAIL_FROM` | Correo por Resend. La clave (`re_...`, permiso "Sending access" solo para el dominio de envío) es secreta; `MAIL_FROM` es el remitente de un dominio verificado (`Teru POS <reportes@envios.dominio.com>`). Sin clave: outbox en desarrollo, error en producción |
 | `SEED_OWNER_EMAIL`, `SEED_OWNER_NAME`, `SEED_OWNER_PASSWORD` | Solo para `npm run db:seed` |
@@ -154,6 +154,31 @@ npm run dev
 | `TERU_ADMIN_PASSWORD` | Solo para `npm run teru:create-admin`; quitarla después |
 
 Los archivos `.env*` no se versionan (salvo `.env.example`).
+
+En producción el servidor **no arranca** si falta algo para operar
+(`src/instrumentation.ts` → `assertProductionConfig`): `DATABASE_URL` de
+PostgreSQL, `APP_URL` con https, `TOTP_ENCRYPTION_KEY` válida,
+`RESEND_API_KEY` con un `MAIL_FROM` válido y `SUPABASE_URL` /
+`SUPABASE_SECRET_KEY`. El error lista lo que falta, sin valores.
+
+## Seguridad y despliegue
+
+- **Cabeceras** (`src/lib/security-headers.ts`, en `next.config.ts`): CSP
+  sin nonce (scripts en línea permitidos; imágenes solo del sitio, de
+  `SUPABASE_URL` y de `APP_URL`; `frame-ancestors 'self'` porque el POS
+  imprime en un iframe propio), `X-Frame-Options: SAMEORIGIN`, `nosniff`,
+  `Referrer-Policy`, `Permissions-Policy` y, solo en producción, HSTS de 2
+  años. **Se calculan al compilar**: `SUPABASE_URL` y `APP_URL` deben
+  estar en el entorno del build (en Vercel, lo predeterminado).
+- **Vercel:** región `gru1` (São Paulo, junto a Supabase `sa-east-1`) en
+  `vercel.json`; `postinstall` corre `prisma generate` (el cliente no se
+  versiona). Las migraciones se aplican a mano, no en el build.
+- **Scripts de instalación:** `allowScripts` en `package.json` aprueba los
+  de Prisma, `argon2`, `esbuild` y `unrs-resolver` (npm 12 los bloquea por
+  defecto). Van con versión exacta: al actualizar uno de ellos, aprobarlo
+  de nuevo con `npm install-scripts approve <paquete>`.
+- **IP del cliente:** primer valor de `x-forwarded-for`, que Vercel
+  reescribe con la IP real. Detrás de otro proxy habría que revisarlo.
 
 ## Scripts
 
