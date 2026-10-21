@@ -4495,3 +4495,106 @@ Diseño aprobado el 2026-10-20.
 `pos.teruwork.com`; clave de Resend de producción con Reply-To; cuenta
 Teru y empresa de prueba; lista de verificación del ciclo completo).
 Pendiente: confirmar el borrado de `.env.backup`.
+
+### Componente 4 — Ambiente de pruebas en línea (en curso, 2026-10-20)
+
+Decisiones del usuario: **reinicio de `teru-pos-dev` autorizado** (sin
+datos importantes); el proyecto de Vercel existente se **elimina y se crea
+de nuevo** (muchos despliegues con errores); **Resend con la clave
+`teru-pos-dev`** también en línea (al lanzar, clave de producción aparte).
+`.env.backup` borrado.
+
+- **Buckets vaciados** con `POST /storage/v1/bucket/{id}/empty` (script
+  `empty_buckets.mjs` del scratchpad; lo corrió el usuario: el clasificador
+  de Claude Code bloquea los borrados masivos en la nube). Los buckets
+  siguen creados.
+- **Base reiniciada** con `prisma migrate reset --force --skip-seed
+  --skip-generate` y `.env.supabase`. Prisma detecta a Claude Code y exige
+  `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION` con el texto exacto del
+  consentimiento del usuario ("Sí, confirmo el reinicio de la base
+  teru-pos-dev"). Verificado: 26 migraciones aplicadas, 0 fallidas, 35
+  tablas todas con RLS, sin datos, 0 archivos. El asesor de Supabase solo
+  informa "RLS sin políticas" (esperado: la app entra como `postgres` y la
+  API de datos queda cerrada).
+- `APP_URL=https://pos.teruwork.com` ya está en `.env.supabase`.
+- **Reply-To no está implementado** en el envío por Resend (estaba en el
+  alcance): falta decidir el buzón (p. ej. `soporte@teruwork.com` con
+  Cloudflare Email Routing) y agregar `MAIL_REPLY_TO`.
+- Siguiente: Vercel (eliminar y crear, variables en Production con
+  `DATABASE_URL` + `&connection_limit=1`, `TOTP_ENCRYPTION_KEY` nueva),
+  dominio `pos.teruwork.com` en Cloudflare, cuenta Teru y empresa de prueba
+  en Supabase, lista de verificación del ciclo completo.
+- **Vercel** (2026-10-20): proyecto recreado por el usuario, despliegue
+  `teru-pos-gilt.vercel.app` y **`pos.teruwork.com`** (CNAME en Cloudflare,
+  "DNS only"). Verificado por HTTP: https con certificado, http → 308 a
+  https, cabeceras completas (img-src con Supabase y el dominio), funciones
+  en **gru1** (`x-vercel-id iad1::gru1::…`), `/dev/*` → 404, el servidor
+  arranca (la validación de variables pasó).
+- **Error en Vercel corregido** (`a67f3e2`): `PrismaClientInitializationError`
+  "could not locate the Query Engine for runtime rhel-openssl-3.0.x" en toda
+  ruta que consulta la base. Causa: el cliente vive en `src/generated/prisma`,
+  Turbopack lo empaqueta y Prisma busca el motor en `config.dirname`
+  (`/ROOT/...`), el padre de `__dirname` (`/var/task/src/generated`), la
+  salida del build y `/tmp/prisma-engines`, nunca en
+  `/var/task/src/generated/prisma`. Arreglo: `outputFileTracingIncludes`
+  (`"/**": ["./src/generated/prisma/*.node"]`, verificado en los
+  `.nft.json`) y `src/lib/db.ts` pone `PRISMA_QUERY_ENGINE_LIBRARY` con la
+  ruta del `.so.node` bajo `process.cwd()` solo si `VERCEL` está definida.
+- Funciona en línea (2026-10-20): `/su-arepa/login` → 404 tras el arreglo
+  (la base responde). Cuenta Teru creada en Supabase
+  (`npx dotenv -e .env.supabase -- npm run teru:create-admin ...`, la
+  contraseña se quitó del `.env`); el usuario entró y activó la
+  verificación en dos pasos con la llave de Vercel.
+- **Lista de verificación del ciclo completo:** artifact
+  https://claude.ai/artifact/Fzh3EQL2whYJMHWN7peHoW (45 pruebas en 9
+  secciones, A–I). El avance vive en su base (`progreso/estado`, campo
+  `items` = id → `{status: "ok"|"fail", note}`): leerlo con `ArtifactData`
+  `get` para ver qué falló y la nota del usuario. A1 marcada por Claude.
+- Ícono del navegador (pedido del usuario): `src/app/favicon.ico` (16/32/48),
+  `icon.png` (192) y `apple-icon.png` (180, fondo opaco #12253d del logo)
+  generados desde `src/assets/brand/logo-teru.png` (`3e0343f`, en línea).
+
+## Cierre de la sesión 2026-10-20
+
+**Implementado hoy (todo con commit y subido a `origin/master`):**
+- Fase 15, componente 2 aprobado en el navegador (cuenta Teru local con
+  verificación en dos pasos).
+- Componente 3 — endurecimiento (`f5ec18d`): Next 16.3.8, `allowScripts`,
+  cabeceras y CSP, validación de variables al arrancar, `postinstall`,
+  `gru1`. **Aprobado.**
+- Componente 4 — ambiente de pruebas en línea (en curso): Supabase
+  reiniciado (26 migraciones, buckets vacíos), Vercel recreado con
+  `pos.teruwork.com`, motor de Prisma en las funciones (`a67f3e2`), cuenta
+  Teru en línea con verificación activa, ícono de Teru (`3e0343f`) y lista
+  de verificación publicada.
+
+**Pendiente (próxima sesión):**
+- Usuario: recorrer la lista de verificación
+  (https://claude.ai/artifact/Fzh3EQL2whYJMHWN7peHoW) desde la A2 (crear la
+  empresa de prueba en `/teru`). Claude lee las fallas con `ArtifactData`
+  (`progreso/estado`) y las corrige.
+- Reply-To de los correos: decidir el buzón (p. ej. `soporte@teruwork.com`
+  con Cloudflare Email Routing) e implementar `MAIL_REPLY_TO`.
+- Componente 5 — cierre de la fase 15 (ADR 0015, README, guía de
+  operación, pendientes del lanzamiento: Vercel Pro, decidir Supabase Pro,
+  clave de Resend de producción, reinicio final y alta de Su Arepa).
+
+**Decisiones técnicas de hoy:** CSP sin nonce con `frame-ancestors 'self'`
+(impresión en iframe); cabeceras calculadas al compilar; el servidor de
+producción no arranca con configuración incompleta; motor de Prisma por
+`outputFileTracingIncludes` + `PRISMA_QUERY_ENGINE_LIBRARY` en Vercel;
+Resend con la clave `teru-pos-dev` también en línea hasta el lanzamiento.
+
+**Errores y riesgos conocidos:**
+- `next dev` no relee los archivos que importa `next.config.ts`: reiniciarlo
+  al cambiar las cabeceras.
+- Los borrados masivos en la nube los bloquea el clasificador de Claude
+  Code (los corre el usuario con `!`), y `prisma migrate reset` exige
+  `PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION` con el texto exacto del
+  consentimiento.
+- Resend gratis: 100 correos por día, compartidos entre local y en línea.
+- `next dev` quedó encendido en el puerto 3000 (detenerlo con
+  `taskkill /PID <pid> /T /F` si estorba o antes de `prisma generate`).
+
+**Próximo paso recomendado:** revisar con el usuario las fallas de la lista
+de verificación y corregirlas.
